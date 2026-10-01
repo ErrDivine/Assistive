@@ -11,7 +11,7 @@ import sqlite3
 from collections.abc import Callable
 
 from ..index.embeddings import Embedder
-from ..index.pyast import DOTTED, IDENT
+from ..index.pyast import DOTTED, IDENT, split_lines
 from ..models import ContextFrame
 from ..store.vectors import VectorIndex
 from .ranker import Candidate, calibrate, rrf_fuse
@@ -309,13 +309,13 @@ def _reason(step: str) -> str:
         "stub_path": "Cursor on resolved symbol (via stubs)",
         "hover": "Cursor on symbol (from hover)",
         "imports": "Cursor on imported name",
-        "local_type": "Cursor on method of a builtin type",
+        "local_type": "Cursor on a method; type inferred from this code",
     }.get(step, "Cursor on symbol")
 
 
 def _text_before_cursor(frame: ContextFrame, line: str | None) -> str | None:
     if frame.enclosing_text and frame.enclosing_range is not None:
-        lines = frame.enclosing_text.splitlines()
+        lines = split_lines(frame.enclosing_text)
         idx = frame.cursor.line - frame.enclosing_range.start_line
         if 0 <= idx < len(lines):
             return "\n".join(lines[:idx] + [lines[idx][: frame.cursor.character]])

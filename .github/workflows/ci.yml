@@ -97,7 +97,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.reference-rail/models
-          key: fastembed-all-MiniLM-L6-v2-v1
+          key: fastembed-all-MiniLM-L6-v2-gcs-v2
       - name: Download the default embedding model (needs network)
         run: uv run --project server python -m rail_server download-model
       - name: Evaluation (default hybrid embedder) with networking disabled; fail on >5% regression

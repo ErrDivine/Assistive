@@ -25,7 +25,15 @@ from ..store.db import transaction
 from .chunks import ChunkRow, insert_chunks, truncate_body, update_chunk, upsert_file
 from .docparse import parse_sections
 from .embeddings import Embedder, embedding_text, to_blob
-from .pyast import decorated_start, is_private_name, read_text, safe_parse, scan_raises, sha1
+from .pyast import (
+    decorated_start,
+    is_private_name,
+    read_text,
+    safe_parse,
+    scan_raises,
+    sha1,
+    split_lines,
+)
 
 log = logging.getLogger(__name__)
 
@@ -218,7 +226,7 @@ def chunk_source(
     tree = safe_parse(source, path)
     if tree is None:
         return None
-    lines = source.splitlines()
+    lines = split_lines(source)
     module = module_name(rel_path)
     rows: list[ChunkRow] = []
 

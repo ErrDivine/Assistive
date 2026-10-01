@@ -12,6 +12,20 @@ IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 DOTTED = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+")
 
 
+_LINE_BREAK = re.compile(r"\r\n|\r|\n")
+
+
+def split_lines(text: str) -> list[str]:
+    """Split into lines the way Python's tokenizer (ast line numbers) and VS Code
+    count them: only \\n, \\r\\n and \\r. ``str.splitlines`` also breaks on form
+    feeds and other separators found in real sources, which shifts every line
+    number after them."""
+    lines = _LINE_BREAK.split(text)
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines
+
+
 def norm_ws(text: str) -> str:
     """Collapse every whitespace run to one space (the I3 normalization)."""
     return _WS.sub(" ", text).strip()

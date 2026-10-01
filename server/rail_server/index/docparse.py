@@ -13,7 +13,7 @@ from typing import Any
 
 import griffe
 
-from .pyast import clip_words, locate, norm_ws
+from .pyast import clip_words, locate, norm_ws, split_lines
 
 logging.getLogger("griffe").setLevel(logging.ERROR)
 
@@ -58,7 +58,7 @@ def _annotation(value: Any) -> str | None:
 def summary_of(docstring: str) -> str:
     """First paragraph of a docstring, whitespace-normalized."""
     para: list[str] = []
-    for line in docstring.strip().splitlines():
+    for line in split_lines(docstring.strip()):
         if not line.strip():
             if para:
                 break

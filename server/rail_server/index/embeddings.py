@@ -128,7 +128,11 @@ class FastEmbedder:
             specific_model_path=str(path),
             local_files_only=True,
         )
-        self.name = f"fastembed:{model_name}"
+        gcs = _gcs_dir(
+            models_dir, model_name, _model_description(model_name).sources.deprecated_tar_struct
+        )
+        # Exports differ numerically; thresholds are calibrated per artifact.
+        self.name = f"fastembed:{model_name}" if path == gcs else f"fastembed-hf:{model_name}"
         self.dim = int(_model_description(model_name).dim)
         self._lock = threading.Lock()
 
@@ -189,18 +193,21 @@ def download_model(model_name: str, models_dir: Path) -> Path:
     if existing:
         return existing
     desc = _model_description(model_name)
-    try:
+    # Prefer fastembed's GCS export: it is the artifact the precedent threshold was
+    # calibrated on (DECISIONS.md D-008); the HuggingFace export of the same model
+    # scores on a different cosine scale. HuggingFace is the fallback.
+    if desc.sources.url:
+        try:
+            ModelManagement.retrieve_model_gcs(
+                desc.model,
+                desc.sources.url,
+                str(models_dir),
+                deprecated_tar_struct=desc.sources.deprecated_tar_struct,
+            )
+        except Exception as e:
+            log.info("download from %s failed (%s); trying HuggingFace", desc.sources.url, e)
+    if local_model_path(models_dir, model_name) is None:
         TextEmbedding(model_name, cache_dir=str(models_dir))
-    except Exception as e:  # e.g. HuggingFace unreachable behind a proxy
-        if not desc.sources.url:
-            raise
-        log.info("HuggingFace download failed (%s); trying %s", e, desc.sources.url)
-        ModelManagement.retrieve_model_gcs(
-            desc.model,
-            desc.sources.url,
-            str(models_dir),
-            deprecated_tar_struct=desc.sources.deprecated_tar_struct,
-        )
     path = local_model_path(models_dir, model_name)
     if path is None:
         raise RuntimeError(f"download of {model_name} finished but no model file was found")

@@ -22,7 +22,7 @@ from ..store.db import transaction
 from .chunks import ChunkRow, insert_chunks, upsert_file
 from .code import Root, chunk_source, excluded, module_name
 from .embeddings import Embedder
-from .pyast import norm_ws, safe_parse, sha1
+from .pyast import norm_ws, safe_parse, sha1, split_lines
 
 log = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ def _functions(source: str | None) -> dict[str, tuple[str, str]]:
     tree = safe_parse(source)
     if tree is None:
         return {}
-    lines = source.splitlines()
+    lines = split_lines(source)
     out: dict[str, tuple[str, str]] = {}
 
     def visit(node: ast.AST, prefix: str) -> None:

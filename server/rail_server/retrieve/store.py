@@ -9,7 +9,7 @@ from collections import OrderedDict
 from typing import Any
 
 from ..index.library import RUNTIME_DIST, RUNTIME_SCHEME, STDLIB_DIST
-from ..index.pyast import IDENT
+from ..index.pyast import IDENT, split_lines
 from ..store.db import ConnectionPool
 
 Row = sqlite3.Row
@@ -42,7 +42,7 @@ class LineCache:
             text = raw.decode("utf-8")
         except UnicodeDecodeError:
             text = raw.decode("latin-1")
-        lines = text.splitlines()
+        lines = split_lines(text)
         with self._lock:
             self._data[path] = (st.st_mtime, st.st_size, lines)
             self._data.move_to_end(path)

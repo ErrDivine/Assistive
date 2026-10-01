@@ -32,6 +32,7 @@ from .pyast import (
     safe_parse,
     scan_raises,
     sha1,
+    split_lines,
 )
 
 log = logging.getLogger(__name__)
@@ -78,7 +79,7 @@ def extract_module(
     dist_version: str | None = None,
 ) -> tuple[list[ChunkRow], list[tuple[str, str]]] | None:
     """Chunks and module-level aliases for one source file, or None if unparsable."""
-    lines = source.splitlines()
+    lines = split_lines(source)
     tree = safe_parse(source, path)
     if tree is None:
         return None
@@ -232,7 +233,7 @@ def render_runtime(
         doc = e.get("doc")
         if doc:
             doc_line = len(out) + 1
-            out.extend(doc.splitlines())
+            out.extend(split_lines(doc))
         end = len(out)
         out.append("")
         spans.append((start, end, sig_line, doc_line))

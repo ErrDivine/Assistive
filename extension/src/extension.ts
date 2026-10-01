@@ -2,6 +2,7 @@
 
 import * as fs from "node:fs";
 import * as vscode from "vscode";
+import { PythonExtension } from "@vscode/python-extension";
 import {
   copyText,
   downloadModel,
@@ -416,6 +417,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<RailAp
       roots: (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath),
     })),
   );
+
+  // A different project interpreter means different libraries: restart and re-index.
+  if (vscode.extensions.getExtension("ms-python.python")) {
+    PythonExtension.api().then(
+      (py) =>
+        context.subscriptions.push(
+          py.environments.onDidChangeActiveEnvironmentPath(() => {
+            if (!cfg().get<string>("pythonPath")?.trim()) {
+              log.appendLine("[rail] active interpreter changed; restarting the server");
+              void server.restart();
+            }
+          }),
+        ),
+      (err) => log.appendLine(`[rail] Python extension API unavailable: ${String(err)}`),
+    );
+  }
 
   updateStatus();
   if (!resolveServerCommand(context.extensionPath)) {

@@ -16,7 +16,7 @@ import threading
 from collections import OrderedDict
 from collections.abc import Callable
 
-from ..index.pyast import norm_ws
+from ..index.pyast import norm_ws, split_lines
 from ..models import Fact, SourceRef
 
 log = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class GitBlobCache:
                 check=False,
             )
             lines = (
-                out.stdout.decode("utf-8", errors="replace").splitlines()
+                split_lines(out.stdout.decode("utf-8", errors="replace"))
                 if out.returncode == 0
                 else None
             )

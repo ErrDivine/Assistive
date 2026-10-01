@@ -23,7 +23,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from urllib.parse import unquote, urlparse
 
-from ..index.pyast import DOTTED, IDENT, safe_parse
+from ..index.pyast import DOTTED, IDENT, safe_parse, split_lines
 from ..models import ContextFrame, SourceLoc
 from .store import Row, Store, ident_at
 
@@ -57,6 +57,7 @@ _LITERAL_TYPES = [
     (re.compile(r"^\("), "tuple"),
     (re.compile(r"^(dict|list|set|str|bytes|tuple|frozenset|bytearray|int|float)\("), None),
 ]
+_CODE_FENCE = re.compile(r"```[A-Za-z0-9_-]*\n(.*?)```", re.S)
 _HOVER_KIND = re.compile(
     r"\((?:function|method|class|property|module|variable|type)\)\s+(?:def\s+|class\s+)?"
     r"([A-Za-z_][A-Za-z0-9_]*)"
@@ -145,7 +146,7 @@ def cursor_line(frame: ContextFrame, store: Store) -> str | None:
     """The cursor's line, preferring the live buffer text sent in the frame."""
     if frame.enclosing_text and frame.enclosing_range is not None:
         idx = frame.cursor.line - frame.enclosing_range.start_line
-        lines = frame.enclosing_text.splitlines()
+        lines = split_lines(frame.enclosing_text)
         if 0 <= idx < len(lines):
             return lines[idx]
     path = uri_to_path(frame.doc_uri)
@@ -312,13 +313,21 @@ class Resolver:
         return Resolution(row, display, "stub_path")
 
     # -- step 3 -----------------------------------------------------------
-    def hover(self, hover_text: str, frame: ContextFrame) -> Resolution | None:
-        names = sorted(set(DOTTED.findall(hover_text)), key=len, reverse=True)
+    def hover(
+        self, hover_text: str, frame: ContextFrame, symbol: str | None = None
+    ) -> Resolution | None:
+        # Only the code part of the hover names the symbol; the prose after it
+        # mentions other APIs ("like time.strptime()").
+        blocks = _CODE_FENCE.findall(hover_text)
+        code = "\n".join(blocks) if blocks else hover_text.split("\n---", 1)[0]
+        names = sorted(set(DOTTED.findall(code)), key=len, reverse=True)
         for name in names[:8]:
+            if symbol and name.split(".")[-1] != symbol:
+                continue
             row = self.store.lookup(name)
             if row is not None:
                 return Resolution(row, name, "hover")
-        m = _HOVER_KIND.search(hover_text)
+        m = _HOVER_KIND.search(code)
         if not m:
             return None
         ident = m.group(1)
@@ -405,7 +414,7 @@ class Resolver:
                 # Defined in this very file (a local name): nothing to look up.
                 return None
         if sym.hover_text:
-            res = self.hover(sym.hover_text, frame)
+            res = self.hover(sym.hover_text, frame, sym.text)
             if res:
                 return res
         line = cursor_line(frame, self.store)

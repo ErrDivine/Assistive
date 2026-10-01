@@ -74,6 +74,12 @@ details#frequent > summary { cursor: pointer; }
   font-size: var(--vscode-editor-font-size);
   color: var(--vscode-editor-foreground);
 }
+.fact .sig, .snippet code {
+  /* VS Code's default webview style shades every <code>; the block has its own background. */
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
 .fact .sig { white-space: pre-wrap; }
 .fact .origin {
   margin-left: 6px;
