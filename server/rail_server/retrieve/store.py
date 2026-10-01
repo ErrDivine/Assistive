@@ -75,6 +75,7 @@ class Store:
         self.pool = pool
         self.lines = LineCache()
         self._active: list[tuple[str, str]] = []
+        self._active_set: set[tuple[str, str]] = set()
         self._active_sql = "0"
         self._active_params: tuple[str, ...] = ()
         self.python_version: str | None = None
@@ -82,6 +83,7 @@ class Store:
     # -- scope ------------------------------------------------------------
     def set_active(self, pairs: list[tuple[str, str]], python_version: str | None) -> None:
         self._active = list(dict.fromkeys(pairs))
+        self._active_set = set(self._active)
         self.python_version = python_version
         if self._active:
             values = ",".join("(?,?)" for _ in self._active)
@@ -116,7 +118,8 @@ class Store:
     def by_qualname(self, qualname: str) -> Row | None:
         """An API chunk with this exact qualname, preferring source over runtime docs."""
         rows = self.conn.execute(
-            f"SELECT * FROM chunks WHERE qualname = ? AND kind = 'api' AND {self._active_sql} "
+            "SELECT * FROM chunks INDEXED BY chunks_qualname WHERE qualname = ? AND kind = 'api' "
+            f"AND {self._active_sql} "
             "ORDER BY (origin = 'runtime_doc') ASC, (dist_name = ?) ASC LIMIT 1",
             (qualname, *self._active_params, STDLIB_DIST),
         ).fetchall()
@@ -149,6 +152,12 @@ class Store:
                 if target and target != head:
                     replaced = ".".join([target, *parts[i:]])
                     break
+                if i < len(parts):
+                    # ``from X import *`` re-exports: M.name → X.name
+                    star = self.alias_target(head + ".*")
+                    if star and self.by_qualname(".".join([star, *parts[i:]])) is not None:
+                        replaced = ".".join([star, *parts[i:]])
+                        break
             if replaced is None:
                 return None
             current = replaced
@@ -156,8 +165,8 @@ class Store:
 
     def module_exists(self, module: str) -> bool:
         row = self.conn.execute(
-            f"SELECT 1 FROM chunks WHERE qualname = ? AND kind = 'api' AND {self._active_sql} "
-            "LIMIT 1",
+            "SELECT 1 FROM chunks INDEXED BY chunks_qualname WHERE qualname = ? AND kind = 'api' "
+            f"AND {self._active_sql} LIMIT 1",
             (module, *self._active_params),
         ).fetchone()
         return row is not None
@@ -171,7 +180,8 @@ class Store:
         out: list[Row] = []
         for p in path_variants(path):
             out = self.conn.execute(
-                f"SELECT * FROM chunks WHERE path = ? AND start_line <= ? AND end_line >= ? "
+                "SELECT * FROM chunks INDEXED BY chunks_path_lines "
+                "WHERE path = ? AND start_line <= ? AND end_line >= ? "
                 f"AND kind IN ({kind_sql}) AND deleted = 0 AND {scope} "
                 "ORDER BY (end_line - start_line) ASC LIMIT 8",
                 (p, line1, line1, *kinds, *params),
@@ -188,13 +198,20 @@ class Store:
             return []
         last = ident.split(".")[-1]
         try:
-            rows = self.conn.execute(
-                "SELECT c.* FROM chunks_fts f JOIN chunks c ON c.id = f.rowid "
-                f"WHERE chunks_fts MATCH ? AND c.kind = 'api' AND {self._active_sql} LIMIT 400",
-                (f'qualname:"{last}"', *self._active_params),
-            ).fetchall()
+            ids = [
+                int(r[0])
+                for r in self.conn.execute(
+                    "SELECT rowid FROM chunks_fts WHERE chunks_fts MATCH ? LIMIT 2000",
+                    (f'qualname:"{last}"',),
+                )
+            ]
         except sqlite3.OperationalError:
             return []
+        rows = [
+            r
+            for r in self.chunks(ids).values()
+            if r["kind"] == "api" and (r["dist_name"], r["dist_version"]) in self._active_set
+        ]
         suffix = "." + ident
         out = [
             r

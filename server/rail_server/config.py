@@ -9,9 +9,16 @@ from typing import Any
 
 SERVER_VERSION = "0.1.0"
 
-# Calibrated in Phase 2 on eval/queries.jsonl; see DECISIONS.md (D-008).
-DEFAULT_PRECEDENT_THRESHOLD = 0.62
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
+# Cosine gates calibrated on eval/queries.jsonl so that precedent precision is
+# at least 0.8 (eval/run_eval.py --calibrate; DECISIONS.md D-008). Keyed by the
+# embedder's name, because each embedding space has its own cosine scale.
+CALIBRATED_THRESHOLDS = {
+    "hybrid0.5:fastembed:sentence-transformers/all-MiniLM-L6-v2": 0.51,
+    "hashing-v1": 0.47,
+}
+FALLBACK_THRESHOLD = 0.6
 
 
 def data_dir() -> Path:
@@ -22,12 +29,14 @@ def data_dir() -> Path:
 @dataclass
 class Config:
     max_cards: int = 3
-    precedent_threshold: float = DEFAULT_PRECEDENT_THRESHOLD
+    # None: use the calibrated value for the active embedder.
+    precedent_threshold: float | None = None
     history_depth: int = 500
     extra_repos: list[str] = field(default_factory=list)
     embedding_model: str = DEFAULT_EMBEDDING_MODEL
-    # "auto": use the fastembed model if it is already on disk, else the
-    # hashing embedder. "fastembed" / "hashing" force one or the other.
+    # "auto": hybrid (identifier hashing + the fastembed model) when the model
+    # is on disk, else hashing alone. "hybrid", "fastembed" and "hashing" force
+    # one (DECISIONS.md D-006).
     embedding_backend: str = "auto"
     index_stdlib: bool = True
     index_history: bool = True
@@ -57,9 +66,15 @@ class Config:
             setattr(cfg, snake, value)
         cfg.max_cards = max(1, min(int(cfg.max_cards), 10))
         cfg.history_depth = max(0, int(cfg.history_depth))
-        cfg.precedent_threshold = float(cfg.precedent_threshold)
+        if cfg.precedent_threshold is not None:
+            cfg.precedent_threshold = float(cfg.precedent_threshold)
         cfg.extra_repos = [str(Path(p).expanduser()) for p in cfg.extra_repos]
         return cfg
+
+    def threshold_for(self, embedder_name: str | None) -> float:
+        if self.precedent_threshold is not None:
+            return self.precedent_threshold
+        return CALIBRATED_THRESHOLDS.get(embedder_name or "", FALLBACK_THRESHOLD)
 
     def to_worker(self) -> dict[str, Any]:
         """Picklable form for the indexing process."""

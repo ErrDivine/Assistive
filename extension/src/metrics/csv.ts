@@ -7,7 +7,7 @@ function cell(v: unknown): string {
     return "";
   }
   const s = String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 /** Flatten a report to ordered [metric, value] rows. */

@@ -24,6 +24,7 @@ from ..store.db import open_db, transaction
 from .chunks import ChunkRow, insert_chunks, upsert_file
 from .docparse import parse_sections, summary_of
 from .pyast import (
+    decorated_start,
     def_nodes,
     is_private_name,
     locate,
@@ -90,18 +91,32 @@ def extract_module(
     rows: list[ChunkRow] = []
     aliases: list[tuple[str, str]] = []
 
+    by_name: dict[str, list[Any]] = {}
+    for node in defs.values():
+        by_name.setdefault(node.name, []).append(node)  # type: ignore[attr-defined]
+
+    def find_node(name: str, line: int) -> Any:
+        # griffe reports the def line for some decorated functions and the
+        # first decorator's line for others; the AST knows both.
+        for node in by_name.get(name, []):
+            if decorated_start(node) <= line <= node.lineno:
+                return node
+        return None
+
     def emit(obj: Any) -> None:
-        name_line = int(obj.lineno or 1)
+        reported = int(obj.lineno or 1)
+        node = find_node(obj.name, reported)
+        name_line = int(node.lineno) if node is not None else reported
+        start_line = decorated_start(node) if node is not None else _decorator_start(obj)
         end_line = int(obj.endlineno or name_line)
         doc = obj.docstring
-        node = defs.get(name_line)
         raises = scan_raises(node, lines) if obj.is_function and node is not None else []
         rows.append(
             ChunkRow(
                 kind=kind,
                 qualname=obj.path,
                 path=path,
-                start_line=_decorator_start(obj) if not obj.is_attribute else name_line,
+                start_line=min(start_line, name_line),
                 end_line=end_line,
                 name_line=name_line,
                 signature=_signature(obj),
@@ -130,6 +145,17 @@ def extract_module(
                         walk(member)
                 elif member.is_attribute and "property" in member.labels:
                     emit(member)
+                elif member.is_attribute and obj.is_module and not name.startswith("_"):
+                    # ``s = attributes = attrs``: a module-level name bound to
+                    # another definition is an alias too.
+                    value = member.value
+                    target = getattr(value, "canonical_path", None)
+                    if (
+                        type(value).__name__ in ("ExprName", "ExprAttribute")
+                        and target
+                        and target != member.path
+                    ):
+                        aliases.append((member.path, str(target)))
             except Exception as e:  # one bad member must not lose the file
                 log.debug("skipping %s.%s: %s", obj.path, name, e)
 
@@ -152,7 +178,29 @@ def extract_module(
         )
     )
     walk(mod)
+    aliases.extend(_wildcard_aliases(tree, module, path))
     return rows, aliases
+
+
+def _wildcard_aliases(tree: Any, module: str, path: str) -> list[tuple[str, str]]:
+    """``from X import *`` at module level → alias ``module.*`` → ``X``."""
+    import ast
+
+    out = []
+    is_pkg = path.endswith("__init__.py")
+    for node in getattr(tree, "body", []):
+        if not isinstance(node, ast.ImportFrom) or not any(a.name == "*" for a in node.names):
+            continue
+        if node.level:
+            base = module.split(".")
+            base = base if is_pkg else base[:-1]
+            base = base[: len(base) - (node.level - 1)] if node.level > 1 else base
+            target = ".".join([*base, node.module] if node.module else base)
+        else:
+            target = node.module or ""
+        if target:
+            out.append((f"{module}.*", target))
+    return out
 
 
 # -- runtime-introspected builtins -----------------------------------------
@@ -199,7 +247,7 @@ def runtime_rows(
     rows = []
     for e, (start, end, sig_line, doc_line) in zip(entries, spans):
         doc = e.get("doc")
-        sections = None
+        sections: dict[str, Any] | None = None
         if doc and doc_line:
             summary = summary_of(doc)
             span = locate(lines[doc_line - 1 : end], doc_line, summary) if summary else None

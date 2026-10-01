@@ -74,7 +74,8 @@ _COMMON = frozenset(
         "the",
     }
 )
-_QUOTED = re.compile(r"['\"`]([A-Za-z_][A-Za-z0-9_.]*)['\"`]")
+# "name", 'name', `name`, and generic forms like "DictWriter[str]"
+_QUOTED = re.compile(r"['\"`]([A-Za-z_][A-Za-z0-9_.]*)(?:\[[^'\"`]*\])?['\"`]")
 
 
 def identifiers(text: str) -> list[str]:

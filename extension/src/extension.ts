@@ -123,6 +123,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RailAp
         indexStdlib: cfg().get("indexStdlib", true),
         embeddingBackend: cfg().get("embeddingBackend", "auto"),
         embeddingModel: cfg().get("embeddingModel"),
+        precedentThreshold: cfg().get("precedentThreshold") ?? undefined,
       },
     }),
     log,
@@ -404,7 +405,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<RailAp
         e.affectsConfiguration("referenceRail.historyDepth") ||
         e.affectsConfiguration("referenceRail.maxCards") ||
         e.affectsConfiguration("referenceRail.embeddingBackend") ||
-        e.affectsConfiguration("referenceRail.embeddingModel")
+        e.affectsConfiguration("referenceRail.embeddingModel") ||
+        e.affectsConfiguration("referenceRail.precedentThreshold") ||
+        e.affectsConfiguration("referenceRail.indexStdlib")
       ) {
         void server.restart();
       }

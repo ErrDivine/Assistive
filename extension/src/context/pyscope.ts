@@ -12,9 +12,32 @@ export function isKeyword(word: string): boolean {
   return PY_KEYWORDS.has(word);
 }
 
+/** Index of the line that closes a def/class header starting at ``i`` (its colon). */
+function headerEnd(lines: string[], i: number): number {
+  let depth = 0;
+  for (let j = i; j < lines.length && j < i + 50; j++) {
+    const code = stripStrings(lines[j]).split("#")[0];
+    for (const ch of code) {
+      if ("([{".includes(ch)) depth++;
+      else if (")]}".includes(ch)) depth = Math.max(0, depth - 1);
+    }
+    if (depth === 0 && code.trimEnd().endsWith(":")) {
+      return j;
+    }
+  }
+  return i;
+}
+
+/** Replace string literal contents with spaces (keeps columns stable). */
+export function stripStrings(text: string): string {
+  return text.replace(/(["'])(?:\\.|(?!\1).)*\1/g, (m) => m[0] + " ".repeat(m.length - 2) + m[0]);
+}
+
 /**
  * Indentation-based fallback when no symbol provider answers: the innermost
- * ``def``/``class`` whose block contains ``line``. Returns 0-based inclusive lines.
+ * ``def``/``class`` whose block contains ``line``. Multi-line headers (Black's
+ * ``):`` at the def's own indent) count as part of the def. Returns 0-based
+ * inclusive lines.
  */
 export function pythonEnclosingRange(lines: string[], line: number): [number, number] | undefined {
   const indent = (s: string) => s.length - s.trimStart().length;
@@ -33,7 +56,9 @@ export function pythonEnclosingRange(lines: string[], line: number): [number, nu
       continue;
     }
     const ind = indent(text);
-    if (i !== line && ind >= cursorIndent) {
+    const hEnd = headerEnd(lines, i);
+    const inHeader = line >= i && line <= hEnd;
+    if (!inHeader && i !== line && ind >= cursorIndent) {
       continue;
     }
     // Decorators directly above belong to the def.
@@ -41,8 +66,8 @@ export function pythonEnclosingRange(lines: string[], line: number): [number, nu
     while (start > 0 && /^\s*@/.test(lines[start - 1])) {
       start--;
     }
-    let end = i;
-    for (let j = i + 1; j < lines.length; j++) {
+    let end = hEnd;
+    for (let j = hEnd + 1; j < lines.length; j++) {
       if (isBlank(lines[j])) {
         continue;
       }
@@ -59,7 +84,7 @@ export function pythonEnclosingRange(lines: string[], line: number): [number, nu
   return undefined;
 }
 
-/** Distinct identifiers on a line (minus keywords and ``exclude``), with positions. */
+/** Distinct identifiers on a line (minus keywords, literals and ``exclude``), with positions. */
 export function lineIdentifiers(
   text: string,
   exclude: string | undefined,
@@ -69,11 +94,15 @@ export function lineIdentifiers(
   const seen = new Set<string>();
   const re = /[A-Za-z_][A-Za-z0-9_]*/g;
   let m: RegExpExecArray | null;
-  // Skip string literals and comments roughly: stop at '#'.
-  const code = text.split("#")[0];
+  // Ignore string contents and comments.
+  const code = stripStrings(text).split("#")[0];
   while ((m = re.exec(code)) && out.length < max) {
     const word = m[0];
-    if (word === exclude || isKeyword(word) || seen.has(word) || /^\d/.test(word)) {
+    const prev = m.index > 0 ? code[m.index - 1] : "";
+    if (/[0-9.]/.test(prev) && /[0-9]/.test(code.slice(0, m.index).replace(/\.$/, "").slice(-1))) {
+      continue; // the letters of a numeric literal: 1e5, 0xFF, 10j, 3.5e-2
+    }
+    if (word === exclude || isKeyword(word) || seen.has(word)) {
       continue;
     }
     seen.add(word);

@@ -81,7 +81,7 @@ class HashingEmbedder:
         return _normalize(out)
 
 
-def _model_description(model_name: str):  # type: ignore[no-untyped-def]
+def _model_description(model_name: str):
     from fastembed import TextEmbedding
 
     for desc in TextEmbedding._list_supported_models():
@@ -140,15 +140,41 @@ class FastEmbedder:
         return _normalize(np.stack(vecs))
 
 
+class HybridEmbedder:
+    """Identifier hashing ⊕ a semantic model. Both parts are unit vectors scaled
+    by sqrt(weight), so the cosine of two hybrid vectors is the weighted mean of
+    the two cosines: still a cosine similarity, and still gateable."""
+
+    def __init__(self, semantic: Embedder, weight: float = 0.5) -> None:
+        self.semantic = semantic
+        self.hashing = HashingEmbedder()
+        self.weight = weight
+        self.name = f"hybrid{weight:g}:{semantic.name}"
+        self.dim = semantic.dim + self.hashing.dim
+
+    def embed(self, texts: list[str]) -> np.ndarray:
+        a = self.semantic.embed(texts) * np.sqrt(self.weight)
+        b = self.hashing.embed(texts) * np.sqrt(1.0 - self.weight)
+        return np.hstack([a, b]).astype(np.float32)
+
+
 def get_embedder(backend: str, model_name: str, models_dir: Path) -> Embedder:
+    """``auto``: hybrid when the model is on disk, else hashing (never downloads)."""
     if backend == "hashing":
         return HashingEmbedder()
+    if backend in ("auto", "hybrid") or backend.startswith("hybrid"):
+        suffix = backend[len("hybrid") :] if backend.startswith("hybrid") else ""
+        weight = float(suffix) if suffix else 0.5
+        try:
+            return HybridEmbedder(FastEmbedder(model_name, models_dir), weight)
+        except Exception as e:
+            if backend != "auto":
+                log.warning("embedding model unavailable (%s); using the hashing embedder", e)
+            return HashingEmbedder()
     try:
         return FastEmbedder(model_name, models_dir)
     except Exception as e:
-        if backend == "fastembed":
-            raise
-        log.info("using hashing embedder (%s)", e)
+        log.warning("embedding model unavailable (%s); using the hashing embedder", e)
         return HashingEmbedder()
 
 

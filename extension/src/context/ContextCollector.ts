@@ -41,6 +41,7 @@ export class ContextCollector implements vscode.Disposable {
   private readonly edits = new Map<string, Ring<{ line: number; text: string; ts: number }>>();
   private lastEditAt = 0;
   private lastDiagKey = "";
+  private explicitAt?: { uri: string; line: number; character: number };
   private readonly disposables: vscode.Disposable[] = [];
   /** Wall time of the last edit in any Python document. */
   lastEditTime = 0;
@@ -79,6 +80,11 @@ export class ContextCollector implements vscode.Disposable {
     return this.requestId;
   }
 
+  /** Allocate a request id (ids must strictly increase per session). */
+  nextRequestId(): number {
+    return ++this.requestId;
+  }
+
   private onSelection(e: vscode.TextEditorSelectionChangeEvent): void {
     if (!this.hooks.enabled() || !isRailDocument(e.textEditor.document)) {
       return;
@@ -91,6 +97,13 @@ export class ContextCollector implements vscode.Disposable {
       return;
     }
     const editor = e.textEditor;
+    // An explicit answer stays until the cursor actually moves elsewhere.
+    const pos = editor.selection.active;
+    const ex = this.explicitAt;
+    if (ex && ex.uri === editor.document.uri.toString() && ex.line === pos.line && ex.character === pos.character) {
+      return;
+    }
+    this.explicitAt = undefined;
     this.cursor.trigger(() => void this.fire(editor, "cursor_pause"));
   }
 
@@ -174,6 +187,8 @@ export class ContextCollector implements vscode.Disposable {
     }
     this.cursor.cancel();
     this.editDebounce.cancel();
+    const pos = editor.selection.active;
+    this.explicitAt = { uri: editor.document.uri.toString(), line: pos.line, character: pos.character };
     return this.fire(editor, "explicit", question);
   }
 
@@ -199,7 +214,7 @@ export class ContextCollector implements vscode.Disposable {
     trigger: Trigger,
     question?: string,
   ): Promise<ContextFrame> {
-    const requestId = ++this.requestId;
+    const requestId = this.nextRequestId();
     const doc = editor.document;
     const pos = editor.selection.active;
     const deadline = new Promise<void>((r) => setTimeout(r, LOOKUP_TIMEOUT_MS));

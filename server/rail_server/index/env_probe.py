@@ -15,6 +15,10 @@ import platform
 import site
 import sys
 import sysconfig
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # names used only in type comments (3.8-safe, no runtime cost)
+    from typing import Any, Dict, List, Set  # noqa: F401, UP035
 
 try:
     from importlib import metadata as importlib_metadata
@@ -109,7 +113,7 @@ def _usable(rel_path):
 
 
 def collect_dists():
-    out = []
+    out = []  # type: List[Dict[str, Any]]
     if importlib_metadata is None:
         return out
     seen = set()
@@ -148,8 +152,8 @@ def collect_dists():
 
 
 def collect_stdlib(stdlib_dir):
-    py_files = []
-    modules = []
+    py_files = []  # type: List[str]
+    modules = []  # type: List[str]
     if not stdlib_dir or not os.path.isdir(stdlib_dir):
         return py_files, modules
     for root, dirs, files in os.walk(stdlib_dir):
@@ -286,8 +290,8 @@ def introspect_module(mod_name, mod, out, seen):
 
 
 def collect_runtime():
-    out = []
-    seen = set()
+    out = []  # type: List[Dict[str, Any]]
+    seen = set()  # type: Set[str]
     names = ["builtins"]
     names += sorted(n for n in sys.builtin_module_names if n not in ("builtins", "__main__"))
     dynload = set()

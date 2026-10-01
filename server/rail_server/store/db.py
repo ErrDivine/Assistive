@@ -11,7 +11,7 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class Fts5Unavailable(RuntimeError):
@@ -44,7 +44,9 @@ CREATE TABLE IF NOT EXISTS files (
 );
 
 CREATE TABLE IF NOT EXISTS chunks (
-  id            INTEGER PRIMARY KEY,
+  -- AUTOINCREMENT: ids are never reused, so card ids (hash of kind, chunk id)
+  -- never point at a different chunk after a re-index (DECISIONS.md D-005).
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
   kind          TEXT NOT NULL CHECK (kind IN ('api','code')),
   qualname      TEXT,
   path          TEXT NOT NULL REFERENCES files(path) ON DELETE CASCADE,
@@ -70,7 +72,6 @@ CREATE TABLE IF NOT EXISTS chunks (
 CREATE INDEX IF NOT EXISTS chunks_qualname ON chunks(qualname);
 CREATE INDEX IF NOT EXISTS chunks_path_lines ON chunks(path, start_line, end_line);
 CREATE INDEX IF NOT EXISTS chunks_dist ON chunks(dist_name, dist_version);
-CREATE INDEX IF NOT EXISTS chunks_kind ON chunks(kind);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
   qualname, signature, docstring, body,
@@ -127,6 +128,11 @@ CREATE TABLE IF NOT EXISTS indexed_history (
   PRIMARY KEY (repo, commit_sha)
 );
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+""",
+    # v2: a two-valued index on chunks.kind misled the planner (it scanned all
+    # API chunks instead of using chunks_qualname or FTS).
+    2: """
+DROP INDEX IF EXISTS chunks_kind;
 """,
 }
 

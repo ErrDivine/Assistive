@@ -150,9 +150,9 @@ def cursor_line(frame: ContextFrame, store: Store) -> str | None:
             return lines[idx]
     path = uri_to_path(frame.doc_uri)
     if path:
-        lines = store.lines.lines(path)
-        if lines and 0 <= frame.cursor.line < len(lines):
-            return lines[frame.cursor.line]
+        file_lines = store.lines.lines(path)
+        if file_lines and 0 <= frame.cursor.line < len(file_lines):
+            return file_lines[frame.cursor.line]
     return None
 
 
@@ -173,8 +173,17 @@ def expression_at(line: str, character: int) -> str | None:
         k = j
         while k > 0 and (line[k - 1].isalnum() or line[k - 1] == "_"):
             k -= 1
-        if k == j or not IDENT.fullmatch(line[k:j]):
-            return "?" + line[m.start() : end] if k == j else None
+        if k == j:
+            # A literal receiver: "sep".join(...) / b"x".split(...)
+            if j > 0 and line[j - 1] in "'\"":
+                q = line[j - 1]
+                opening = line.rfind(q, 0, j - 1)
+                prefix = line[max(0, opening - 2) : opening].lower() if opening >= 0 else ""
+                kind = "bytes" if "b" in prefix else "str"
+                return f"<{kind}>.{line[m.start() : end]}"
+            return "?" + line[m.start() : end]
+        if not IDENT.fullmatch(line[k:j]):
+            return None
         start = k
     expr = line[start:end]
     return expr if IDENT.match(expr) else None
@@ -344,18 +353,39 @@ class Resolver:
 
     # -- step 5 -----------------------------------------------------------
     def local_type(self, expr: str, frame: ContextFrame) -> Resolution | None:
+        """``var.attr`` where ``var``'s type is evident from the code around it:
+        an annotation (``d: dict``), a literal (``d = {}``), a constructor call
+        (``window = deque(maxlen=3)``, ``s = requests.Session()``) or a string
+        literal receiver (``", ".join``)."""
         if not expr or "." not in expr or expr.startswith("?"):
             return None
         var, attr = expr.rsplit(".", 1)
+        if var.startswith("<") and var.endswith(">"):
+            row = self.store.lookup(f"builtins.{var[1:-1]}.{attr}")
+            return Resolution(row, f"{var[1:-1]}.{attr}", "local_type") if row else None
         if "." in var:
             return None
-        typ = infer_builtin_type(var, frame.enclosing_text or "")
-        if typ is None:
+        text = frame.enclosing_text or ""
+        typ = infer_builtin_type(var, text)
+        if typ is not None:
+            row = self.store.lookup(f"builtins.{typ}.{attr}")
+            if row is not None:
+                return Resolution(row, f"{typ}.{attr}", "local_type")
+        ctor = infer_constructor(var, text)
+        if ctor is None:
             return None
-        row = self.store.lookup(f"builtins.{typ}.{attr}")
+        imports = imports_for(frame)
+        head, _, rest = ctor.partition(".")
+        if head in imports:
+            cls = ".".join(p for p in (imports[head], rest) if p)
+        elif hasattr(builtins, head) and not rest:
+            cls = f"builtins.{head}"
+        else:
+            return None
+        row = self.store.lookup(f"{cls}.{attr}")
         if row is None:
             return None
-        return Resolution(row, f"{typ}.{attr}", "local_type")
+        return Resolution(row, f"{ctor.split('.')[-1]}.{attr}", "local_type")
 
     # -- entry points -----------------------------------------------------
     def resolve_loc(
@@ -422,6 +452,28 @@ def _locally_bound(name: str, frame: ContextFrame) -> bool:
         re.search(rf"(?m)^\s*(?:def|class)\s+{re.escape(name)}\b|\b{re.escape(name)}\s*=[^=]", text)
         is not None
     )
+
+
+def infer_constructor(var: str, text: str) -> str | None:
+    """The class ``var`` was built from: ``var = Name(...)`` / ``var: Name``,
+    where Name is a capitalized or dotted (``requests.Session``) callable or
+    one of the common lowercase stdlib classes."""
+    v = re.escape(var)
+    lower_ok = {"deque", "defaultdict", "partial", "datetime", "date", "timedelta"}
+    for assign in re.finditer(
+        rf"(?m)(?<![.\w]){v}\s*(?::\s*[^=\n]+)?=(?!=)\s*([A-Za-z_][\w.]*)\s*\(", text
+    ):
+        name = assign.group(1)
+        last = name.split(".")[-1]
+        if last[:1].isupper() or last in lower_ok:
+            return name
+    m = re.search(rf"(?<![.\w]){v}\s*:\s*([A-Za-z_][\w.]*)", text)
+    if m:
+        name = m.group(1)
+        last = name.split(".")[-1]
+        if (last[:1].isupper() or last in lower_ok) and last not in BUILTIN_TYPES:
+            return name
+    return None
 
 
 def infer_builtin_type(var: str, text: str) -> str | None:

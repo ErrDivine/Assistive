@@ -78,21 +78,19 @@ def run_sync(
             result["workspace"] = index_roots(
                 conn, resolved, progress=_progress, should_stop=_should_stop
             )
+        embedder = get_embedder(
+            cfg["embedding_backend"], cfg["embedding_model"], Path(cfg["models_dir"])
+        )
+        result["embedder"] = embedder.name
         if not _should_stop():
-            embedder = get_embedder(
-                cfg["embedding_backend"], cfg["embedding_model"], Path(cfg["models_dir"])
-            )
-            result["embedder"] = embedder.name
             result["embedded"] = embed_missing(
                 conn, embedder, progress=_progress, should_stop=_should_stop
             )
             _progress("embeddings", 1, 1, "embeddings ready")
+        # Git history runs last, at low priority (design plan §9.4).
         if history and cfg.get("history_depth", 0) > 0 and resolved and not _should_stop():
             from .git_history import index_history
 
-            embedder = get_embedder(
-                cfg["embedding_backend"], cfg["embedding_model"], Path(cfg["models_dir"])
-            )
             result["history"] = index_history(
                 conn,
                 resolved,
@@ -101,6 +99,12 @@ def run_sync(
                 progress=_progress,
                 should_stop=_should_stop,
             )
+            if not _should_stop():
+                result["embedded"] += embed_missing(
+                    conn, embedder, progress=_progress, should_stop=_should_stop
+                )
+                _progress("embeddings", 1, 1, "embeddings ready")
+        conn.execute("ANALYZE")
         set_meta(conn, "last_sync", time.strftime("%Y-%m-%dT%H:%M:%S%z"))
         conn.commit()
     finally:

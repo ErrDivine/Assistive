@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/check_invariants.sh
+
+  server:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.10", "3.12"]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --frozen
+      - run: uv run ruff check rail_server tests
+      - run: uv run ruff format --check rail_server tests
+      - run: uv run mypy rail_server
+      - name: Build fixtures (needs network)
+        run: uv run python ../eval/fixtures/make_fixtures.py
+      - name: Tests with networking disabled (I4)
+        env:
+          RAIL_NO_NETWORK: "1"
+        run: uv run pytest -q
+
+  extension:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Server environment and fixtures
+        run: |
+          cd server && uv sync --frozen --no-dev && cd ..
+          uv run --project server python eval/fixtures/make_fixtures.py
+      - run: npm ci
+        working-directory: extension
+      - run: npm run lint
+        working-directory: extension
+      - run: npm run typecheck
+        working-directory: extension
+      - run: npm run build
+        working-directory: extension
+      - run: npm run test:unit
+        working-directory: extension
+      - name: Integration tests (Linux)
+        if: runner.os == 'Linux'
+        working-directory: extension
+        run: xvfb-run -a npm run test:integration
+      - name: Integration tests (macOS)
+        if: runner.os == 'macOS'
+        working-directory: extension
+        run: npm run test:integration
+
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: cd server && uv sync --frozen --no-dev
+      - name: Build fixtures (needs network)
+        run: uv run --project server python eval/fixtures/make_fixtures.py
+      - name: Evaluation with networking disabled; fail on >5% regression
+        env:
+          RAIL_NO_NETWORK: "1"
+        run: uv run --project server python eval/run_eval.py --check eval/baseline.json --out eval/results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: eval/results/

@@ -148,13 +148,17 @@ class Endpoint:
             msg_id = msg["id"]
             task = asyncio.ensure_future(self._run_request(msg_id, method, msg.get("params")))
             self._inflight[msg_id] = task
-            task.add_done_callback(lambda _t, i=msg_id: self._inflight.pop(i, None))
+
+            def _forget(_t: asyncio.Future[Any], i: Any = msg_id) -> None:
+                self._inflight.pop(i, None)
+
+            task.add_done_callback(_forget)
             return
         if method == "$/cancelRequest":
             params = msg.get("params") or {}
-            task = self._inflight.get(params.get("id"))
-            if task is not None and not task.done():
-                task.cancel()
+            pending = self._inflight.get(params.get("id"))
+            if pending is not None and not pending.done():
+                pending.cancel()
             return
         handler = self._notifications.get(method)
         if handler is None:

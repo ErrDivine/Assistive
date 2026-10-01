@@ -17,7 +17,7 @@ from .pyast import clip_words, locate, norm_ws
 
 logging.getLogger("griffe").setLevel(logging.ERROR)
 
-STYLES = ("google", "numpy", "sphinx")
+STYLES: tuple[griffe.DocstringStyle, ...] = ("google", "numpy", "sphinx")
 MAX_ITEMS = 12
 
 

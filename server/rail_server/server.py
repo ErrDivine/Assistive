@@ -71,6 +71,7 @@ class RailServer:
         self.stop = asyncio.Event()
         self.loop: asyncio.AbstractEventLoop | None = None
         self._startup_task: asyncio.Task[Any] | None = None
+        self._roots_cache: tuple[Any, list[Any]] | None = None
         self._register()
 
     # ------------------------------------------------------------------ setup
@@ -92,6 +93,12 @@ class RailServer:
         ep.request("shutdown")(self.shutdown)
         ep.notification("exit")(self.exit)
 
+    def _resolved_roots(self) -> list[Any]:
+        key = (tuple(self.roots), tuple(self.cfg.extra_repos))
+        if self._roots_cache is None or self._roots_cache[0] != key:
+            self._roots_cache = (key, resolve_roots([*self.roots, *self.cfg.extra_repos]))
+        return self._roots_cache[1]
+
     def _require(self) -> Store:
         if self.store is None:
             raise RpcError(-32002, "server not initialized")
@@ -101,7 +108,7 @@ class RailServer:
         return self._embedder
 
     def threshold(self) -> float:
-        return float(self.cfg.precedent_threshold)
+        return self.cfg.threshold_for(self._embedder.name if self._embedder else None)
 
     # ------------------------------------------------------------- lifecycle
     async def initialize(self, params: dict[str, Any] | None) -> dict[str, Any]:
@@ -332,8 +339,7 @@ class RailServer:
         self.store.lines.invalidate(path)
         if not path.endswith(".py"):
             return None
-        roots = resolve_roots([*self.roots, *self.cfg.extra_repos])
-        root = root_for(path, roots)
+        root = root_for(path, self._resolved_roots())
         if root is None:
             return None
         base = root.repo or root.path
@@ -403,8 +409,7 @@ class RailServer:
         candidates = self.planner.plan(frame, lambda: self._checkpoint(frame))
         self._checkpoint(frame)
         doc = uri_to_path(frame.doc_uri)
-        roots = resolve_roots(self.roots) if doc else []
-        root = root_for(doc, roots) if doc else None
+        root = root_for(doc, self._resolved_roots()) if doc else None
         ranked = rank(candidates, repo=root.repo if root else None)
         pinned = self._pinned_qualnames()
         cards: list[Card] = []

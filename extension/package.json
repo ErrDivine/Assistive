@@ -166,11 +166,18 @@
           "type": "string",
           "enum": [
             "auto",
+            "hybrid",
             "fastembed",
             "hashing"
           ],
           "default": "auto",
-          "description": "auto: use the downloaded embedding model if present, else a built-in hashing embedder."
+          "enumDescriptions": [
+            "Hybrid (identifier hashing + local model) when the model is downloaded, else hashing",
+            "Identifier hashing + the local fastembed model",
+            "The local fastembed model alone",
+            "Built-in identifier hashing only (no model, fully offline)"
+          ],
+          "description": "Embedder for precedent search. Run \"Reference Rail: Download Embedding Model\" once to enable the local model."
         },
         "referenceRail.embeddingModel": {
           "type": "string",
@@ -181,6 +188,16 @@
           "type": "boolean",
           "default": false,
           "description": "Record context frames and results to ~/.reference-rail/sessions/*.jsonl for replay (dogfooding)."
+        },
+        "referenceRail.precedentThreshold": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Cosine similarity a precedent must reach. Empty: the value calibrated for the active embedder."
         }
       }
     }

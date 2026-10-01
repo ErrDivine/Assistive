@@ -18,6 +18,14 @@ async function main(): Promise<void> {
     process.platform === "win32"
       ? path.join(fixtures, ".venv", "Scripts", "python.exe")
       : path.join(fixtures, ".venv", "bin", "python");
+  // Scratch files left by an earlier run would be indexed as workspace code.
+  for (const dir of [workspace, path.join(workspace, "app")]) {
+    for (const f of fs.readdirSync(dir)) {
+      if (f.startsWith("rail_it_")) {
+        fs.rmSync(path.join(dir, f), { force: true });
+      }
+    }
+  }
   // Workspace settings for the run (fixture_app is a generated directory).
   fs.mkdirSync(path.join(workspace, ".vscode"), { recursive: true });
   fs.writeFileSync(

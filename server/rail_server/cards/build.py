@@ -11,7 +11,7 @@ from typing import Any
 
 from ..index.library import RUNTIME_DIST, STDLIB_DIST
 from ..index.pyast import IDENT, norm_ws, read_text, sha1
-from ..models import Card, Fact, RuntimeInfo, Snippet, SourceRef
+from ..models import Card, Fact, FactOrigin, RuntimeInfo, Snippet, SourceRef
 from ..retrieve.store import Row, Store, is_runtime_path
 from .verify import GitBlobCache, verify_fact
 
@@ -164,7 +164,7 @@ class CardBuilder:
     # -- facts ------------------------------------------------------------
     def api_facts(self, row: Row, active: str | int | None = None) -> list[Fact]:
         runtime = row["origin"] == "runtime_doc"
-        doc_origin = "runtime_doc" if runtime else "docstring"
+        doc_origin: FactOrigin = "runtime_doc" if runtime else "docstring"
         facts: list[Fact] = []
         name_line = int(row["name_line"] or row["start_line"])
         if row["signature"]:

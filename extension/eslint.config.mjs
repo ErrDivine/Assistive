@@ -21,4 +21,9 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Tests type into documents themselves (the I1 check excludes that typing).
+    files: ["test/**/*.ts"],
+    rules: { "no-restricted-syntax": "off" },
+  },
 );

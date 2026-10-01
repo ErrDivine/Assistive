@@ -6,11 +6,16 @@ import type { Card } from "../types";
 /** Identity plus content: an unchanged key means the DOM node can stay as is. */
 export function cardKey(card: Card): string {
   const facts = card.facts.map((f) => `${f.label}\u0001${f.text}`).join("\u0002");
+  const src = card.source;
   return [
     card.id,
     card.title,
+    card.reason,
     facts,
     card.snippet?.text ?? "",
+    card.snippet?.startLine ?? "",
+    `${src.path}:${src.startLine}:${src.deleted ? 1 : 0}:${src.commit ?? ""}`,
+    card.authoredAt ?? "",
     card.stale ? "s" : "",
     card.pinned ? "p" : "",
   ].join("\u0003");

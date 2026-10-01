@@ -48,7 +48,7 @@ ALWAYS_EXCLUDE = [
     ".eggs/",
     "*.egg-info/",
 ]
-_EXCLUDE_SPEC = pathspec.PathSpec.from_lines("gitwildmatch", ALWAYS_EXCLUDE)
+_EXCLUDE_SPEC = pathspec.PathSpec.from_lines("gitignore", ALWAYS_EXCLUDE)
 MAX_FILE_BYTES = 1_000_000
 
 Progress = Callable[[str, int, int, str], None]
@@ -107,7 +107,7 @@ def _walk_with_gitignore(root: str) -> list[str]:
         if os.path.isfile(gi):
             try:
                 with open(gi, encoding="utf-8", errors="replace") as fh:
-                    specs.append((rel_dir, pathspec.PathSpec.from_lines("gitwildmatch", fh)))
+                    specs.append((rel_dir, pathspec.PathSpec.from_lines("gitignore", fh)))
             except OSError:
                 pass
 
@@ -182,7 +182,9 @@ def _signature(node: ast.AST) -> str:
     return sig
 
 
-def _docstring(node: ast.AST) -> tuple[str | None, Any]:
+def _docstring(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Module,
+) -> tuple[str | None, Any]:
     body = getattr(node, "body", None)
     if not body:
         return None, None
@@ -297,10 +299,7 @@ def index_file(
     source = read_text(path) if os.path.isfile(path) else None
     if source is None:
         with transaction(conn):
-            n = conn.execute(
-                "SELECT COUNT(*) FROM chunks WHERE path = ? AND deleted = 0", (path,)
-            ).fetchone()[0]
-            conn.execute("DELETE FROM files WHERE path = ? AND source_kind = 'workspace'", (path,))
+            n = forget_file(conn, path)
         return FileResult(path, "missing", [], removed=n)
     digest = sha1(source)
     frow = conn.execute("SELECT content_hash FROM files WHERE path = ?", (path,)).fetchone()
@@ -341,6 +340,20 @@ def index_file(
         conn.executemany("DELETE FROM chunks WHERE id = ?", [(i,) for i in stale])
         inserted = insert_chunks(conn, fresh)
     return FileResult(path, "updated", inserted, kept=len(kept_ids), removed=len(stale))
+
+
+def forget_file(conn: sqlite3.Connection, path: str) -> int:
+    """Drop a workspace file's live chunks. Functions recovered from git history
+    for that path survive: the row becomes a ``history`` file."""
+    n = conn.execute("DELETE FROM chunks WHERE path = ? AND deleted = 0", (path,)).rowcount
+    kept = conn.execute(
+        "SELECT 1 FROM chunks WHERE path = ? AND deleted = 1 LIMIT 1", (path,)
+    ).fetchone()
+    if kept:
+        conn.execute("UPDATE files SET source_kind = 'history' WHERE path = ?", (path,))
+    else:
+        conn.execute("DELETE FROM files WHERE path = ?", (path,))
+    return n
 
 
 @dataclass
@@ -409,7 +422,8 @@ def index_roots(
     ]
     if gone:
         with transaction(conn):
-            conn.executemany("DELETE FROM files WHERE path = ?", [(p,) for p in gone])
+            for p in gone:
+                forget_file(conn, p)
         stats["removed_files"] = len(gone)
     if progress:
         progress("workspace", total, total, "workspace indexed")
