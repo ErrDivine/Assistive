@@ -108,13 +108,11 @@
     "keybindings": [
       {
         "command": "referenceRail.focus",
-        "key": "ctrl+alt+r",
-        "mac": "cmd+alt+r"
+        "key": "ctrl+alt+r"
       },
       {
         "command": "referenceRail.askAboutSymbol",
         "key": "ctrl+alt+/",
-        "mac": "cmd+alt+/",
         "when": "editorTextFocus && editorLangId == python"
       }
     ],
@@ -210,7 +208,7 @@
     "test:unit": "node esbuild.mjs --tests && mocha --timeout 10000 'out/test/unit/**/*.test.js'",
     "test:integration": "node esbuild.mjs --tests && node out/test/runIntegration.js",
     "test": "npm run test:unit",
-    "package": "node scripts/package.mjs"
+    "install-local": "node scripts/install-local.mjs"
   },
   "dependencies": {
     "@vscode/python-extension": "1.0.6",

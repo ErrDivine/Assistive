@@ -256,6 +256,10 @@ def make_server(home: Path, probe: dict[str, Any], *, backend: str, model: str |
     from rail_server.server import RailServer
 
     os.environ["REFERENCE_RAIL_HOME"] = str(home)
+    models = home / "models"
+    shared = Path(os.environ.get("RAIL_MODELS_DIR", Path.home() / ".reference-rail" / "models"))
+    if backend != "hashing" and not models.exists() and shared.is_dir() and shared != models:
+        models.symlink_to(shared, target_is_directory=True)  # reuse a downloaded model
     server = RailServer(Endpoint(io.BytesIO()))
     config: dict[str, Any] = {
         "embeddingBackend": backend,
@@ -525,6 +529,7 @@ def main() -> int:
     ap.add_argument("--replay", type=Path)
     ap.add_argument("--out", type=Path)
     ap.add_argument("--no-network", action="store_true")
+    ap.add_argument("--allow-dirty", action="store_true", help="evaluate a modified fixture_app")
     ap.add_argument("--verbose", "-v", action="store_true")
     args = ap.parse_args()
 
@@ -535,6 +540,16 @@ def main() -> int:
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
     if not venv_python().exists() or not APP.exists():
         print("Fixtures missing: run python eval/fixtures/make_fixtures.py", file=sys.stderr)
+        return 2
+    dirty = subprocess.run(
+        ["git", "-C", str(APP), "status", "--porcelain", "--untracked-files=all", "--", "."],
+        capture_output=True, text=True, check=False,
+    ).stdout.strip()
+    dirty = "\n".join(ln for ln in dirty.splitlines() if not ln.endswith(".vscode/settings.json"))
+    if dirty and not args.allow_dirty:
+        print("fixture_app has local changes (e.g. files left by integration tests):\n" + dirty
+              + "\nRe-run python eval/fixtures/make_fixtures.py --skip-venv, or pass --allow-dirty.",
+              file=sys.stderr)
         return 2
     queries = [json.loads(line) for line in args.queries.read_text().splitlines() if line.strip()]
     probe = run_probe()

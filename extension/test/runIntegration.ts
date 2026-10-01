@@ -18,14 +18,18 @@ async function main(): Promise<void> {
     process.platform === "win32"
       ? path.join(fixtures, ".venv", "Scripts", "python.exe")
       : path.join(fixtures, ".venv", "bin", "python");
-  // Scratch files left by an earlier run would be indexed as workspace code.
-  for (const dir of [workspace, path.join(workspace, "app")]) {
-    for (const f of fs.readdirSync(dir)) {
-      if (f.startsWith("rail_it_")) {
-        fs.rmSync(path.join(dir, f), { force: true });
+  // Scratch files (rail_it_*) would be indexed as workspace code: remove them
+  // before and after the run so the fixture stays clean for the evaluation.
+  const cleanScratch = () => {
+    for (const dir of [workspace, path.join(workspace, "app")]) {
+      for (const f of fs.readdirSync(dir)) {
+        if (f.startsWith("rail_it_")) {
+          fs.rmSync(path.join(dir, f), { force: true });
+        }
       }
     }
-  }
+  };
+  cleanScratch();
   // Workspace settings for the run (fixture_app is a generated directory).
   fs.mkdirSync(path.join(workspace, ".vscode"), { recursive: true });
   fs.writeFileSync(
@@ -44,27 +48,33 @@ async function main(): Promise<void> {
   );
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "rail-it-"));
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), "rail-ud-"));
-  const code = await runTests({
-    extensionDevelopmentPath,
-    extensionTestsPath,
-    vscodeExecutablePath: process.env.VSCODE_EXECUTABLE || undefined,
-    version: process.env.VSCODE_VERSION || "stable",
-    launchArgs: [
-      workspace,
-      "--disable-extensions",
-      "--disable-workspace-trust",
-      "--skip-welcome",
-      "--skip-release-notes",
-      "--no-sandbox",
-      "--disable-gpu",
-      `--user-data-dir=${userData}`,
-    ],
-    extensionTestsEnv: {
-      REFERENCE_RAIL_HOME: home,
-      RAIL_FIXTURES: fixtures,
-      RAIL_STRESS_SECONDS: process.env.RAIL_STRESS_SECONDS ?? "60",
-    },
-  });
+  let code = 1;
+  try {
+    code = await runTests({
+      extensionDevelopmentPath,
+      extensionTestsPath,
+      vscodeExecutablePath: process.env.VSCODE_EXECUTABLE || undefined,
+      version: process.env.VSCODE_VERSION || "stable",
+      launchArgs: [
+        workspace,
+        "--disable-extensions",
+        "--disable-workspace-trust",
+        "--skip-welcome",
+        "--skip-release-notes",
+        "--no-sandbox",
+        "--disable-gpu",
+        `--user-data-dir=${userData}`,
+      ],
+      extensionTestsEnv: {
+        REFERENCE_RAIL_HOME: home,
+        RAIL_FIXTURES: fixtures,
+        RAIL_STRESS_SECONDS: process.env.RAIL_STRESS_SECONDS ?? "60",
+      },
+    });
+  } finally {
+    cleanScratch();
+    fs.rmSync(path.join(workspace, ".vscode"), { recursive: true, force: true });
+  }
   process.exit(code);
 }
 

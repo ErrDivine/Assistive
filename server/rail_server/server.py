@@ -54,7 +54,7 @@ class RailServer:
         self.resolver: Resolver | None = None
         self.builder: CardBuilder | None = None
         self.planner: Planner | None = None
-        self.vectors = BruteForceIndex()
+        self.vectors = BruteForceIndex(self._exact_vectors)
         self._embedder: Embedder | None = None
         self._embedder_lock = threading.Lock()
         self.latest_request_id = 0
@@ -103,6 +103,24 @@ class RailServer:
         if self.store is None:
             raise RpcError(-32002, "server not initialized")
         return self.store
+
+    def _exact_vectors(self, ids: list[int]) -> dict[int, Any]:
+        """Stored float16 vectors for the cosine gate (see store/vectors.py)."""
+        import numpy as np
+
+        if self.pool is None or self._embedder is None or not ids:
+            return {}
+        marks = ",".join("?" for _ in ids)
+        rows = (
+            self.pool.get()
+            .execute(
+                "SELECT chunk_id, dim, vec FROM embeddings "
+                f"WHERE model = ? AND chunk_id IN ({marks})",
+                (self._embedder.name, *ids),
+            )
+            .fetchall()
+        )
+        return {int(r[0]): np.frombuffer(r[2], dtype=np.float16, count=int(r[1])) for r in rows}
 
     def embedder(self) -> Embedder | None:
         return self._embedder
@@ -399,15 +417,21 @@ class RailServer:
             raise Abandoned()
 
     def query_sync(self, frame: ContextFrame) -> list[Card]:
-        """Synchronous query path (used by tests, eval and the server)."""
-        return self._query(frame)
+        """Run one frame to completion, ignoring request ordering (tests, eval, replay:
+        recorded sessions restart their request ids)."""
+        return self._query(frame, abandon_stale=False)
 
-    def _query(self, frame: ContextFrame) -> list[Card]:
+    def _query(self, frame: ContextFrame, abandon_stale: bool = True) -> list[Card]:
         assert self.planner is not None and self.builder is not None
         if frame.language_id != "python":
             return []
-        candidates = self.planner.plan(frame, lambda: self._checkpoint(frame))
-        self._checkpoint(frame)
+
+        def checkpoint() -> None:
+            if abandon_stale:
+                self._checkpoint(frame)
+
+        candidates = self.planner.plan(frame, checkpoint)
+        checkpoint()
         doc = uri_to_path(frame.doc_uri)
         root = root_for(doc, self._resolved_roots()) if doc else None
         ranked = rank(candidates, repo=root.repo if root else None)

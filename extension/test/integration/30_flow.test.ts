@@ -125,3 +125,16 @@ describe("Phase 3: flow quality", function () {
     assert.deepStrictEqual(csvRows, expected);
   });
 });
+
+describe("Phase 6: session recording", () => {
+  it("records frames and results to ~/.reference-rail/sessions/*.jsonl when recordSessions is on", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const dir = path.join(process.env.REFERENCE_RAIL_HOME!, "sessions");
+    const files = await waitFor(() => fs.existsSync(dir) && fs.readdirSync(dir).filter((f) => f.endsWith(".jsonl")), 5000, "session file");
+    assert.ok(files.length > 0);
+    const lines = fs.readFileSync(path.join(dir, files[0]), "utf8").trim().split("\n");
+    const rec = JSON.parse(lines[lines.length - 1]);
+    assert.ok(rec.frame && typeof rec.frame.requestId === "number" && Array.isArray(rec.cards));
+  });
+});
