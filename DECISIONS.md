@@ -85,6 +85,7 @@ Spike on `eval/queries.jsonl` (45 precedent queries; `run_eval.py --spike`). Rec
 - The explicit command **Reference Rail: Download Embedding Model** (`rail-server download-model`) fetches it.
 - At runtime fastembed loads with `local_files_only` and `HF_HUB_OFFLINE`.
 - fastembed 0.8.1 does not fall back to its GCS mirror when a proxy refuses HuggingFace, so `download_model` calls `retrieve_model_gcs` itself.
+- The download fetches fastembed's **GCS export first**, because that is the artifact the threshold was calibrated on. In CI, HuggingFace's export of the same model scored on a different cosine scale: precision 0.71 at the same threshold. A model loaded from a HuggingFace snapshot is named `fastembed-hf:<model>`, so it never silently uses the GCS calibration (it falls back to the default threshold 0.6).
 
 **Vectors** are stored as float16 and searched by brute force (`BruteForceIndex` behind `VectorIndex`).
 

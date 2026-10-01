@@ -8,6 +8,10 @@ Reference Rail is a VS Code companion for Python. It puts the documentation you 
 - **Every fact is verified.** Each fact links to a real file span, and text taken from a docstring must appear verbatim in the span it cites. A fact that fails the check is dropped. When nothing clears the confidence bar, the rail shows nothing.
 - **Everything is local.** Indexing, embeddings and ranking run on your machine, and all data lives under `~/.reference-rail/`.
 
+| API card (cursor on `session.get`) | Precedent cards (writing `fetch_admins`) |
+|---|---|
+| ![API card](docs/rail-api-card.png) | ![Precedent cards](docs/rail-precedent-cards.png) |
+
 The design is in [`reference-rail-design-plan.md`](reference-rail-design-plan.md). Progress against it is in [`PROGRESS.md`](PROGRESS.md), and every deviation is recorded in [`DECISIONS.md`](DECISIONS.md).
 
 ## Install

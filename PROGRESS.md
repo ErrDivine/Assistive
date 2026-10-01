@@ -25,7 +25,7 @@ Phase log against `reference-rail-design-plan.md` §12. Every acceptance check n
 |---|---|---|
 | Command "Reference Rail: Ping" shows the server version | ✅ | `extension/test/integration/00_server.test.ts` |
 | Killing the server process triggers an automatic restart | ✅ | same file: SIGKILL, then a new pid, then Ping succeeds |
-| CI is green | ✅ | every job green except mypy on Python 3.10, failing on numpy-2.2 stub differences; that is fixed and verified locally against numpy 2.2.6 and re-checked on the next CI run |
+| CI is green | ✅ | All 8 jobs green on run #3: invariants; server on Linux and macOS × Python 3.10 and 3.12; extension lint, typecheck, unit and integration in VS Code stable on Linux and macOS; eval hashing and hybrid. Run #2 failures (form-feed line numbering, model artifact) were fixed in that commit. |
 
 `initialize` takes 0.3–0.4 s, measured with the real model loaded (budget < 1 s).
 
