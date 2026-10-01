@@ -1,0 +1,24 @@
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+
+export default tseslint.config(
+  { ignores: ["dist/**", "out/**", "node_modules/**", "*.mjs"] },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression > MemberExpression.callee[property.name=/^(applyEdit|edit|insertSnippet)$/]",
+          message: "Invariant I1: Reference Rail never modifies the user's buffers.",
+        },
+        {
+          selector: "NewExpression[callee.property.name='WorkspaceEdit']",
+          message: "Invariant I1: Reference Rail never modifies the user's buffers.",
+        },
+      ],
+    },
+  },
+);

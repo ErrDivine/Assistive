@@ -1,0 +1,214 @@
+{
+  "name": "reference-rail",
+  "displayName": "Reference Rail",
+  "description": "Brings the right documentation and your own prior code to the cursor, in a side panel. Never edits your code.",
+  "version": "0.1.0",
+  "publisher": "errdivine",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ErrDivine/Assistive"
+  },
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=20"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "python",
+    "documentation",
+    "reference",
+    "lookup"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:python",
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "referenceRail",
+          "title": "Reference",
+          "icon": "media/rail.svg"
+        }
+      ]
+    },
+    "views": {
+      "referenceRail": [
+        {
+          "type": "webview",
+          "id": "referenceRail.rail",
+          "name": "Rail"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "referenceRail.focus",
+        "title": "Focus the Rail",
+        "category": "Reference Rail"
+      },
+      {
+        "command": "referenceRail.askAboutSymbol",
+        "title": "Ask About Symbol",
+        "category": "Reference Rail"
+      },
+      {
+        "command": "referenceRail.pinTopCard",
+        "title": "Pin Top Card",
+        "category": "Reference Rail"
+      },
+      {
+        "command": "referenceRail.toggle",
+        "title": "Pause / Resume",
+        "category": "Reference Rail"
+      },
+      {
+        "command": "referenceRail.showMetrics",
+        "title": "Show Metrics",
+        "category": "Reference Rail"
+      },
+      {
+        "command": "referenceRail.reindex",
+        "title": "Re-index",
+        "category": "Reference Rail"
+      },
+      {
+        "command": "referenceRail.ping",
+        "title": "Ping",
+        "category": "Reference Rail"
+      },
+      {
+        "command": "referenceRail.clearData",
+        "title": "Clear All Data",
+        "category": "Reference Rail"
+      },
+      {
+        "command": "referenceRail.downloadModel",
+        "title": "Download Embedding Model",
+        "category": "Reference Rail"
+      },
+      {
+        "command": "referenceRail.showLog",
+        "title": "Show Server Log",
+        "category": "Reference Rail"
+      },
+      {
+        "command": "referenceRail.setupServer",
+        "title": "Set Up Server Environment",
+        "category": "Reference Rail"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "referenceRail.focus",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r"
+      },
+      {
+        "command": "referenceRail.askAboutSymbol",
+        "key": "ctrl+alt+/",
+        "mac": "cmd+alt+/",
+        "when": "editorTextFocus && editorLangId == python"
+      }
+    ],
+    "configuration": {
+      "title": "Reference Rail",
+      "properties": {
+        "referenceRail.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show cards automatically. Toggle with \"Reference Rail: Pause / Resume\"."
+        },
+        "referenceRail.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Interpreter of the project to index. Empty: use the Python extension's active interpreter, else python3 on PATH."
+        },
+        "referenceRail.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Python interpreter of the rail-server environment. Empty: use the bundled server's .venv."
+        },
+        "referenceRail.extraRepos": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Other local repositories (your other projects) to search for precedent code."
+        },
+        "referenceRail.historyDepth": {
+          "type": "number",
+          "default": 500,
+          "minimum": 0,
+          "description": "How many recent commits to scan for deleted functions (0 disables history)."
+        },
+        "referenceRail.maxCards": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Most live cards shown at once."
+        },
+        "referenceRail.indexStdlib": {
+          "type": "boolean",
+          "default": true,
+          "description": "Index the standard library of the project interpreter."
+        },
+        "referenceRail.embeddingBackend": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "fastembed",
+            "hashing"
+          ],
+          "default": "auto",
+          "description": "auto: use the downloaded embedding model if present, else a built-in hashing embedder."
+        },
+        "referenceRail.embeddingModel": {
+          "type": "string",
+          "default": "sentence-transformers/all-MiniLM-L6-v2",
+          "description": "fastembed model used for precedent search."
+        },
+        "referenceRail.recordSessions": {
+          "type": "boolean",
+          "default": false,
+          "description": "Record context frames and results to ~/.reference-rail/sessions/*.jsonl for replay (dogfooding)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc -p . --noEmit && tsc -p tsconfig.webview.json --noEmit",
+    "lint": "eslint src test",
+    "test:unit": "node esbuild.mjs --tests && mocha --timeout 10000 'out/test/unit/**/*.test.js'",
+    "test:integration": "node esbuild.mjs --tests && node out/test/runIntegration.js",
+    "test": "npm run test:unit",
+    "package": "node scripts/package.mjs"
+  },
+  "dependencies": {
+    "@vscode/python-extension": "1.0.6",
+    "vscode-jsonrpc": "9.0.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@types/mocha": "10.0.10",
+    "@types/node": "20.19.0",
+    "@types/vscode": "1.90.0",
+    "@vscode/test-electron": "3.1.0",
+    "esbuild": "0.28.2",
+    "eslint": "9.39.1",
+    "mocha": "12.0.3",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.0"
+  }
+}

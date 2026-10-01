@@ -1,0 +1,118 @@
+/* Reference Rail webview. Only VS Code theme variables; nothing animates except the fade. */
+
+body {
+  padding: 0 8px 8px;
+  color: var(--vscode-foreground);
+  background: var(--vscode-sideBar-background);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  line-height: 1.4;
+}
+
+details#frequent > summary,
+section > h3 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vscode-descriptionForeground);
+  margin: 10px 0 4px;
+  cursor: default;
+}
+details#frequent > summary { cursor: pointer; }
+
+.cards { display: flex; flex-direction: column; gap: 6px; }
+
+#live { transition: opacity 300ms ease-out; opacity: 1; }
+#live.fading { opacity: 0; }
+
+.card {
+  border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
+  border-radius: 4px;
+  background: var(--vscode-editor-background);
+  padding: 6px 8px;
+}
+.card header { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.card .title {
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.badges { display: flex; gap: 4px; flex-shrink: 0; }
+.badge {
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+}
+.badge.stale { background: var(--vscode-inputValidation-warningBackground, var(--vscode-badge-background)); }
+.badge.deleted { background: var(--vscode-inputValidation-infoBackground, var(--vscode-badge-background)); }
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin: 2px 0 4px;
+}
+.meta .where { font-family: var(--vscode-editor-font-family); }
+
+.facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.fact { overflow-wrap: anywhere; }
+.fact .label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+  margin-right: 6px;
+}
+.fact .sig, .snippet code {
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
+  color: var(--vscode-editor-foreground);
+}
+.fact .sig { white-space: pre-wrap; }
+.fact .origin {
+  margin-left: 6px;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+}
+.snippet {
+  margin: 4px 0 0;
+  padding: 4px 6px;
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 3px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.actions { display: flex; gap: 4px; margin-top: 6px; }
+.actions button {
+  font-size: 11px;
+  padding: 1px 6px;
+  border: none;
+  border-radius: 2px;
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground);
+  cursor: pointer;
+}
+.actions button:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.actions button:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+
+#empty { color: var(--vscode-descriptionForeground); font-size: 12px; margin: 10px 0; }
+
+#status {
+  margin-top: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--vscode-panel-border, transparent);
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.paused #live { opacity: 0.5; }

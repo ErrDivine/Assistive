@@ -1,0 +1,59 @@
+{
+  "commits": [
+    {
+      "sha": "f7f1ec5b5d3d3f0a08154d49c9d2b776ec3432b5",
+      "message": "Add text utilities",
+      "date": "2024-02-01T09:00:00+00:00"
+    },
+    {
+      "sha": "0a9faa9cad05e96770d1948a6783dbe50eef2a50",
+      "message": "Add retry helper and checksum",
+      "date": "2024-02-08T09:00:00+00:00"
+    },
+    {
+      "sha": "7774dfde6dc71135b967b418c9798e2847e6fc5e",
+      "message": "Rename truncate_words to shorten_text",
+      "date": "2024-02-15T09:00:00+00:00"
+    },
+    {
+      "sha": "ddcfc74c1b1a65befb5fb67e11c48adb939e5277",
+      "message": "Drop hand-written CSV parsing in favour of the csv module",
+      "date": "2024-02-22T09:00:00+00:00"
+    },
+    {
+      "sha": "0db31058dcdbb84bb46456af1bddac96e931fcb3",
+      "message": "Remove retry helper; callers use the HTTP client's retries",
+      "date": "2024-03-01T09:00:00+00:00"
+    },
+    {
+      "sha": "fbeb95beaa0a42fd070695d63de019f1e433679b",
+      "message": "Add a near-duplicate slug helper for tags",
+      "date": "2024-03-08T09:00:00+00:00"
+    }
+  ],
+  "deleted": [
+    {
+      "qualname": "textutil.parse_csv_line",
+      "path": "textutil.py",
+      "deleted_in": "ddcfc74c1b1a65befb5fb67e11c48adb939e5277"
+    },
+    {
+      "qualname": "netutil.retry_call",
+      "path": "netutil.py",
+      "deleted_in": "0db31058dcdbb84bb46456af1bddac96e931fcb3"
+    }
+  ],
+  "renamed": [
+    {
+      "from": "textutil.truncate_words",
+      "to": "textutil.shorten_text",
+      "in": "7774dfde6dc71135b967b418c9798e2847e6fc5e"
+    }
+  ],
+  "near_duplicates": [
+    [
+      "textutil.slugify",
+      "tags.tag_slug"
+    ]
+  ]
+}
