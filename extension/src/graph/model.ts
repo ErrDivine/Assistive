@@ -119,6 +119,7 @@ export class GraphEditor {
   private readonly removed = new Set<string>();
   private edgesAdded = 0;
   private edgesRemoved = 0;
+  private edgesRelabeled = 0;
 
   constructor(graph: FileGraph) {
     this.g = cloneGraph(graph);
@@ -196,19 +197,20 @@ export class GraphEditor {
       }
       const set = u.set ?? {};
       const changed: string[] = [];
+      // Validate everything first so a rejected update changes nothing.
+      if (set.kind !== undefined && !(NODE_KINDS as readonly string[]).includes(set.kind)) {
+        out.push(`error: node '${node.id}': kind '${set.kind}' is not one of ${NODE_KINDS.join(", ")}.`);
+        continue;
+      }
+      if (set.status !== undefined && !(STATUSES as string[]).includes(set.status)) {
+        out.push(`error: node '${node.id}': status must be one of ${STATUSES.join(", ")}.`);
+        continue;
+      }
       if (set.kind !== undefined) {
-        if (!(NODE_KINDS as readonly string[]).includes(set.kind)) {
-          out.push(`error: node '${node.id}': kind '${set.kind}' is not one of ${NODE_KINDS.join(", ")}.`);
-          continue;
-        }
         node.kind = set.kind as NodeKind;
         changed.push("kind");
       }
       if (set.status !== undefined) {
-        if (!(STATUSES as string[]).includes(set.status)) {
-          out.push(`error: node '${node.id}': status must be one of ${STATUSES.join(", ")}.`);
-          continue;
-        }
         node.status = set.status as NodeStatus;
         changed.push("status");
       }
@@ -305,8 +307,9 @@ export class GraphEditor {
       }
       const existing = this.g.edges.find((x) => x.from === from.id && x.to === to.id && x.kind === e.kind);
       if (existing) {
-        if (e.label?.trim() && existing.label !== e.label.trim()) {
+        if (e.label?.trim() && existing.label !== clip(e.label, 60)) {
           existing.label = clip(e.label, 60);
+          this.edgesRelabeled++;
           out.push(`ok: relabeled ${from.id} -${e.kind}-> ${to.id}.`);
         } else {
           out.push(`ok: ${from.id} -${e.kind}-> ${to.id} already exists.`);
@@ -348,7 +351,7 @@ export class GraphEditor {
   }
 
   get changed(): boolean {
-    return this.added.size + this.updated.size + this.removed.size + this.edgesAdded + this.edgesRemoved > 0;
+    return this.added.size + this.updated.size + this.removed.size + this.edgesAdded + this.edgesRemoved + this.edgesRelabeled > 0;
   }
 
   summary(): GraphChangeSummary {
@@ -526,8 +529,8 @@ function mermaidText(s: string): string {
 export function toMermaid(graph: FileGraph): string {
   const out = ["flowchart TD"];
   for (const n of graph.nodes) {
-    const label = n.signature ? `${n.label}<br/><small>${mermaidText(n.signature)}</small>` : n.label;
-    out.push(`  ${n.id}["${label.replace(/"/g, "#quot;")}"]:::${n.status}`);
+    const label = n.signature ? `${mermaidText(n.label)}<br/><small>${mermaidText(n.signature)}</small>` : mermaidText(n.label);
+    out.push(`  ${n.id}["${label}"]:::${n.status}`);
   }
   for (const e of graph.edges) {
     out.push(`  ${e.from} -->|${e.kind}${e.label ? `: ${mermaidText(e.label)}` : ""}| ${e.to}`);

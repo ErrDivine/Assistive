@@ -131,7 +131,8 @@ function trimSlash(url: string): string {
 /** Build the configuration from parsed variables. Pure. */
 export function parseConfig(vars: Record<string, string>, source?: string): AssistiveConfig {
   const problems: string[] = [];
-  const get = (k: string, d = "") => (vars[k] ?? d).trim();
+  // Blank values count as unset, like the numeric settings.
+  const get = (k: string, d = "") => vars[k]?.trim() || d;
 
   let extraHeaders: Record<string, string> = {};
   const rawHeaders = get("ASSISTIVE_LLM_EXTRA_HEADERS");

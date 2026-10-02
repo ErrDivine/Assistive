@@ -256,14 +256,9 @@ def factory():
     });
   });
 
-  describe("known bugs", () => {
-    // BUG: pythonEnclosingRange (src/context/pyscope.ts, the `end` scan at
-    // `if (indent(lines[j]) <= ind) break;`). A multi-line signature whose
-    // closing line `):` sits at the def's own indentation (Black / PEP 8 style)
-    // ends the block scan early, so the body is cut off.
-    //   input   : ["def foo(", "    a,", "    b,", "):", "    x = 1", "    return x"], line 4
-    //   expected: [0, 5]
-    //   actual  : undefined  (and [0, 2] for lines 0-2, i.e. a range that stops before `):`)
+  describe("multi-line headers", () => {
+    // A Black-style signature whose closing `):` sits at the def's own
+    // indentation must not cut the body off.
     it("a Black-style multi-line def signature keeps its body inside the range", () => {
       const src = ["def foo(", "    a,", "    b,", "):", "    x = 1", "    return x", "", "y = 2"];
       assert.deepStrictEqual(pythonEnclosingRange(src, 4), [0, 5]);

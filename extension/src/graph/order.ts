@@ -6,7 +6,8 @@ import type { FileGraph, GraphNode } from "../types";
 export function orderedNodes(graph: FileGraph): GraphNode[] {
   const deps = new Map<string, Set<string>>(graph.nodes.map((n) => [n.id, new Set<string>()]));
   for (const e of graph.edges) {
-    if (e.kind === "contains") {
+    // Edges to unknown nodes (e.g. a hand-edited saved graph) are ignored.
+    if (e.kind === "contains" || !deps.has(e.to)) {
       continue;
     }
     // A node is typed after the nodes it calls or uses.

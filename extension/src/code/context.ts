@@ -69,11 +69,12 @@ export function isSecretPath(rel: string): boolean {
 export function normalizeRel(root: string, p: string): string | undefined {
   const cleaned = p.trim().replace(/\\/g, "/");
   let abs = path.isAbsolute(cleaned) ? cleaned : path.resolve(root, cleaned);
-  if (path.isAbsolute(cleaned) && path.relative(root, abs).startsWith("..")) {
+  const escapes = (rel: string) => rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel);
+  if (path.isAbsolute(cleaned) && escapes(path.relative(root, abs))) {
     abs = path.resolve(root, cleaned.replace(/^\/+/, "")); // "/app/x.py" meant relative to the root
   }
   const rel = path.relative(root, abs);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+  if (escapes(rel)) {
     return undefined;
   }
   return rel.split(path.sep).join("/");

@@ -86,7 +86,7 @@ export function verdictFromJev(r: JevResult): TriageVerdict {
   return {
     source: "jev",
     interrupt: noul(r, "interrupt") ?? 0,
-    issue: issueName in ISSUE_CRITERIA ? issueName : "other",
+    issue: Object.hasOwn(ISSUE_CRITERIA, issueName) ? issueName : "other",
     issueProbability: clamp01(issueProbability),
     severity: score(r, "severity")?.score ?? 0,
     graphOutdated: noul(r, "graph_outdated") ?? 0,
@@ -108,7 +108,7 @@ export function verdictFromLlmJson(text: string): TriageVerdict | undefined {
   try {
     const j = JSON.parse(m[0]) as Record<string, unknown>;
     const issue = String(j.issue ?? "none") as TriageIssue;
-    const known = issue in ISSUE_CRITERIA ? issue : "other";
+    const known = Object.hasOwn(ISSUE_CRITERIA, issue) ? issue : "other";
     return {
       source: "llm",
       interrupt: clamp01(Number(j.interrupt)),
