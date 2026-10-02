@@ -835,3 +835,16 @@ describe("reconcileInterrupts", () => {
     assert.deepStrictEqual(reconcileInterrupts([], ["x"]), []);
   });
 });
+
+describe("verdictFromLlmJson with prose around the JSON", () => {
+  it("takes the first balanced JSON object even when braces follow", () => {
+    const v = verdictFromLlmJson('Verdict: {"interrupt": 0.8, "issue": "typo", "severity": 2} (see {note})');
+    assert.strictEqual(v?.issue, "typo");
+    assert.strictEqual(v?.interrupt, 0.8);
+  });
+
+  it("skips non-JSON braces before the object", () => {
+    const v = verdictFromLlmJson('For {x} the answer is {"interrupt": 0.3, "issue": "none", "note": "a } in a string"}');
+    assert.strictEqual(v?.interrupt, 0.3);
+  });
+});

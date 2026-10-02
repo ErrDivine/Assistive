@@ -136,10 +136,8 @@ export class GraphStore {
   clear(file: string): void {
     const rec = this.get(file);
     if (rec.graph) {
-      rec.history.push(rec.graph);
+      this.setGraph(file, undefined, rec.graph);
     }
-    rec.graph = undefined;
-    this.changed(file);
   }
 
   /** Files with a record loaded in memory. */

@@ -101,12 +101,12 @@ function clamp01(n: number): number {
 
 /** Parse the LLM fallback triage (JSON object, possibly wrapped in prose or a code fence). */
 export function verdictFromLlmJson(text: string): TriageVerdict | undefined {
-  const m = /\{[\s\S]*\}/.exec(text);
-  if (!m) {
+  const raw = firstJsonObject(text);
+  if (!raw) {
     return undefined;
   }
   try {
-    const j = JSON.parse(m[0]) as Record<string, unknown>;
+    const j = JSON.parse(raw) as Record<string, unknown>;
     const issue = String(j.issue ?? "none") as TriageIssue;
     const known = Object.hasOwn(ISSUE_CRITERIA, issue) ? issue : "other";
     return {
@@ -121,6 +121,34 @@ export function verdictFromLlmJson(text: string): TriageVerdict | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** The first balanced `{…}` in `text` (string-aware), e.g. inside prose or a code fence. */
+export function firstJsonObject(text: string): string | undefined {
+  for (let start = text.indexOf("{"); start >= 0; start = text.indexOf("{", start + 1)) {
+    let depth = 0;
+    let inString = false;
+    for (let i = start; i < text.length; i++) {
+      const c = text[i];
+      if (inString) {
+        if (c === "\\") i++;
+        else if (c === '"') inString = false;
+      } else if (c === '"') {
+        inString = true;
+      } else if (c === "{") {
+        depth++;
+      } else if (c === "}" && --depth === 0) {
+        const candidate = text.slice(start, i + 1);
+        try {
+          JSON.parse(candidate);
+          return candidate;
+        } catch {
+          break; // not JSON; try the next "{"
+        }
+      }
+    }
+  }
+  return undefined;
 }
 
 export interface PolicyState {

@@ -75,7 +75,8 @@ export function slugify(raw: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
-    .slice(0, 48);
+    .slice(0, 48)
+    .replace(/_+$/, "");
 }
 
 function editDistance(a: string, b: string): number {

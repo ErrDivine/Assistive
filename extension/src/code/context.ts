@@ -58,7 +58,7 @@ export const EXCLUDED_DIRS = [
 
 export const EXCLUDE_GLOB = `**/{${EXCLUDED_DIRS.join(",")}}/**`;
 
-const SECRET = /(^|\/)(\.env(\..*)?|.*\.(pem|key|p12|pfx|keystore)|id_(rsa|dsa|ecdsa|ed25519)|\.npmrc|\.pypirc|\.netrc|credentials(\.\w+)?|secrets?\.(json|ya?ml|toml))$/i;
+const SECRET = /(^|\/)(\.env(?!\.(example|sample|template)$)(\..*)?|.*\.(pem|key|p12|pfx|keystore)|id_(rsa|dsa|ecdsa|ed25519)|\.npmrc|\.pypirc|\.netrc|credentials(\.\w+)?|secrets?\.(json|ya?ml|toml))$/i;
 
 /** Files the tools refuse to read: keys, credentials, .env files. */
 export function isSecretPath(rel: string): boolean {
@@ -135,8 +135,8 @@ export function resolveImport(spec: string, fromFile: string, language: string, 
       bases = [".", "src", ...ancestors(dir)];
     }
     for (const b of bases) {
-      const stem = mod ? path.posix.join(b, mod) : b;
-      const hit = first([`${stem}.py`, `${stem}/__init__.py`]);
+      // `from . import x` names the package itself: its __init__.py.
+      const hit = mod ? first([`${path.posix.join(b, mod)}.py`, `${path.posix.join(b, mod)}/__init__.py`]) : first([`${b}/__init__.py`]);
       if (hit) {
         return hit;
       }
@@ -216,7 +216,10 @@ export async function projectSummary(
 
   // Sibling modules (first docstring line only) show the neighbourhood.
   const dir = path.posix.dirname(file);
-  const siblings = files.filter((f) => f !== file && path.posix.dirname(f) === dir && ws.languageOf(f) === current.language).slice(0, 8);
+  const shown = new Set(local);
+  const siblings = files
+    .filter((f) => f !== file && !shown.has(f) && path.posix.dirname(f) === dir && ws.languageOf(f) === current.language)
+    .slice(0, 8);
   const sibLines: string[] = [];
   for (const rel of siblings) {
     const text = await ws.read(rel);

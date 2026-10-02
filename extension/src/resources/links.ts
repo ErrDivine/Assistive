@@ -31,20 +31,21 @@ async function probe(url: string, fetchImpl: FetchLike, timeoutMs: number): Prom
     void res.body?.cancel().catch(() => undefined);
     return res.status;
   };
+  let status: number | undefined;
   try {
-    const status = await attempt("HEAD");
-    // Some servers refuse HEAD; ask for one byte instead.
-    if (status === 405 || status === 403 || status === 501 || status === 400) {
-      return await attempt("GET");
-    }
-    return status;
+    status = await attempt("HEAD");
   } catch {
+    status = undefined;
+  }
+  // Some servers refuse HEAD (or fail on it); ask for one byte instead.
+  if (status === undefined || status === 405 || status === 403 || status === 501 || status === 400) {
     try {
       return await attempt("GET");
     } catch {
       return undefined;
     }
   }
+  return status;
 }
 
 export async function checkLinks(
