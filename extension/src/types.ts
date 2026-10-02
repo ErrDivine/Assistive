@@ -1,135 +1,173 @@
-// Wire schemas (design plan §7.2). Mirrored exactly in server/rail_server/models.py.
-// Kept free of `vscode` imports so the webview and unit tests can use it.
+// Shared types: the implementation graph, the activity feed, and the messages
+// between the extension host and the panel webview. No `vscode` import here.
 
-export type Trigger = "cursor_pause" | "edit_pause" | "diagnostic" | "hover" | "explicit";
+export const NODE_KINDS = [
+  "module",
+  "class",
+  "function",
+  "method",
+  "data",
+  "constant",
+  "test",
+  "external",
+  "step",
+] as const;
+export type NodeKind = (typeof NODE_KINDS)[number];
 
-/** 0-based line and character, as VS Code reports them. */
-export interface SourceLoc {
-  path: string;
-  line: number;
-  character: number;
+export const EDGE_KINDS = ["calls", "uses", "contains", "creates", "reads", "writes", "returns", "depends"] as const;
+export type EdgeKind = (typeof EDGE_KINDS)[number];
+
+/**
+ * planned  – nothing typed yet
+ * stubbed  – the symbol exists but its body is a stub (pass / ... / TODO)
+ * done     – the symbol exists with a real body
+ * attention – the heartbeat flagged a problem in it
+ */
+export type NodeStatus = "planned" | "stubbed" | "done" | "attention";
+
+export interface GraphNode {
+  /** Stable slug, unique in the file's graph: `fetch_issues`, `cache_get`. */
+  id: string;
+  kind: NodeKind;
+  /** Short display name; defaults to the symbol or id. */
+  label: string;
+  /** Code name the programmer will type: `fetch_issues`, `Cache.get`. */
+  symbol?: string;
+  /** Planned signature in the file's language. */
+  signature?: string;
+  /** Responsibility in one or two sentences. */
+  description: string;
+  /** Technical considerations: edge cases, errors, complexity, libraries. */
+  notes: string[];
+  /** Suggested typing order (1 = first). */
+  order?: number;
+  status: NodeStatus;
+  /** Why the node needs attention (set by the heartbeat). */
+  attention?: string;
+  /** 0-based line where the symbol is defined, when it exists in the code. */
+  line?: number;
 }
 
-export interface ContextFrame {
-  requestId: number; // strictly increasing per session
-  trigger: Trigger;
-  docUri: string;
-  languageId: string;
-  cursor: { line: number; character: number };
-  enclosingText: string; // enclosing def/class, else ±40 lines; ≤ 4 KB
-  enclosingRange?: { startLine: number; endLine: number }; // 0-based, inclusive
-  symbolAtCursor?: { text: string; definition?: SourceLoc; hoverText?: string };
-  nearbyDefinitions: SourceLoc[]; // ≤ 5
-  recentEdits: { line: number; text: string; ts: number }[]; // ≤ 10
-  diagnostics: { message: string; line: number; source?: string }[]; // within ±5 lines
-  explicitQuestion?: string;
+export interface GraphEdge {
+  from: string;
+  to: string;
+  kind: EdgeKind;
+  label?: string;
 }
 
-/** A real file span: 1-based inclusive lines (invariant I2). */
-export interface SourceRef {
-  path: string;
-  startLine: number;
-  endLine: number;
-  distName?: string;
-  distVersion?: string;
-  repo?: string;
-  commit?: string;
-  deleted?: boolean;
-  runtime?: { pythonVersion: string }; // origin = runtime_doc
+export interface FileGraph {
+  /** Workspace-relative path with forward slashes. */
+  file: string;
+  language: string;
+  /** The module docstring the graph was drafted from. */
+  moduleString: string;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  revision: number;
+  updatedAt: string;
 }
 
-export type FactLabel = "signature" | "summary" | "returns" | "raises" | "param" | "note";
-export type FactOrigin = "signature" | "docstring" | "source_scan" | "runtime_doc";
-
-export interface Fact {
-  label: FactLabel;
-  text: string;
-  origin: FactOrigin;
-  span: SourceRef; // I2
+export interface GraphChangeSummary {
+  added: string[];
+  updated: string[];
+  removed: string[];
+  edgesAdded: number;
+  edgesRemoved: number;
 }
 
-export type CardKind = "api" | "precedent" | "frequent";
+export type ResourceType = "docs" | "tutorial" | "article" | "video" | "book" | "reference" | "course";
 
-export interface Card {
-  id: string; // stable: hash(kind, chunk_id)
-  kind: CardKind;
+export interface Resource {
   title: string;
-  facts: Fact[];
-  snippet?: { text: string; startLine: number };
-  source: SourceRef;
-  confidence: number; // 0..1
-  reason: string;
-  // Extensions (DECISIONS.md D-012)
-  qualname?: string;
-  stale?: boolean;
-  pinned?: boolean;
-  authoredAt?: string;
+  url: string;
+  type: ResourceType;
+  why: string;
+  /** "ok": the link answered; "unverified": could not be checked (kept, marked). */
+  verified?: "ok" | "unverified";
 }
 
-export interface QueryResult {
-  requestId: number;
-  cards: Card[];
-}
+export type IssueKind =
+  | "typo"
+  | "syntax"
+  | "logic_error"
+  | "api_misuse"
+  | "better_implementation"
+  | "missing_edge_case"
+  | "deviates_from_graph"
+  | "security"
+  | "other";
 
-export interface RailEvent {
+interface FeedBase {
+  id: string;
   ts: string;
-  type: string;
-  cardId?: string;
-  qualname?: string;
-  trigger?: string;
-  payload?: Record<string, unknown>;
 }
 
-export interface IndexProgress {
-  phase: string;
-  done: number;
-  total: number;
-  message: string;
+export type FeedItem =
+  | (FeedBase & { kind: "user"; text: string })
+  | (FeedBase & { kind: "assistant"; text: string; changes?: GraphChangeSummary; mode: AgentMode })
+  | (FeedBase & {
+      kind: "interrupt";
+      title: string;
+      message: string;
+      line: number; // 0-based
+      endLine?: number;
+      issue: IssueKind;
+      severity: 1 | 2 | 3;
+      status: "open" | "resolved" | "dismissed";
+      lineText?: string;
+      triage?: string;
+    })
+  | (FeedBase & { kind: "resources"; topic: string; items: Resource[] })
+  | (FeedBase & { kind: "question"; question: string; options: string[]; answered?: string })
+  | (FeedBase & { kind: "code_ref"; path: string; line: number; endLine?: number; note: string })
+  | (FeedBase & { kind: "system"; text: string; level: "info" | "warn" | "error" });
+
+export type AgentMode = "draft" | "chat" | "sync" | "heartbeat";
+
+export interface ServiceStatus {
+  llm: "ready" | "missing" | "error";
+  jev: "ready" | "missing" | "error" | "off";
+  triage: "jev" | "llm" | "off";
+  heartbeat: "on" | "paused" | "off";
+  heartbeatSeconds: number;
+  lastBeat?: string;
+  lastVerdict?: string;
+  busy?: string;
+  configPath?: string;
 }
 
-export interface IndexStatus {
-  dists: number;
-  chunks: number;
-  codeChunks: number;
-  embedded: number;
-  lastSync: string | null;
-  syncing: boolean;
-  embedder: string | null;
-  vectors: number;
-  pythonVersion?: string;
-  pythonPath?: string;
-  dataDir?: string;
+export interface PanelState {
+  file?: string;
+  language?: string;
+  moduleString?: string;
+  moduleStringClosed?: boolean;
+  graph?: FileGraph;
+  feed: FeedItem[];
+  status: ServiceStatus;
+  canUndo: boolean;
+  supported: boolean;
 }
 
-export interface OpenRate {
-  shown: number;
-  opened: number;
-  pinned: number;
-  dismissed: number;
-  openRate: number;
-}
+export type ToPanel =
+  | { type: "state"; state: PanelState }
+  | { type: "focusInput"; text?: string }
+  | { type: "selectNode"; id: string };
 
-export interface MetricsReport {
-  sinceDays: number;
-  generatedAt: string;
-  activeHours: number;
-  externalLookups: number;
-  lookupsPerActiveHour: number | null;
-  lookupsPerActiveHourRailOn?: number | null;
-  lookupsPerActiveHourRailOff?: number | null;
-  cardsShown: number;
-  cardsOpened: number;
-  cardsPinned: number;
-  cardsDismissed: number;
-  byKind: Record<string, OpenRate>;
-  latencyP50Ms: number | null;
-  latencyP95Ms: number | null;
-  queries: number;
-  emptyRateByTrigger: Record<string, number>;
-}
+export type FromPanel =
+  | { type: "ready" }
+  | { type: "send"; text: string }
+  | { type: "draft" }
+  | { type: "sync" }
+  | { type: "undo" }
+  | { type: "beatNow" }
+  | { type: "toggleHeartbeat" }
+  | { type: "openConfig" }
+  | { type: "goto"; line: number; endLine?: number; path?: string }
+  | { type: "openLink"; url: string }
+  | { type: "dismiss"; id: string }
+  | { type: "explain"; id: string }
+  | { type: "answer"; id: string; option: string }
+  | { type: "copy"; text: string };
 
-export interface InitializeResult {
-  serverVersion: string;
-  capabilities: Record<string, boolean>;
-  dataDir?: string;
-}
+/** A feed item before the store assigns its id and timestamp. */
+export type NewFeedItem = FeedItem extends infer T ? (T extends FeedItem ? Omit<T, "id" | "ts"> : never) : never;

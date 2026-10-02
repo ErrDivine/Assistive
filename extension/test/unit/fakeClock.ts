@@ -1,5 +1,5 @@
-// Manual clock for deterministic tests. Structurally satisfies both `Clock`
-// (rail/cardDiff) and `Timers` (context/debounce): nothing runs until `advance`.
+// Manual clock for deterministic tests. Structurally satisfies `Timers`
+// (context/debounce): nothing runs until `advance`.
 
 interface Scheduled {
   id: number;

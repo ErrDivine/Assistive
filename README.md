@@ -1,150 +1,202 @@
-# Assistive · Reference Rail
+# Assistive
 
-Reference Rail is a VS Code companion for Python. It puts the documentation you were about to look up, and code you wrote before, in a side panel next to the cursor. You stay in the editor and still write every line yourself. The rail never edits your code.
+An **implementation graph** that you and an LLM build together, in a VS Code side panel.
 
-- **API cards.** Put the cursor on a library, standard-library or builtin symbol (`requests.get`, `d.get` on a dict, `json.loads`). The card shows its signature, summary, return value, what it raises and up to 3 parameters. The title names the installed version (`requests.get · requests 2.32.3`).
-- **Precedent cards.** Pause while writing a function and the rail shows the most similar function you already wrote. It searches this workspace, your other repos and functions you deleted from git history (marked "deleted in `<sha>`").
-- **Frequent and Pinned.** Things you look up often collect under Frequent. Pin anything you want kept.
-- **Every fact is verified.** Each fact links to a real file span, and text taken from a docstring must appear verbatim in the span it cites. A fact that fails the check is dropped. When nothing clears the confidence bar, the rail shows nothing.
-- **Everything is local.** Indexing, embeddings and ranking run on your machine, and all data lives under `~/.reference-rail/`.
+1. **Write the module docstring.** Describe what the file should do at its top. The assistant drafts a graph of what you will type: functions, classes and methods with concrete signatures, the technical considerations for each, the external APIs involved, and a suggested typing order. It drafts from your docstring and your project (file tree, manifests, README, and the modules you import).
+2. **Steer it in plain language.** Type instructions in the panel's input box, such as "split parsing into its own function" or "what's the best way to cache this?". The LLM edits the graph through a set of tools and replies with a brief summary.
+3. **Type the code yourself.** The assistant never writes your implementation or touches your buffers. As your code appears, the graph follows it: nodes go from *planned* to *stub* to *done*.
+4. **A heartbeat watches, calmly.** While you type, a heartbeat runs at a relaxed interval (45 s by default). [Jev](https://typesafe.ai), TypeSafe AI's System One model, triages each beat in about 100 ms with calibrated probabilities. It looks for a typo, a logic error, API misuse, a missed edge case, a clearly better approach, a security problem, or drift from the plan. Only when Jev's answers cross the thresholds does the LLM take a closer look and decide whether to interrupt you. An interrupt shows in the panel, squiggles the line, and flags the graph node. It resolves itself once you change that line.
+5. **Learn what you're missing.** When the assistant notices that you lack a concept, it recommends a few resources. They are mostly official docs, and every link is checked before it appears in the panel.
 
-| API card (cursor on `session.get`) | Precedent cards (writing `fetch_admins`) |
+![Graph drafted from the module docstring](docs/panel-draft.png)
+
+| Heartbeat interrupt | Steps and node details |
 |---|---|
-| ![API card](docs/rail-api-card.png) | ![Precedent cards](docs/rail-precedent-cards.png) |
+| ![Interrupt](docs/panel-interrupt.png) | ![Steps](docs/panel-steps.png) |
 
-The design is in [`reference-rail-design-plan.md`](reference-rail-design-plan.md). Progress against it is in [`PROGRESS.md`](PROGRESS.md), and every deviation is recorded in [`DECISIONS.md`](DECISIONS.md).
+## Quick start
 
-## Install
+Requirements:
+- VS Code 1.101 or newer (or VSCodium or Cursor);
+- Node.js 22 to build;
+- an OpenAI-compatible LLM endpoint with tool calling (OpenAI, Azure OpenAI, OpenRouter, vLLM, Ollama, LM Studio, and others);
+- a Jev API key (optional: the heartbeat can triage with the LLM instead).
 
-You need VS Code ≥ 1.90 (VSCodium and Cursor also work), Node ≥ 20, and Python ≥ 3.10 for the server. [`uv`](https://docs.astral.sh/uv/) is recommended. The project you edit can use any Python ≥ 3.8.
-
-```bash
+```sh
 git clone https://github.com/ErrDivine/Assistive && cd Assistive/extension
 npm ci
-npm run install-local                 # or: node scripts/install-local.mjs --editor codium|cursor|insiders
+npm run install-local                 # or: npm run install-local -- --editor codium|cursor|insiders
 ```
 
-`install-local` does three things:
-1. Creates the server's own virtualenv in `server/.venv` with `uv sync`, or with `python -m venv` plus pip. This is separate from your project's environment.
-2. Builds the extension.
-3. Links it into the editor's extensions folder. Use `--copy` to copy instead.
+`install-local` builds the extension, links it into your editor, and creates `Assistive/.env` from [`.env.example`](.env.example). Fill in the placeholders:
 
-Restart the editor and open a Python project. The first time, the server indexes your interpreter's packages and the standard library (well under a minute for a typical environment), then your workspace. Progress shows in the status bar.
+```dotenv
+ASSISTIVE_LLM_BASE_URL=https://api.openai.com/v1
+ASSISTIVE_LLM_API_KEY=REPLACE_ME
+ASSISTIVE_LLM_MODEL=REPLACE_ME
 
-**Optional:** for better precedent search, run **Reference Rail: Download Embedding Model** once. It fetches `sentence-transformers/all-MiniLM-L6-v2` (about 90 MB) into `~/.reference-rail/models`. This is the only time Reference Rail uses the network. Without the model, a built-in identifier-hashing embedder is used and everything stays offline.
+ASSISTIVE_JEV_BASE_URL=https://api.typesafe.ai/v1
+ASSISTIVE_JEV_API_KEY=REPLACE_ME
+ASSISTIVE_JEV_MODEL=jev-latest
+```
 
-To develop instead of install, open `extension/` in VS Code and press F5 after `cd server && uv sync`.
+To finish setting up:
+1. Restart the editor, then run **Assistive: Test LLM and Jev Connections** from the Command Palette.
+2. Open a Python, TypeScript or JavaScript file and write its docstring.
 
-### Recommended layout
+The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration** opens it.
 
-Drag the **Reference** view from the activity bar into the **secondary side bar** (View → Appearance → Secondary Side Bar). Cards then sit to the right of your code while the file explorer stays on the left.
+## Using it
 
-## Commands
+| Action | How |
+|---|---|
+| Open the panel | Activity bar → Assistive, or `Ctrl+Alt+G` |
+| Draft a graph | Write the module docstring and close it: the draft starts by itself when the file has no graph yet. Files you only open are not drafted automatically; press **Draft** for those, or **Redraft** after changing a docstring. |
+| Tell the assistant something | Type in the input box (`Enter` sends, `Shift+Enter` adds a line), or press `Ctrl+Alt+/` from the editor |
+| See what to type next | **Steps** tab: nodes in typing order with signatures |
+| Inspect a node | Click it to see its signature, description, notes and edges, plus **Go to code**, **Copy signature** and **Ask about this**. Double-click jumps to the code. |
+| Bring the graph in line with the code | **Sync** (also runs on its own when a heartbeat finds the graph out of date) |
+| Undo a graph change | **Undo** (keeps the last 20 revisions per file) |
+| Check now instead of waiting for the heartbeat | **♥ Check now** |
+| Pause or resume the heartbeat | **Pause** / **Resume** |
+| Handle an interrupt | **Show line**, **Explain more** (a deeper explanation with resources) or **Got it** (it is not raised again) |
+| Export | **Assistive: Export Graph as Mermaid** |
 
-| Command | Default key | What it does |
+**Settings:**
+- `assistive.envFile`: path to the `.env` file.
+- `assistive.autoDraft`
+- `assistive.heartbeat.enabled`
+- `assistive.notifications`: `toast` also shows a notification when the panel is hidden.
+- `assistive.languages`
+
+Graphs and conversations are stored per workspace in the extension's storage folder, never in your repository.
+
+## Configuration (`.env`)
+
+| Variable | Default | Meaning |
 |---|---|---|
-| Reference Rail: Focus the Rail | `Ctrl+Alt+R` | Focus the rail. |
-| Reference Rail: Ask About Symbol | `Ctrl+Alt+/` | Ask about the cursor position, with an optional question. Runs an API lookup plus a precedent search. |
-| Reference Rail: Pin Top Card | | Pin the first live card. |
-| Reference Rail: Pause / Resume | | Stop or restart automatic cards. |
-| Reference Rail: Show Metrics | | Show the metrics report, with CSV export. |
-| Reference Rail: Re-index | | Rebuild the index for the current interpreter and workspace. |
-| Reference Rail: Ping | | Show the server version and process id. |
-| Reference Rail: Download Embedding Model | | One-time download of the local embedding model. |
-| Reference Rail: Clear All Data | | Delete `~/.reference-rail/`, including the index, events, pins and models. |
-| Reference Rail: Show Server Log | | Open the server log. |
-| Reference Rail: Set Up Server Environment | | Re-create the server's virtualenv. |
+| `ASSISTIVE_LLM_BASE_URL` | `https://api.openai.com/v1` | Any OpenAI-compatible Chat Completions endpoint |
+| `ASSISTIVE_LLM_API_KEY` | — | API key (sent as `Authorization: Bearer`) |
+| `ASSISTIVE_LLM_MODEL` | — | A model that supports tool calling |
+| `ASSISTIVE_LLM_TEMPERATURE` | `0.2` | Dropped automatically for models that reject it |
+| `ASSISTIVE_LLM_TIMEOUT_SECONDS` | `120` | Per request |
+| `ASSISTIVE_LLM_MAX_TOOL_ROUNDS` | `8` | Tool-calling rounds per turn before a summary is forced |
+| `ASSISTIVE_LLM_EXTRA_HEADERS` | — | JSON object of extra headers (e.g. OpenRouter's `HTTP-Referer`) |
+| `ASSISTIVE_JEV_BASE_URL` | `https://api.typesafe.ai/v1` | Jev endpoint; requests go to `{base}/systemone` |
+| `ASSISTIVE_JEV_API_KEY` | — | Jev API key |
+| `ASSISTIVE_JEV_MODEL` | `jev-latest` | |
+| `ASSISTIVE_JEV_TIMEOUT_SECONDS` | `10` | |
+| `ASSISTIVE_TRIAGE` | `jev` | Who triages heartbeats: `jev`, `llm` (a cheap JSON verdict), or `off` |
+| `ASSISTIVE_HEARTBEAT_SECONDS` | `45` | Minimum time between beats (at least 15) |
+| `ASSISTIVE_INTERRUPT_THRESHOLD` | `0.65` | Jev's P(interrupt) needed before the LLM is asked |
+| `ASSISTIVE_INTERRUPT_COOLDOWN_SECONDS` | `90` | Quiet time after an interrupt (severe problems still come through) |
+| `ASSISTIVE_GRAPH_SYNC_THRESHOLD` | `0.7` | P(graph out of date) that triggers a sync |
+| `ASSISTIVE_EXPLAIN_THRESHOLD` | `0.75` | P(you are stuck on a concept) that triggers resource suggestions |
+| `ASSISTIVE_VERIFY_LINKS` | `true` | Check recommended links before showing them |
 
-Each card has **Open**, **Pin**, **Copy** and **Dismiss** buttons:
-- **Open** shows the source span beside your editor and leaves the cursor where it was. Runtime builtins and deleted functions open as read-only documents.
-- **Copy** puts the signature or snippet on the clipboard. It never inserts anything.
-- **Dismiss** hides a card for 10 minutes.
+Variables in the process environment (`ASSISTIVE_*`) override the file.
 
-## Settings
+**Where the `.env` is looked up:**
+1. `assistive.envFile`;
+2. `<repository>/.env` when the extension is linked from a checkout;
+3. `~/.assistive/.env`.
 
-| Setting | Default | Meaning |
-|---|---|---|
-| `referenceRail.enabled` | `true` | Show cards automatically. |
-| `referenceRail.pythonPath` | `""` | The interpreter of the project to index. When empty, the Python extension's active interpreter is used, else `python3` on PATH. |
-| `referenceRail.serverPath` | `""` | Python of the rail-server environment. When empty, the bundled `server/.venv` is used. |
-| `referenceRail.extraRepos` | `[]` | Your other local repositories, searched for precedents. |
-| `referenceRail.historyDepth` | `500` | How many recent commits to scan for deleted functions. `0` disables this. |
-| `referenceRail.maxCards` | `3` | Most live cards shown at once. |
-| `referenceRail.indexStdlib` | `true` | Index the interpreter's standard library. |
-| `referenceRail.embeddingBackend` | `auto` | `auto` uses `hybrid` (identifier hashing plus the local model) when the model is downloaded, else `hashing`. |
-| `referenceRail.embeddingModel` | `sentence-transformers/all-MiniLM-L6-v2` | The fastembed model. |
-| `referenceRail.precedentThreshold` | *(calibrated)* | The cosine a precedent must reach. When empty, the value calibrated for the active embedder is used. |
-| `referenceRail.recordSessions` | `false` | Record frames and results for replay (see Dogfooding below). |
-
-## Privacy
-
-- **No uploads.** All data (index, events, pins, models, recordings) stays in `~/.reference-rail/`, and there is no telemetry upload code. `Clear All Data` deletes the folder.
-- **No network.** The server has no HTTP client, and its test suite runs with networking disabled. The one exception is the model download, which runs only when you invoke it.
-- **Never indexed:** files matching `.env*`, `*secret*`, `*.pem`, `venv/`, `.venv/`, `node_modules/` or `site-packages/`, and anything your `.gitignore` excludes. Environment variables are never stored.
-- **Probe is read-only.** The environment probe runs with your interpreter but only reads package metadata. It never imports your packages; it introspects builtins and standard C modules only.
-- **Strict webview.** The rail webview has a strict CSP: no remote resources, and scripts load only with a nonce.
-
-## Reading the metrics
-
-**Reference Rail: Show Metrics** reports the last 14 days (the range can be changed):
-
-- **External lookups per active editing hour** is the north-star metric; lower is better.
-  - An *external lookup* is a window blur lasting 3 s to 10 min that started within 2 minutes of an edit, with no debug session running. It stands in for leaving the editor to look something up.
-  - An *active hour* is an hour with at least 6 minutes that had edits.
-  - The figure is also split by whether the rail was on or paused, which supports on/off-day comparisons.
-- **Cards shown, opened, pinned and dismissed**, with the open rate per card kind (api, precedent, frequent). A high dismiss rate means the rail is interrupting more than it helps.
-- **Query latency p50/p95** is the server-side `context/query` time. The budgets are 150 ms for API lookups and 400 ms with precedent search.
-- **Empty-result rate per trigger.** Empty is fine: the rail prefers showing nothing over showing something wrong.
-
-**Export CSV…** writes the same numbers as `metric,value` rows.
-
-## Dogfooding guide
-
-1. **Install and work as usual** for a few days, with the rail in the secondary side bar.
-2. **Turn on `referenceRail.recordSessions`.** Each frame and its result are appended to `~/.reference-rail/sessions/<date>.jsonl`.
-3. **When a card is wrong, dismiss it.** When one is missing, press `Ctrl+Alt+/`. Both are logged and show up in the metrics.
-4. **Compare on and off days.** Pause the rail on alternate days with `Pause / Resume`, then compare "lookups per active hour (rail on / rail off)" in the metrics.
-5. **Replay recordings against a new build** to compare latency and empty-result rates:
-   ```bash
-   uv run --project server python eval/run_eval.py --replay ~/.reference-rail/sessions/2026-10-01.jsonl
-   ```
-6. **Turn missed cases into eval queries.** Add them to `eval/queries.jsonl` (schema below) and re-run the evaluation.
-
-## Repository layout and development
+## How it works
 
 ```
-extension/   VS Code extension (TypeScript, no UI framework)
-server/      rail-server (Python, own uv-managed virtualenv); JSON-RPC over stdio
-eval/        fixtures (make_fixtures.py), 108 labeled queries, run_eval.py, baseline.json
-scripts/     check_invariants.sh (I1 no buffer edits, I4 no network, I7 no telemetry)
+ module docstring ──► draft ──┐        programmer's message ──► chat ──┐
+                              ▼                                        ▼
+                      ┌──────────────────── LLM agent loop ───────────────────┐
+                      │ OpenAI chat.completions + tools: look, graph, talk     │
+                      └────────────────────────────────────────────────────────┘
+                              │ validated batch edits          │ resources, questions,
+                              ▼                                ▼ code pointers, interrupts
+                       implementation graph ◄── statuses ── tree-sitter outline of your code
+                              ▲
+   typing ─► heartbeat ─► Jev triage (5 typed questions) ─► thresholds ─► LLM: interrupt or stand down
+                                                         └► graph out of date ─► sync
+                                                         └► stuck on a concept ─► resources
 ```
 
-```bash
-# server
-cd server && uv sync
-uv run ruff check rail_server tests && uv run mypy rail_server
-uv run python ../eval/fixtures/make_fixtures.py         # fixture venv + git repos
-RAIL_NO_NETWORK=1 uv run pytest -q                       # 62 tests, network disabled
+**The tools.** The LLM works only through tools. Every tool has a JSON Schema with enums and bounds, is validated before it runs, and returns text written for the model, such as `ok: added 'cache_get'` or `error: unknown node id 'fetch_isues'. Did you mean 'fetch_issues'?`. The model can then correct itself within the same turn.
 
-# extension
-cd extension && npm ci
-npm run lint && npm run typecheck && npm run test:unit   # 274 unit tests
-xvfb-run -a npm run test:integration                     # 15 tests in a real VS Code
-#   VSCODE_EXECUTABLE=/path/to/codium uses an existing VS Code/VSCodium build
+| Family | Tools |
+|---|---|
+| Look (read-only) | `get_file_outline`, `read_file` (live buffer, numbered lines, secrets refused), `search_code`, `list_files`, `get_diagnostics`, `get_graph`, `get_recent_edits` |
+| Graph (batch edits) | `add_nodes`, `update_nodes`, `remove_nodes`, `connect`, `disconnect` |
+| Talk | `recommend_resources` (links are checked), `ask_programmer` (clickable options), `point_to_code` |
+| Heartbeat only | `interrupt_programmer` (once per beat), `stand_down` |
 
-# evaluation (recall@3, MRR, precision, latency, empty rate; fails on >5% regression)
-uv run --project server python eval/run_eval.py --check eval/baseline.json
-uv run --project server python eval/run_eval.py --calibrate      # choose the precedent threshold
-uv run --project server python eval/run_eval.py --spike          # compare embedding models
+Each kind of turn gets only the tools it needs. Drafting cannot point to code that does not exist yet; a heartbeat can interrupt but not restructure the plan.
+
+**The heartbeat.** A beat runs when all of these hold:
+- you typed since the last beat;
+- the interval has passed;
+- you paused for 2 s;
+- the window is focused.
+
+Jev receives a compact state:
+- the file and its docstring;
+- the plan;
+- the cursor's enclosing scope, with line numbers;
+- the diff since the last beat;
+- the diagnostics;
+- the recent conversation.
+
+It answers five questions in its official format:
+
+| Question | Type |
+|---|---|
+| `interrupt` | noul |
+| `issue` | choice: none, typo, syntax, logic_error, api_misuse, better_implementation, missing_edge_case, deviates_from_graph, security |
+| `severity` | score over 4 described levels |
+| `graph_outdated` | noul |
+| `struggling` | noul |
+
+The LLM is woken when all of these hold:
+- $P(\text{interrupt}) \ge 0.65$;
+- $1 - P(\text{none}) \ge 0.5$;
+- $\text{severity} \ge 1.5$;
+- the 90 s cooldown has passed, unless $\text{severity} \ge 2.5$.
+
+Even then it may stand down. Repeated problems on an unchanged line are never re-raised. See [DESIGN.md](DESIGN.md).
+
+**What leaves your machine:**
+- **To the LLM endpoint:** the docstring, outlines, code you or it asks for, diffs, diagnostics and your messages.
+- **To Jev:** the compact state above, which holds at most about 60 lines of the current scope and 3000 characters of diff.
+- **To the recommended sites:** the link checks are `HEAD` requests to those URLs.
+
+Files that look like secrets are never read by the tools: `.env`, keys, credentials and similar files.
+
+## Development
+
+```sh
+cd extension
+npm ci
+npm run lint && npm run typecheck && npm run build
+npm run test:unit           # mocha; fake OpenAI and Jev HTTP servers, no network
+xvfb-run -a npm run test:integration   # the real extension in VS Code (VSCODE_EXECUTABLE=… for VSCodium)
 ```
 
-Each line of `eval/queries.jsonl` has these fields:
-- `kind`: `api`, `precedent` or `diagnostic`.
-- `trigger`.
-- `file`.
-- `at`: `{find, offset, occurrence}`, which places the cursor.
-- `definition`: an optional simulated go-to-definition.
-- `hover`.
-- `enclosing_text` (precedent queries only).
-- `diagnostics`.
-- `expected`: a list of qualnames. `[]` means nothing should be shown.
+Layout of `extension/src/`:
+- `code/`: tree-sitter outline and module strings, edit tracking, workspace access.
+- `graph/`: the graph model and its validated editor.
+- `llm/`: the OpenAI agent loop, the tools, the prompts and the Jev client.
+- `assistant/`: draft, chat, sync and heartbeat turns.
+- `heartbeat/`: policy and runner.
+- `panel/`: the webview, built with cytoscape + dagre, marked and DOMPurify.
+- `controller.ts`: the VS Code wiring.
+
+Built on these open-source projects:
+- [@vscode/tree-sitter-wasm](https://github.com/microsoft/vscode-tree-sitter-wasm);
+- [Cytoscape.js](https://js.cytoscape.org) with [cytoscape-dagre](https://github.com/cytoscape/cytoscape.js-dagre);
+- [openai-node](https://github.com/openai/openai-node);
+- [marked](https://marked.js.org) and [DOMPurify](https://github.com/cure53/DOMPurify);
+- [jsdiff](https://github.com/kpdecker/jsdiff);
+- [dotenv](https://github.com/motdotla/dotenv).
+
+## Limitations
+
+- Languages: Python, TypeScript and JavaScript (TSX/JSX included). Other languages get no outline or graph yet.
+- The Jev request and response format follows TypeSafe's public documentation. In this repository it is exercised against a faithful fake server, not the live service. Run **Test LLM and Jev Connections** after filling in your key. If your account uses a different base URL, set `ASSISTIVE_JEV_BASE_URL`.
+- Quality depends on the LLM. Use a model that is good at tool calling.

@@ -1,0 +1,237 @@
+// End-to-end inside VS Code: the real extension against fake OpenAI and Jev
+// servers. The test types the module docstring and code like a programmer.
+
+import * as assert from "node:assert";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as vscode from "vscode";
+import type { AssistiveApi } from "../../src/extension";
+import type { FeedItem } from "../../src/types";
+import { FakeServers, jevAnswers, scriptedAssistant, systemPrompt } from "../support/fakeServers";
+
+const workspace = process.env.ASSISTIVE_IT_WORKSPACE!;
+const envFile = process.env.ASSISTIVE_IT_ENV!;
+const wcPath = path.join(workspace, "wc.py");
+
+async function waitFor<T>(what: string, fn: () => T | undefined | false | Promise<T | undefined | false>, timeoutMs = 20_000): Promise<T> {
+  const start = Date.now();
+  for (;;) {
+    const v = await fn();
+    if (v) return v;
+    if (Date.now() - start > timeoutMs) throw new Error(`timed out waiting for ${what}`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
+/** True while the test itself is typing. */
+let typing = false;
+
+async function typeText(text: string, chunk = 12): Promise<void> {
+  // Insert in chunks at the selection (the "type" command would auto-indent).
+  const editor = vscode.window.activeTextEditor!;
+  typing = true;
+  try {
+    for (let i = 0; i < text.length; i += chunk) {
+      const piece = text.slice(i, i + chunk);
+      const sel = editor.selection;
+      await editor.edit((eb) => (sel.isEmpty ? eb.insert(sel.active, piece) : eb.replace(sel, piece)));
+      const end = editor.selection.end;
+      editor.selection = new vscode.Selection(end, end);
+    }
+    await new Promise((r) => setTimeout(r, 200)); // let change events arrive
+  } finally {
+    typing = false;
+  }
+}
+
+describe("Assistive in VS Code", function () {
+  let fake: FakeServers;
+  let api: AssistiveApi;
+  let editor: vscode.TextEditor;
+  /** What the test itself typed; the extension must never change the buffer (I1). */
+  let expected = "";
+  const foreignChanges: string[] = [];
+
+  const c = () => api.controller;
+  const key = () => editor.document.uri.fsPath;
+  const feed = () => c().store.get(key()).feed;
+  const graph = () => c().store.graph(key());
+  const ofKind = <K extends FeedItem["kind"]>(k: K) => feed().filter((f): f is Extract<FeedItem, { kind: K }> => f.kind === k);
+
+  before(async () => {
+    fake = await new FakeServers().start();
+    fake.chat = scriptedAssistant(fake.base, { interruptLine: 7 });
+    fake.jev = (req) => ({ body: jevAnswers(req, { interrupt: 0.05, issue: "none", severity: 0 }) });
+    fs.mkdirSync(path.dirname(envFile), { recursive: true });
+    fs.writeFileSync(
+      envFile,
+      [
+        `ASSISTIVE_LLM_BASE_URL=${fake.base}/v1`,
+        "ASSISTIVE_LLM_API_KEY=sk-test",
+        "ASSISTIVE_LLM_MODEL=fake-model",
+        `ASSISTIVE_JEV_BASE_URL=${fake.base}/v1`,
+        "ASSISTIVE_JEV_API_KEY=jev-test",
+        "ASSISTIVE_HEARTBEAT_SECONDS=600",
+      ].join("\n"),
+    );
+    const ext = vscode.extensions.getExtension<AssistiveApi>("errdivine.assistive");
+    assert.ok(ext, "extension is installed");
+    api = await ext.activate();
+    c().reloadConfig();
+    vscode.workspace.onDidChangeTextDocument((e) => {
+      if (e.document.uri.fsPath === wcPath && e.contentChanges.length && !typing) {
+        foreignChanges.push(e.contentChanges.map((x) => x.text).join(""));
+      }
+    });
+  });
+
+  after(async () => {
+    await fake.stop();
+  });
+
+  it("registers its commands and the panel", async () => {
+    const cmds = await vscode.commands.getCommands(true);
+    for (const id of ["assistive.focus", "assistive.ask", "assistive.draftGraph", "assistive.heartbeatNow", "assistive.openConfig", "assistive.testConnection"]) {
+      assert.ok(cmds.includes(id), id);
+    }
+    await vscode.commands.executeCommand("assistive.focus");
+    await waitFor("panel visible", () => c().panel.visible);
+  });
+
+  it("tests the LLM and Jev connections", async () => {
+    const lines = await c().testConnection();
+    assert.match(lines[0], /^LLM fake-model: OK in \d+ ms$/);
+    assert.match(lines[1], /^Jev jev-1.13.0: answered in \d+ ms/);
+  });
+
+  it("does not draft files that are only opened", async () => {
+    const other = await vscode.workspace.openTextDocument(path.join(workspace, "existing.py"));
+    await vscode.window.showTextDocument(other, vscode.ViewColumn.One);
+    await waitFor("panel shows the file", () => c().lastPanelState?.file === "existing.py");
+    await new Promise((r) => setTimeout(r, 3500));
+    assert.strictEqual(c().store.graph(other.uri.fsPath), undefined);
+    assert.strictEqual(fake.chatRequests.filter((r) => /Task: draft/.test(systemPrompt(r))).length, 0);
+    assert.strictEqual(c().lastPanelState?.moduleStringClosed, true);
+    await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+  });
+
+  it("drafts the graph once the module docstring is written", async () => {
+    const doc = await vscode.workspace.openTextDocument(wcPath);
+    editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+    const docstring = '"""Count the most common words in a text file and print them."""\n';
+    expected = docstring;
+    await typeText(docstring);
+    assert.strictEqual(editor.document.getText(), expected);
+    const g = await waitFor("auto-draft", () => (graph()?.nodes.length ? graph() : undefined));
+    assert.deepStrictEqual(g.nodes.map((n) => n.id), ["parse_line", "count_words", "main", "counter"]);
+    assert.strictEqual(g.file, "wc.py");
+    const draftReq = fake.chatRequests.find((r) => /Task: draft/.test(systemPrompt(r)))!;
+    assert.match(draftReq.messages[1].content ?? "", /README.md \(head\):\n# Word count/);
+    const resources = await waitFor("resources", () => ofKind("resources")[0]);
+    assert.deepStrictEqual(resources.items.map((r) => r.verified), ["ok"]);
+    assert.ok(fake.linkRequests.some((r) => r.url === "/docs/missing"), "the dead link was checked");
+    const summary = ofKind("assistant")[0];
+    assert.match(summary.text, /start with `parse_line`/);
+    // The panel received the state.
+    await waitFor("panel state", () => c().lastPanelState?.graph?.nodes.length === 4);
+    assert.strictEqual(c().lastPanelState?.moduleStringClosed, true);
+  });
+
+  it("changes the graph from an instruction and summarizes", async () => {
+    await c().send("Add a helper that returns the top N words.");
+    assert.ok(graph()!.nodes.some((n) => n.id === "top_n"));
+    assert.match(ofKind("assistant").at(-1)!.text, /Added a `top_n` helper/);
+    assert.ok(ofKind("user").some((u) => u.text.startsWith("Add a helper")));
+  });
+
+  it("undoes the last graph change", async () => {
+    await vscode.commands.executeCommand("assistive.undoGraph");
+    assert.ok(!graph()!.nodes.some((n) => n.id === "top_n"));
+  });
+
+  it("tracks the code the programmer types", async () => {
+    const code = "\nfrom collections import Counter\n\n\ndef parse_line(line: str) -> list[str]:\n    pass\n";
+    expected += code;
+    editor.selection = new vscode.Selection(editor.document.lineCount, 0, editor.document.lineCount, 0);
+    await typeText(code, 40);
+    assert.strictEqual(editor.document.getText(), expected);
+    await editor.document.save();
+    await waitFor("parse_line stubbed", () => graph()!.nodes.find((n) => n.id === "parse_line")?.status === "stubbed");
+    assert.strictEqual(graph()!.nodes.find((n) => n.id === "parse_line")!.line, 5);
+  });
+
+  it("stays quiet on a calm heartbeat", async () => {
+    const before = feed().length;
+    const r = await c().beatNow();
+    assert.strictEqual(r?.outcome, "no_action");
+    assert.strictEqual(r?.verdict?.source, "jev");
+    assert.strictEqual(feed().length, before);
+    const state = fake.jevRequests.at(-1)!.body.state as Record<string, unknown>;
+    assert.strictEqual(state.file, "wc.py");
+    assert.ok((state.plan as { nodes: unknown[] }).nodes.length >= 4);
+  });
+
+  it("interrupts on a real problem, squiggles the line, and resolves when fixed", async () => {
+    // Replace `pass` with a buggy body.
+    const passLine = editor.document.lineAt(6);
+    editor.selection = new vscode.Selection(6, 4, 6, passLine.text.length);
+    const buggy = "return [w.lowr() for w in line.split()]";
+    expected = expected.replace("    pass\n", `    ${buggy}\n`);
+    await typeText(buggy, 40);
+    assert.strictEqual(editor.document.getText(), expected);
+    fake.jev = (req) => ({ body: jevAnswers(req, { interrupt: 0.93, issue: "typo", severity: 3 }) });
+    const r = await c().beatNow();
+    assert.strictEqual(r?.outcome, "interrupted");
+    const intr = ofKind("interrupt")[0];
+    assert.strictEqual(intr.title, "Typo in a method name");
+    assert.strictEqual(intr.line, 6);
+    const diags = await waitFor("squiggle", () => {
+      const d = vscode.languages.getDiagnostics(editor.document.uri).filter((x) => x.source === "Assistive");
+      return d.length ? d : undefined;
+    });
+    assert.strictEqual(diags[0].range.start.line, 6);
+    assert.strictEqual(diags[0].severity, vscode.DiagnosticSeverity.Error);
+    assert.strictEqual(diags[0].code, "typo");
+    await waitFor("node flagged", () => graph()!.nodes.find((n) => n.id === "parse_line")?.status === "attention");
+
+    // The programmer fixes the line: the interrupt resolves and the squiggle goes away.
+    const lowr = editor.document.lineAt(6).text.indexOf("lowr");
+    editor.selection = new vscode.Selection(6, lowr, 6, lowr + 4);
+    expected = expected.replace("w.lowr()", "w.lower()");
+    await typeText("lower");
+    assert.strictEqual(editor.document.getText(), expected);
+    await waitFor("interrupt resolved", () => ofKind("interrupt")[0].status === "resolved");
+    await waitFor("squiggle cleared", () => !vscode.languages.getDiagnostics(editor.document.uri).some((x) => x.source === "Assistive"));
+    await waitFor("node unflagged", () => graph()!.nodes.find((n) => n.id === "parse_line")?.status === "done");
+  });
+
+  it("exports the graph as Mermaid in a new untitled document", async () => {
+    await vscode.commands.executeCommand("assistive.exportGraph");
+    const md = await waitFor("export", () =>
+      vscode.window.activeTextEditor?.document.isUntitled ? vscode.window.activeTextEditor.document : undefined,
+    );
+    assert.match(md.getText(), /```mermaid\nflowchart TD\n {2}parse_line\[/);
+    await vscode.commands.executeCommand("workbench.action.revertAndCloseActiveEditor");
+  });
+
+  it("creates the .env template when the configured file is missing", async () => {
+    const fresh = path.join(path.dirname(envFile), "fresh", ".env");
+    await vscode.workspace.getConfiguration("assistive").update("envFile", fresh, vscode.ConfigurationTarget.Workspace);
+    try {
+      await c().openConfig();
+      assert.ok(fs.existsSync(fresh));
+      assert.match(fs.readFileSync(fresh, "utf8"), /ASSISTIVE_LLM_API_KEY=REPLACE_ME/);
+      assert.strictEqual(vscode.window.activeTextEditor?.document.uri.fsPath, fresh);
+      await waitFor("llm missing", () => c().lastPanelState?.status.llm === "missing");
+      await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+    } finally {
+      await vscode.workspace.getConfiguration("assistive").update("envFile", envFile, vscode.ConfigurationTarget.Workspace);
+    }
+    await waitFor("llm ready again", () => c().lastPanelState?.status.llm === "ready");
+  });
+
+  it("never modified the programmer's buffer (I1)", () => {
+    assert.deepStrictEqual(foreignChanges, []);
+    assert.strictEqual(fs.readFileSync(wcPath, "utf8").startsWith('"""Count the most common words'), true);
+  });
+});

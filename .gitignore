@@ -1,25 +1,11 @@
-# Python
-__pycache__/
-*.pyc
-.venv/
-.ruff_cache/
-.mypy_cache/
-.pytest_cache/
-*.egg-info/
-
 # Node / extension build
 node_modules/
 extension/dist/
 extension/out/
 extension/.vscode-test/
-extension/server/
 *.vsix
 
-# Generated fixtures (rebuilt by eval/fixtures/make_fixtures.py)
-eval/fixtures/.venv/
-eval/fixtures/fixture_app/
-eval/fixtures/fixture_history/
-eval/results/
-
-# Local data
-.reference-rail/
+# API keys live here; .env.example is the committed template.
+.env
+.env.*
+!.env.example

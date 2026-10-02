@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src {{cspSource}} data:; style-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; script-src 'nonce-{{nonce}}';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{{styleUri}}" />
+    <title>Implementation Graph</title>
+  </head>
+  <body>
+    <header id="top">
+      <div class="row">
+        <span id="file" class="file" title="">No file</span>
+        <span id="pills" class="pills"></span>
+      </div>
+      <div class="row toolbar">
+        <button id="btn-draft" title="Draft the graph from the module docstring">Draft</button>
+        <button id="btn-sync" class="secondary" title="Update the graph from the code you typed">Sync</button>
+        <button id="btn-undo" class="secondary" title="Undo the last graph change">Undo</button>
+        <span class="spacer"></span>
+        <button id="btn-beat" class="ghost" title="Run a heartbeat check now">♥ Check now</button>
+        <button id="btn-pause" class="ghost" title="Pause or resume the heartbeat">Pause</button>
+        <button id="btn-config" class="ghost icon" title="Open the API configuration (.env)">⚙</button>
+      </div>
+      <div id="docstring" class="docstring"></div>
+    </header>
+
+    <section id="graph-section">
+      <nav class="tabs">
+        <button id="tab-graph" class="tab active">Graph</button>
+        <button id="tab-steps" class="tab">Steps</button>
+        <span class="spacer"></span>
+        <span id="legend" class="legend">
+          <i class="dot planned"></i>planned <i class="dot stubbed"></i>stub <i class="dot done"></i>done <i class="dot attention"></i>attention
+        </span>
+        <button id="btn-fit" class="ghost icon" title="Fit the graph to the view">⤢</button>
+      </nav>
+      <div id="graph-wrap">
+        <div id="cy"></div>
+        <ol id="steps" hidden></ol>
+        <div id="graph-empty" class="empty" hidden></div>
+      </div>
+      <div id="details" hidden></div>
+    </section>
+
+    <section id="feed" aria-live="polite"></section>
+
+    <footer id="compose">
+      <div id="busy" hidden><span class="spinner"></span><span id="busy-text"></span></div>
+      <div class="input-row">
+        <textarea id="input" rows="2" placeholder="Tell the assistant what to change, or ask…" title="Enter sends; Shift+Enter adds a line"></textarea>
+        <button id="btn-send" title="Send (Enter)">Send</button>
+      </div>
+    </footer>
+
+    <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+  </body>
+</html>

@@ -1,13 +1,13 @@
-// Bundles the extension host code and the rail webview script.
+// Bundles the extension host code, the panel webview and the tree-sitter WASM files.
 import * as esbuild from "esbuild";
-import { readdirSync, statSync, copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const watch = process.argv.includes("--watch");
 const tests = process.argv.includes("--tests");
 const production = process.argv.includes("--production");
 
-const common = { bundle: true, sourcemap: !production, minify: production, logLevel: "info" };
+const common = { bundle: true, sourcemap: !production, minify: production, logLevel: "warning" };
 
 const builds = [
   {
@@ -16,13 +16,13 @@ const builds = [
     outfile: "dist/extension.js",
     platform: "node",
     format: "cjs",
-    target: "node20",
+    target: "node22",
     external: ["vscode"],
   },
   {
     ...common,
-    entryPoints: ["src/rail/webview/rail.ts"],
-    outfile: "dist/webview/rail.js",
+    entryPoints: ["src/panel/webview/panel.ts"],
+    outfile: "dist/webview/panel.js",
     platform: "browser",
     format: "iife",
     target: "es2022",
@@ -47,14 +47,20 @@ if (tests) {
     outbase: "test",
     platform: "node",
     format: "cjs",
-    target: "node20",
+    target: "node22",
     external: ["vscode", "mocha", "@vscode/test-electron"],
   });
 }
 
+// Static assets: webview template + styles, tree-sitter runtime and grammars.
 mkdirSync("dist/webview", { recursive: true });
-copyFileSync("src/rail/webview/rail.css", "dist/webview/rail.css");
-copyFileSync("src/rail/webview/index.html", "dist/webview/index.html");
+mkdirSync("dist/wasm", { recursive: true });
+copyFileSync("src/panel/webview/index.html", "dist/webview/index.html");
+copyFileSync("src/panel/webview/panel.css", "dist/webview/panel.css");
+const wasmDir = "node_modules/@vscode/tree-sitter-wasm/wasm";
+for (const f of ["tree-sitter.wasm", "tree-sitter-python.wasm", "tree-sitter-typescript.wasm", "tree-sitter-tsx.wasm", "tree-sitter-javascript.wasm"]) {
+  copyFileSync(join(wasmDir, f), join("dist/wasm", f));
+}
 
 if (watch) {
   for (const b of builds) (await esbuild.context(b)).watch();

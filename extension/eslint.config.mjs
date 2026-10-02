@@ -12,11 +12,11 @@ export default tseslint.config(
         "error",
         {
           selector: "CallExpression > MemberExpression.callee[property.name=/^(applyEdit|edit|insertSnippet)$/]",
-          message: "Invariant I1: Reference Rail never modifies the user's buffers.",
+          message: "Invariant I1: Assistive never modifies the user's buffers.",
         },
         {
           selector: "NewExpression[callee.property.name='WorkspaceEdit']",
-          message: "Invariant I1: Reference Rail never modifies the user's buffers.",
+          message: "Invariant I1: Assistive never modifies the user's buffers.",
         },
       ],
     },

@@ -1,13 +1,14 @@
-// Install Reference Rail from this checkout into VS Code (or VSCodium / Cursor).
+// Install Assistive from this checkout into VS Code (or VSCodium / Cursor).
 //
 //   node scripts/install-local.mjs [--editor code|codium|cursor|insiders] [--copy]
 //
-// 1. creates the server's own virtualenv (server/.venv) with uv, or python -m venv + pip;
-// 2. builds the extension (production bundle);
-// 3. links this folder into the editor's extensions directory (a directory junction on
-//    Windows), or copies it with --copy (then the server sources are copied alongside).
-// Restart the editor afterwards. Steps 1 downloads Python packages from PyPI.
-import { execFileSync, spawnSync } from "node:child_process";
+// 1. builds the extension (production bundle);
+// 2. links this folder into the editor's extensions directory (a directory junction on
+//    Windows), or copies the built files with --copy;
+// 3. creates the .env with placeholders if there is none: <repo>/.env when linked,
+//    ~/.assistive/.env when copied.
+// Restart the editor afterwards, fill in the .env, and open a Python/TypeScript file.
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -15,7 +16,7 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ext = path.resolve(here, "..");
-const server = path.resolve(ext, "..", "server");
+const repo = path.resolve(ext, "..");
 const pkg = JSON.parse(fs.readFileSync(path.join(ext, "package.json"), "utf8"));
 const args = process.argv.slice(2);
 const editor = args.includes("--editor") ? args[args.indexOf("--editor") + 1] : "code";
@@ -40,36 +41,13 @@ function run(cmd, cmdArgs, cwd) {
   }
 }
 
-function has(cmd) {
-  try {
-    execFileSync(cmd, ["--version"], { stdio: "ignore", shell: process.platform === "win32" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// 1. Server environment.
-const venvPy = process.platform === "win32"
-  ? path.join(server, ".venv", "Scripts", "python.exe")
-  : path.join(server, ".venv", "bin", "python");
-if (!fs.existsSync(venvPy)) {
-  if (has("uv")) {
-    run("uv", ["sync", "--frozen", "--no-dev"], server);
-  } else {
-    const py = process.platform === "win32" ? "python" : "python3";
-    run(py, ["-m", "venv", ".venv"], server);
-    run(venvPy, ["-m", "pip", "install", "--disable-pip-version-check", "."], server);
-  }
-}
-
-// 2. Build.
+// 1. Build.
 if (!fs.existsSync(path.join(ext, "node_modules"))) {
   run("npm", ["ci"], ext);
 }
 run("node", ["esbuild.mjs", "--production"], ext);
 
-// 3. Link or copy into the editor's extensions folder.
+// 2. Link or copy into the editor's extensions folder.
 const target = path.join(os.homedir(), dirs[editor], `${pkg.publisher}.${pkg.name}-${pkg.version}`);
 fs.mkdirSync(path.dirname(target), { recursive: true });
 fs.rmSync(target, { recursive: true, force: true });
@@ -77,13 +55,19 @@ if (copy) {
   for (const item of ["package.json", "dist", "media"]) {
     fs.cpSync(path.join(ext, item), path.join(target, item), { recursive: true });
   }
-  fs.cpSync(server, path.join(target, "server"), {
-    recursive: true,
-    filter: (src) => !/[\\/](\.mypy_cache|\.pytest_cache|\.ruff_cache|__pycache__|tests)$/.test(src),
-  });
 } else {
   fs.symlinkSync(ext, target, process.platform === "win32" ? "junction" : "dir");
 }
-console.log(`\nInstalled to ${target}. Restart ${editor} and open a Python project.`);
-console.log("Optional, for better precedent search (downloads ~90 MB once):");
-console.log("  Command Palette → \"Reference Rail: Download Embedding Model\"");
+
+// 3. The API configuration, with placeholders to fill in.
+const envFile = copy ? path.join(os.homedir(), ".assistive", ".env") : path.join(repo, ".env");
+if (!fs.existsSync(envFile)) {
+  fs.mkdirSync(path.dirname(envFile), { recursive: true });
+  fs.copyFileSync(path.join(repo, ".env.example"), envFile);
+  fs.chmodSync(envFile, 0o600);
+  console.log(`Created ${envFile} from .env.example.`);
+}
+
+console.log(`\nInstalled to ${target}.`);
+console.log(`Next: fill in the REPLACE_ME values in ${envFile}, restart ${editor}, and open a Python or TypeScript file.`);
+console.log('Check the setup any time with Command Palette → "Assistive: Test LLM and Jev Connections".');

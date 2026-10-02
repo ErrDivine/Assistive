@@ -6,9 +6,10 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
     "skipLibCheck": true,
+    "esModuleInterop": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "types": []
   },
-  "include": ["src/rail/webview/**/*.ts", "src/types.ts", "src/rail/cardDiff.ts"]
+  "include": ["src/panel/webview/**/*.ts", "src/types.ts"]
 }
