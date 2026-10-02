@@ -264,8 +264,8 @@ export class Controller implements vscode.Disposable {
       return; // focus moved to the panel or another view: keep showing the last file
     }
     const doc = editor.document;
-    if (doc.uri.scheme === "output" || doc.uri.scheme === "vscode-settings") {
-      return;
+    if (!this.supported(doc) && this.activeDoc && !this.activeDoc.isClosed) {
+      return; // reading docs or config: keep showing the file being implemented
     }
     this.activeDoc = doc;
     this.track(doc);
@@ -385,6 +385,9 @@ export class Controller implements vscode.Disposable {
         continue;
       }
       this.toasted.add(f.id);
+      if (Date.now() - Date.parse(f.ts) > 120_000) {
+        continue; // restored from an earlier session
+      }
       this.heartbeat.noteInterrupt(key);
       if (this.panel.visible || this.settings().get<string>("notifications", "toast") !== "toast") {
         continue;
@@ -416,6 +419,7 @@ export class Controller implements vscode.Disposable {
       else this.errors.llm = r.error;
     } else if (r.verdict) {
       if (r.verdict.source === "jev") this.errors.jev = undefined;
+      if (r.verdict.source === "llm" || r.outcome !== "no_action") this.errors.llm = undefined;
     }
     this.refresh.trigger();
   }
@@ -493,9 +497,12 @@ export class Controller implements vscode.Disposable {
   private async run(fn: () => Promise<unknown>): Promise<void> {
     try {
       await fn();
+      this.errors.llm = undefined;
     } catch (err) {
-      this.log.error((err as Error).message);
+      this.errors.llm = (err as Error).message;
+      this.log.error(this.errors.llm);
     }
+    this.refresh.trigger();
   }
 
   private requireFile(): FileHandle | undefined {

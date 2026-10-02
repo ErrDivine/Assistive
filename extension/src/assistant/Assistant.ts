@@ -346,10 +346,13 @@ export class Assistant {
         }
       },
     };
+    let finished = false;
     const publish = async () => {
       const g = editor.result();
       syncWithOutline(g, await outlineNow());
-      store.setGraph(h.key, g, false);
+      if (!finished) {
+        store.setGraph(h.key, g, false);
+      }
     };
 
     try {
@@ -376,6 +379,7 @@ export class Assistant {
           }
         },
       });
+      finished = true;
       const changes = editor.summary();
       if (editor.changed) {
         outline = undefined;
@@ -408,6 +412,7 @@ export class Assistant {
       );
       return result;
     } catch (err) {
+      finished = true;
       // Roll back live previews of a failed or cancelled turn.
       if (editor.changed) {
         store.setGraph(h.key, before, false);

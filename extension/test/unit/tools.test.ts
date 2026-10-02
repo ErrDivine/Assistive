@@ -68,10 +68,20 @@ describe("tool sets", () => {
     const look = ["get_file_outline", "read_file", "search_code", "list_files", "get_diagnostics"];
     const edit = ["add_nodes", "update_nodes", "remove_nodes", "connect", "disconnect"];
     assert.deepStrictEqual(names("draft"), [...look, "get_graph", ...edit, "recommend_resources", "ask_programmer"]);
-    assert.deepStrictEqual(names("chat"), [...look, "get_graph", "get_recent_edits", ...edit, "recommend_resources", "ask_programmer", "point_to_code"]);
-    assert.deepStrictEqual(names("sync"), [...look, "get_graph", "get_recent_edits", ...edit]);
+    assert.deepStrictEqual(names("chat"), [
+      ...look,
+      "get_project_context",
+      "get_graph",
+      "get_recent_edits",
+      ...edit,
+      "recommend_resources",
+      "ask_programmer",
+      "point_to_code",
+    ]);
+    assert.deepStrictEqual(names("sync"), [...look, "get_project_context", "get_graph", "get_recent_edits", ...edit]);
     assert.deepStrictEqual(names("heartbeat"), [
       ...look,
+      "get_project_context",
       "get_graph",
       "get_recent_edits",
       "update_nodes",
@@ -129,6 +139,14 @@ describe("look tools", () => {
     assert.match(await call("search_code", { query: "def \\w+\\(text", is_regex: true, glob: "**/util.py" }), /^app\/util.py:2:/);
     assert.match(await call("search_code", { query: "(", is_regex: true }), /^error: invalid regex/);
     assert.match(await call("search_code", { query: "zzz" }), /No matches/);
+  });
+
+  it("get_project_context summarizes the project around the file", async () => {
+    const { call } = setup("chat");
+    const out = await call("get_project_context", {});
+    assert.match(out, /^Workspace files \(\d+\):/);
+    assert.match(out, /README.md \(head\):\n# Demo/);
+    assert.match(out, /Imported module app\/util.py — Helpers\.:\n.*def tokenize/s);
   });
 
   it("get_diagnostics reports 1-based lines", async () => {

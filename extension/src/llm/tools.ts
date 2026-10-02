@@ -6,7 +6,7 @@
 // Every tool returns plain text written for the model to read.
 
 import { type Baseline, type EditTracker } from "../code/changes";
-import { isSecretPath, normalizeRel, numberLines, type WorkspaceAccess } from "../code/context";
+import { isSecretPath, normalizeRel, numberLines, projectSummary, type WorkspaceAccess } from "../code/context";
 import { type FileOutline, formatOutline, symbolAt } from "../code/outline";
 import { compactGraph, type EdgeInput, type GraphEditor, type NodeInput, type NodeUpdate } from "../graph/model";
 import type { LinkCheck } from "../resources/links";
@@ -251,6 +251,21 @@ function lookTools(env: ToolEnv): Tool[] {
       },
     }),
   ];
+}
+
+function projectTool(env: ToolEnv): Tool {
+  return tool<Record<string, never>>({
+    name: "get_project_context",
+    description:
+      "Overview of the project around the current file: the file tree, dependency manifests (pyproject.toml, package.json, …), " +
+      "the README's head, outlines of the local modules this file imports, and the docstrings of sibling modules. " +
+      "Call it once when you need to know which libraries and conventions the project uses.",
+    parameters: { type: "object", additionalProperties: false, properties: {} },
+    async run() {
+      const current = await env.outlineOf(env.file, env.liveText());
+      return projectSummary(env.ws, env.file, current, (rel, text) => env.outlineOf(rel, text));
+    },
+  });
 }
 
 function graphReadTools(env: ToolEnv): Tool[] {
@@ -577,15 +592,17 @@ export function toolsFor(mode: AgentMode, env: ToolEnv): Tool[] {
   const [getGraph, recentEdits] = graphReadTools(env);
   const edit = graphEditTools(env);
   const talk = talkTools(env);
+  const project = projectTool(env);
   switch (mode) {
     case "draft":
+      // The draft prompt already carries the project context.
       return [...look, getGraph, ...edit, talk.resources, talk.ask];
     case "chat":
-      return [...look, getGraph, recentEdits, ...edit, talk.resources, talk.ask, talk.point];
+      return [...look, project, getGraph, recentEdits, ...edit, talk.resources, talk.ask, talk.point];
     case "sync":
-      return [...look, getGraph, recentEdits, ...edit];
+      return [...look, project, getGraph, recentEdits, ...edit];
     case "heartbeat":
-      return [...look, getGraph, recentEdits, edit.find((t) => t.name === "update_nodes")!, talk.resources, ...heartbeatTools(env)];
+      return [...look, project, getGraph, recentEdits, edit.find((t) => t.name === "update_nodes")!, talk.resources, ...heartbeatTools(env)];
   }
 }
 

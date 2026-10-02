@@ -122,7 +122,7 @@ Variables in the process environment (`ASSISTIVE_*`) override the file.
 
 | Family | Tools |
 |---|---|
-| Look (read-only) | `get_file_outline`, `read_file` (live buffer, numbered lines, secrets refused), `search_code`, `list_files`, `get_diagnostics`, `get_graph`, `get_recent_edits` |
+| Look (read-only) | `get_file_outline`, `read_file` (live buffer, numbered lines, secrets refused), `search_code`, `list_files`, `get_diagnostics`, `get_project_context`, `get_graph`, `get_recent_edits` |
 | Graph (batch edits) | `add_nodes`, `update_nodes`, `remove_nodes`, `connect`, `disconnect` |
 | Talk | `recommend_resources` (links are checked), `ask_programmer` (clickable options), `point_to_code` |
 | Heartbeat only | `interrupt_programmer` (once per beat), `stand_down` |
