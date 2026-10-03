@@ -338,6 +338,46 @@ describe("Assistant + Heartbeat with fake OpenAI and Jev servers", () => {
     assert.strictEqual(t.store.get("/ws/wc.py").feed.length, 0, "'No help needed' posts nothing");
   });
 
+  it("gives chat the code around the cursor, and drafts keep code that exists", async () => {
+    const t = harness(fake);
+    const code = DOC + "\ndef parse_line(line: str) -> list[str]:\n    return line.split()\n";
+    t.type(code, 3);
+    await t.assistant.chat(t.h, "Is this right?");
+    const chatReq = fake.chatRequests.find((r) => /Task: the programmer wrote/.test(systemPrompt(r)))!;
+    assert.match(chatReq.messages.at(-1)!.content ?? "", /## Code around the cursor\n 3\| def parse_line\(line: str\) -> list\[str\]:\n>4\| {5}return line.split\(\)/);
+    fake.reset();
+    t.store.clear("/ws/wc.py");
+    await t.assistant.draft(t.h);
+    const draftReq = fake.chatRequests.find((r) => /Task: draft/.test(systemPrompt(r)))!;
+    assert.match(draftReq.messages[1].content ?? "", /## Code that exists\nThe file already has code\. Plan a node for each meaningful symbol/);
+  });
+
+  it("tells the draft what imported project files plan but have not typed yet", async () => {
+    const t = harness(fake);
+    (t.h.ws as MemoryWorkspace).files["util.py"] = '"""Text helpers."""\n';
+    t.store.setGraph(
+      "/ws/util.py",
+      {
+        file: "util.py",
+        language: "python",
+        moduleString: "Text helpers.",
+        nodes: [
+          { id: "tokenize", kind: "function", label: "tokenize", symbol: "tokenize", signature: "def tokenize(text: str) -> list[str]", description: "Split.", notes: [], status: "planned" },
+          { id: "re", kind: "external", label: "re", description: "regex", notes: [], status: "planned" },
+        ],
+        edges: [],
+        revision: 1,
+        updatedAt: "",
+      },
+      false,
+    );
+    t.type(DOC + "import util\n", 1);
+    await t.assistant.draft(t.h);
+    const draftReq = fake.chatRequests.find((r) => /Task: draft/.test(systemPrompt(r)))!;
+    assert.match(draftReq.messages[1].content ?? "", /Imported module util.py — Text helpers\.:\n[\s\S]*Planned in util.py but not typed yet:\n- def tokenize\(text: str\) -> list\[str\]/);
+    assert.doesNotMatch(draftReq.messages[1].content ?? "", /- regex/, "externals are not listed");
+  });
+
   it("streams the reply of a programmer turn and clears it at the end", async () => {
     const t = harness(fake);
     await t.assistant.draft(t.h);

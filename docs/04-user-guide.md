@@ -16,7 +16,7 @@ To open the panel, push `Ctrl+Alt+G` or click the Assistive icon in the activity
 
 | Item | Function |
 |---|---|
-| File name | The workspace-relative path of the file that the panel shows. |
+| File name | The workspace-relative path of the file that the panel shows. Click it to open a different file that has a graph. |
 | **LLM** pill | Green: the LLM is configured. Yellow: the LLM is not configured. Red: the last LLM request failed. Click a yellow or red pill to open the `.env` file. |
 | **Jev** pill | Green: Jev is configured. Yellow: the Jev key is not there. Red: the last Jev request failed. Grey: the triage is `llm` or `off`. |
 | **♥ 45s** pill | The heartbeat is on, with its interval. The tooltip shows the time and the verdict of the last beat. "♥ paused" means that the heartbeat is off. |
@@ -326,6 +326,7 @@ Assistive examines each link before it shows the link. It removes links that giv
 | Assistive: Clear Graph for This File | Remove the graph. |
 | Assistive: Stop the Current Request | Stop the LLM request in progress. |
 | Assistive: Clear Conversation for This File | Remove the messages of the file from the feed. The graph and the open interrupts stay. |
+| Assistive: Open a Planned File… | Select a file that has a graph, with its progress, and open it. |
 | Assistive: Run a Heartbeat Now | Run one beat. |
 | Assistive: Pause / Resume Heartbeat | Turn the heartbeat off or on. |
 | Assistive: Export Graph as Mermaid | Open the graph as Mermaid text. |
@@ -371,4 +372,14 @@ Use this procedure if the feed of a file is long, or if you want the LLM to forg
 2. Click **Clear** in the dialog.
 
 The graph and the open interrupts stay. The LLM no longer receives the earlier messages.
+
+## 4.21 Open a different planned file
+
+Use this procedure in a project with more than one planned file.
+
+1. Click the file name in the header of the panel, or run **Assistive: Open a Planned File…**.
+2. Read the list. Each item shows the path, your progress (for example `3/7 done`), the next piece and the first line of the docstring. The most recent graph is first.
+3. Select a file. It opens in the editor, and the panel shows its graph.
+
+A draft can also use a different planned file. If the file imports it, the LLM receives the symbols that it plans and that you did not type yet.
 

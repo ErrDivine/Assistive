@@ -2,6 +2,7 @@
 // the programmer's messages, syncing the graph with the code, and the
 // heartbeat's escalations. Free of `vscode` so it can be tested with fakes.
 
+import * as path from "node:path";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import type { EditTracker } from "../code/changes";
 import { type DiagnosticInfo, projectSummary, type WorkspaceAccess } from "../code/context";
@@ -164,14 +165,21 @@ export class Assistant {
       return;
     }
     const existing = this.deps.store.graph(h.key);
-    const project = await projectSummary(h.ws, h.file, outline, (rel, t) => this.deps.outlineOf(rel, t)).catch(
+    const project = await projectSummary(h.ws, h.file, outline, (rel, t) => this.deps.outlineOf(rel, t), (rel) => this.plannedOf(h, rel)).catch(
       (err: Error) => `(project context unavailable: ${err.message})`,
     );
     const redraft = existing && existing.nodes.length > 0;
+    const hasCode = outline.symbols.some((s) => s.kind !== "variable");
     const content = contextBlock([
       ["File", `${h.file} (${h.language}, ${text.split("\n").length} lines)`],
       ["Module docstring", doc],
       ["Current outline", formatOutline(outline, { docstrings: true })],
+      [
+        "Code that exists",
+        hasCode && !redraft
+          ? "The file already has code. Plan a node for each meaningful symbol that exists, with its exact name and current signature, then add what the docstring still needs."
+          : undefined,
+      ],
       [
         "Existing graph",
         redraft
@@ -203,6 +211,7 @@ export class Assistant {
       ["File", `${h.file} (${h.language}, ${text.split("\n").length} lines)`],
       ["Module docstring", outline.moduleString?.text],
       ["Cursor", cursorDescription(outline, line)],
+      ["Code around the cursor", line !== undefined ? scopeCode(outline, text.split(/\r?\n/), line, 40) : undefined],
       ["Outline", formatOutline(outline)],
       ["Graph", graph ? compactGraph(graph) : "(no graph yet: add nodes if the message asks for a plan)"],
       ["Diagnostics", formatDiagnostics(h.ws.diagnostics(h.file))],
@@ -409,6 +418,7 @@ export class Assistant {
         return ok;
       },
       feed: () => store.get(h.key).feed,
+      plannedOf: (rel: string) => this.plannedOf(h, rel),
     };
     let finished = false;
     const publish = async () => {
@@ -538,6 +548,14 @@ export class Assistant {
     return items.map((f) =>
       f.kind === "user" ? { role: "user" as const, content: f.text } : { role: "assistant" as const, content: (f as { text: string }).text },
     );
+  }
+
+  /** What another file's graph plans that is not typed yet (for the project context). */
+  private plannedOf(h: FileHandle, rel: string): string[] {
+    const g = this.deps.store.graph(path.join(h.ws.root, ...rel.split("/")));
+    return (g?.nodes ?? [])
+      .filter((n) => n.status === "planned" && n.kind !== "external" && n.kind !== "step" && n.kind !== "module")
+      .map((n) => n.signature ?? n.symbol ?? n.label);
   }
 
   private note(file: string, level: "info" | "warn" | "error", text: string): void {

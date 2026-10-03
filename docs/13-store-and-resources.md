@@ -44,6 +44,7 @@ The constructor receives a folder and a save delay (default 400 ms). The control
 | `updateFeed(file, id, patch)` | Changes the fields of an item. |
 | `clear(file)` | Sets the graph to `undefined`, with the old graph as the snapshot. Thus **Undo** restores a cleared graph. |
 | `clearFeed(file)` | Removes all feed items except the open interrupts. The chat history of the LLM comes from the feed, so the LLM forgets the earlier messages. |
+| `plannedFiles()` | Each file with a graph that has nodes, from the saved JSON files and the records in memory. A record in memory wins over its file. A damaged file is skipped. |
 | `files()` | The keys of the records in memory. |
 | `changed(file)` | Calls the listeners and schedules a save. |
 | `flush()` | Writes all scheduled saves now. |

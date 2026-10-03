@@ -432,7 +432,7 @@ This function makes the project context for the draft prompt and for the `get_pr
 1. **File tree.** A maximum of 400 files are listed, and a maximum of 150 are shown.
 2. **Manifests.** The first 50 lines of each of these root files: `pyproject.toml`, `requirements.txt`, `setup.cfg`, `setup.py`, `package.json`, `tsconfig.json`, `environment.yml`, `go.mod`, `Cargo.toml`, `pom.xml`, `build.gradle` and `build.gradle.kts`. For `package.json`, only `name`, `type`, `engines`, `dependencies` and `devDependencies` are kept.
 3. **README.** The first 30 lines of `README`, `README.md`, `README.rst` or `README.txt` at the root (any case).
-4. **Imported modules.** The function shows a maximum of 5 local modules that the file imports. For each one, it shows the first line of the docstring and the first 40 lines of the outline.
+4. **Imported modules.** The function shows a maximum of 5 local modules that the file imports. For each one, it shows the first line of the docstring and the first 40 lines of the outline. If the caller gives `plannedOf`, it also lists up to 15 signatures that are in the graph of that module but not in its code yet.
 5. **Sibling modules.** The function shows a maximum of 8 other files in the same folder and language. For each one, it shows the first line of the docstring and up to 8 top-level names. It does not repeat the imported modules.
 
 ## 7.6 VS Code workspace (`workspace.ts`)

@@ -64,6 +64,7 @@ The Assistant gives each tool an environment. The tools use only this environmen
 | `checkLinks(items)` | The link check. |
 | `emit(item)` | Adds an item to the feed of the panel. Returns `false` if the item was not added because it is a duplicate. |
 | `feed()` | The feed of the file. The tools use it so that they do not repeat what the programmer saw. |
+| `plannedOf(rel)` | The signatures that the graph of a different file plans but that are not typed yet. |
 
 ### 10.3.1 Path rules of the look tools
 
@@ -194,7 +195,8 @@ A stub has "(stub)" after the line range.
 - the manifests;
 - the head of the README;
 - the outlines of the local modules that the file imports;
-- the docstrings of sibling modules.
+- the docstrings of sibling modules;
+- for imported files with a graph, the planned symbols that are not typed yet.
 
 The model must call it one time, when it needs to know the libraries and conventions of the project.
 

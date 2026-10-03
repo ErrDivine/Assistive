@@ -38,6 +38,8 @@ export interface ToolEnv {
   emit(item: NewFeedItem): boolean;
   /** The file's feed so far (to avoid repeating what the programmer has already seen). */
   feed(): readonly FeedItem[];
+  /** Signatures planned in another file's graph that are not typed yet. */
+  plannedOf?(rel: string): string[];
 }
 
 const MAX_READ_LINES = 400;
@@ -313,7 +315,7 @@ function projectTool(env: ToolEnv): Tool {
     parameters: { type: "object", additionalProperties: false, properties: {} },
     async run() {
       const current = await env.outlineOf(env.file, env.liveText());
-      return projectSummary(env.ws, env.file, current, (rel, text) => env.outlineOf(rel, text));
+      return projectSummary(env.ws, env.file, current, (rel, text) => env.outlineOf(rel, text), env.plannedOf);
     },
   });
 }

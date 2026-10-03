@@ -165,6 +165,7 @@ export type FromPanel =
   | { type: "beatNow" }
   | { type: "toggleHeartbeat" }
   | { type: "cancel" }
+  | { type: "pickFile" }
   | { type: "openConfig" }
   | { type: "goto"; line: number; endLine?: number; path?: string }
   | { type: "openLink"; url: string }

@@ -147,6 +147,32 @@ export class GraphStore {
     this.changed(file);
   }
 
+  /** Every file with a saved or loaded graph that has nodes: its key and graph. */
+  plannedFiles(): { file: string; graph: FileGraph }[] {
+    const out = new Map<string, FileGraph>();
+    if (this.dir) {
+      let names: string[] = [];
+      try {
+        names = fs.readdirSync(path.join(this.dir, "graphs")).filter((n) => n.endsWith(".json"));
+      } catch {
+        // nothing saved yet
+      }
+      for (const name of names) {
+        try {
+          const data = JSON.parse(fs.readFileSync(path.join(this.dir, "graphs", name), "utf8")) as Partial<FileRecord>;
+          if (typeof data.file === "string" && data.graph?.nodes?.length) out.set(data.file, data.graph);
+        } catch {
+          // a damaged file is skipped
+        }
+      }
+    }
+    for (const rec of this.records.values()) {
+      if (rec.graph?.nodes.length) out.set(rec.file, rec.graph);
+      else out.delete(rec.file); // cleared in memory, not saved yet
+    }
+    return [...out].map(([file, graph]) => ({ file, graph }));
+  }
+
   /** Files with a record loaded in memory. */
   files(): string[] {
     return [...this.records.keys()];

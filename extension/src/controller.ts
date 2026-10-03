@@ -5,6 +5,7 @@
 // Invariant I1: nothing here edits the programmer's buffers. The programmer
 // types all code; "Copy signature" only uses the clipboard.
 
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { Assistant, type FileHandle } from "./assistant/Assistant";
@@ -625,6 +626,31 @@ export class Controller implements vscode.Disposable {
     if (ok === "Clear") this.store.clearFeed(h.key);
   }
 
+  /** Pick one of the files that have a graph, with its progress, and open it. */
+  async openPlannedFile(): Promise<void> {
+    const items = this.store
+      .plannedFiles()
+      .filter((p) => fs.existsSync(p.file))
+      .sort((a, b) => b.graph.updatedAt.localeCompare(a.graph.updatedAt))
+      .map((p) => {
+        const pr = progress(p.graph);
+        return {
+          label: `$(type-hierarchy) ${vscode.workspace.asRelativePath(p.file)}`,
+          description: pr.total ? `${pr.done}/${pr.total} done${pr.next ? ` · next: ${pr.next.symbol ?? pr.next.label}` : ""}` : "",
+          detail: p.graph.moduleString.split("\n")[0],
+          file: p.file,
+        };
+      });
+    if (!items.length) {
+      void vscode.window.showInformationMessage("Assistive: no file has a graph yet. Write a module docstring to draft one.");
+      return;
+    }
+    const pick = await vscode.window.showQuickPick(items, { placeHolder: "Open a planned file", matchOnDescription: true, matchOnDetail: true });
+    if (pick) {
+      await vscode.window.showTextDocument(vscode.Uri.file(pick.file), { preview: false, viewColumn: vscode.ViewColumn.One });
+    }
+  }
+
   /** Stop the LLM request in progress for the active file (the panel's Stop button). */
   stop(): void {
     const h = this.handle();
@@ -730,6 +756,8 @@ export class Controller implements vscode.Disposable {
         return this.toggleHeartbeat();
       case "cancel":
         return this.stop();
+      case "pickFile":
+        return this.openPlannedFile();
       case "openConfig":
         return this.openConfig();
       case "goto":

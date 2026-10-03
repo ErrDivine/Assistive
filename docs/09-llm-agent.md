@@ -160,7 +160,7 @@ Each turn sends these messages:
 
 1. A `system` message: the `SYSTEM` persona, a blank line, and the instructions of the mode.
 2. For a chat turn only: up to 8 earlier user messages and chat replies.
-3. A `user` message with the context. `contextBlock(sections)` makes it. Each section is `## Title` and its body. Empty sections are skipped.
+3. A `user` message with the context. `contextBlock(sections)` makes it. Each section is `## Title` and its body. Empty sections are skipped. The function removes blank lines at the start and spaces at the end of a body. It keeps the spaces at the start of the first line, so numbered code stays aligned.
 
 Example of a context block for a chat turn:
 
@@ -192,6 +192,7 @@ The system prompt makes the LLM a senior software engineer who pair-programs wit
 - The graph is the shared plan. The LLM changes it only through the graph tools and keeps the IDs stable.
 - The LLM looks before it acts. It uses the read-only tools for facts. It never invents files, functions or library APIs. It prefers the libraries of the project.
 - If the programmer probably does not know a concept, the LLM calls `recommend_resources` with 1 to 4 links that it is sure exist.
+- The LLM follows the idioms and naming conventions of the language of the file, for example error values in Go and `Result` in Rust.
 - The LLM is brief, concrete and kind, and addresses the programmer as "you".
 - Line numbers in tools are 1-based.
 - Each turn ends with a summary of 1 to 3 short sentences.
@@ -207,6 +208,7 @@ Ground rules:
 - The graph is the shared plan. Change it only through the graph tools, keep it faithful to the code that exists, and keep ids stable.
 - Look before you act. Use the read-only tools when you need facts about the project; never invent files, functions or library APIs. Prefer the libraries and conventions the project already uses.
 - When the programmer is likely missing a concept the work needs, call recommend_resources with the best 1-4 links (official documentation first, then well-known tutorials). Only use URLs you are confident exist.
+- Follow the idioms and naming conventions of the file's language (for example error values in Go, Result in Rust, exceptions in Java and Python, snake_case or camelCase as the language expects).
 - Be brief, concrete and kind. Address the programmer as "you".
 - Line numbers in tool arguments and results are 1-based.
 - End every turn with a plain-text summary of 1-3 short sentences: what changed and what the programmer should do next. Do not restate the whole graph.

@@ -259,6 +259,8 @@ export async function projectSummary(
   file: string,
   current: FileOutline,
   outlineOf: (rel: string, text: string) => Promise<FileOutline>,
+  /** Signatures planned in another file's graph that are not typed yet. */
+  plannedOf?: (rel: string) => string[],
 ): Promise<string> {
   const files = await ws.list(undefined, 400);
   const set = new Set(files);
@@ -301,7 +303,9 @@ export async function projectSummary(
     }
     const o = await outlineOf(rel, text);
     const body = formatOutline(o).split("\n").slice(0, 40).join("\n");
-    parts.push(`Imported module ${rel}${o.moduleString ? ` — ${o.moduleString.text.split("\n")[0]}` : ""}:\n${body}`);
+    const planned = (plannedOf?.(rel) ?? []).slice(0, 15);
+    const plan = planned.length ? `\nPlanned in ${rel} but not typed yet:\n${planned.map((p) => `- ${p}`).join("\n")}` : "";
+    parts.push(`Imported module ${rel}${o.moduleString ? ` — ${o.moduleString.text.split("\n")[0]}` : ""}:\n${body}${plan}`);
   }
 
   // Sibling modules (first docstring line only) show the neighbourhood.

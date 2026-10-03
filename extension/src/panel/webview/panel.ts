@@ -381,7 +381,7 @@ function pill(text: string, cls: string, title: string, onClick?: () => void): H
 function renderHeader(s: PanelState): void {
   const file = $("file");
   file.textContent = s.file ?? "No file";
-  file.title = s.file ? `${s.file} (${s.language})` : "Open a source file";
+  file.title = `${s.file ? `${s.file} (${s.language})` : "Open a source file"}\nClick to open another planned file`;
   const st = s.status;
   const pills = $("pills");
   pills.innerHTML = "";
@@ -679,6 +679,7 @@ $("btn-beat").addEventListener("click", () => post({ type: "beatNow" }));
 $("btn-pause").addEventListener("click", () => post({ type: "toggleHeartbeat" }));
 $("btn-config").addEventListener("click", () => post({ type: "openConfig" }));
 $("btn-stop").addEventListener("click", () => post({ type: "cancel" }));
+$("file").addEventListener("click", () => post({ type: "pickFile" }));
 $("btn-fit").addEventListener("click", () => layout());
 $("docstring").addEventListener("click", (ev) => {
   if ((ev.target as HTMLElement).tagName !== "BUTTON") $("docstring").classList.toggle("expanded");

@@ -91,6 +91,11 @@
         "category": "Assistive"
       },
       {
+        "command": "assistive.openPlannedFile",
+        "title": "Open a Planned File…",
+        "category": "Assistive"
+      },
+      {
         "command": "assistive.clearConversation",
         "title": "Clear Conversation for This File",
         "category": "Assistive"

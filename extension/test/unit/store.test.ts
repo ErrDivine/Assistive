@@ -895,3 +895,41 @@ describe("GraphStore.clearFeed", () => {
     assert.strictEqual(fired, 1);
   });
 });
+
+describe("GraphStore.plannedFiles", () => {
+  const g = (file: string, n: number): FileGraph => ({
+    file,
+    language: "python",
+    moduleString: "Doc.",
+    nodes: Array.from({ length: n }, (_, i) => ({ id: `n${i}`, kind: "function" as const, label: `n${i}`, description: "d", notes: [], status: "planned" as const })),
+    edges: [],
+    revision: 1,
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  });
+
+  it("lists saved graphs from disk and loaded ones from memory, without empty or cleared graphs", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "assistive-planned-"));
+    try {
+      const a = new GraphStore(dir, 0);
+      a.setGraph("/p/a.py", g("a.py", 2), false);
+      a.setGraph("/p/b.py", g("b.py", 1), false);
+      a.setGraph("/p/empty.py", g("empty.py", 0), false);
+      a.flush();
+      const b = new GraphStore(dir, 0);
+      assert.deepStrictEqual(b.plannedFiles().map((p) => p.file).sort(), ["/p/a.py", "/p/b.py"]);
+      b.clear("/p/b.py"); // cleared in memory before the save
+      b.setGraph("/p/c.py", g("c.py", 1), false);
+      assert.deepStrictEqual(b.plannedFiles().map((p) => p.file).sort(), ["/p/a.py", "/p/c.py"]);
+      fs.writeFileSync(path.join(dir, "graphs", "broken.json"), "{not json");
+      assert.strictEqual(b.plannedFiles().length, 2, "a damaged file is skipped");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("works without a storage folder", () => {
+    const s = new GraphStore(undefined);
+    s.setGraph("/p/a.py", g("a.py", 1), false);
+    assert.deepStrictEqual(s.plannedFiles().map((p) => p.file), ["/p/a.py"]);
+  });
+});

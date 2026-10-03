@@ -132,7 +132,11 @@ If the text is empty, the feed shows "Updated the graph (+2 nodes, +1 edge)." or
 1. It computes the outline. If there is no module docstring, it adds a warning note with an example docstring and returns.
 2. It makes the project summary (refer to [Code analysis](07-code-analysis.md#758-projectsummaryws-file-current-outlineof)). If this fails, the section is "(project context unavailable: …)".
 3. If the file has a graph with nodes, the turn is a **redraft**. The context then includes the graph and this instruction: "The docstring changed since this graph was drafted. Revise the graph to match it: keep the ids of nodes that still fit, update or remove the others, add what is missing."
-4. It builds the context with these sections: File, Module docstring, Current outline (with docstrings), Existing graph (redraft only), Project context.
+4. It builds the context with these sections: File, Module docstring, Current outline (with docstrings), Code that exists, Existing graph (redraft only), Project context.
+
+   The section "Code that exists" is only in a first draft of a file that has symbols. It tells the LLM to plan a node for each meaningful symbol, with its exact name and signature. Then the LLM adds what the docstring still needs.
+
+   The project context lists, for each imported project file that has a graph, the planned symbols that are not typed yet (`plannedOf`). Thus the draft can use an API that is planned in a different file.
 5. It runs the turn in `draft` mode. The base is the graph that exists, or an empty graph. The busy label is "Drafting the graph…" or "Redrafting the graph…".
 6. After the turn, the `graph_created` baseline is the text at the start of the draft.
 
@@ -144,7 +148,15 @@ The context gives the model all the facts that it needs, so a draft usually take
 
 1. It adds the message to the feed as a `user` item at once. Thus the programmer sees it also while an earlier turn runs.
 2. It waits in the queue of the file. This cancels a heartbeat turn in progress.
-3. It builds the context: File, Module docstring, Cursor (for example "line 7, inside def parse_line(…)"), Outline, Graph (or "(no graph yet: add nodes if the message asks for a plan)"), Diagnostics, Message from the programmer.
+3. It builds the context with these sections:
+   - File;
+   - Module docstring;
+   - Cursor, for example "line 7, inside def parse_line(…)";
+   - Code around the cursor, a maximum of 40 lines from `scopeCode`;
+   - Outline;
+   - Graph, or "(no graph yet: add nodes if the message asks for a plan)";
+   - Diagnostics;
+   - Message from the programmer.
 4. It adds the history: up to 8 earlier `user` items and `assistant` items of mode `chat`. It stops before the current message. Thus a message that waits in the queue is not in the history of an earlier message.
 5. It runs the turn in `chat` mode with the busy label "Thinking…".
 

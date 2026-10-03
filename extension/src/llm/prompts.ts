@@ -10,6 +10,7 @@ Ground rules:
 - The graph is the shared plan. Change it only through the graph tools, keep it faithful to the code that exists, and keep ids stable.
 - Look before you act. Use the read-only tools when you need facts about the project; never invent files, functions or library APIs. Prefer the libraries and conventions the project already uses.
 - When the programmer is likely missing a concept the work needs, call recommend_resources with the best 1-4 links (official documentation first, then well-known tutorials). Only use URLs you are confident exist.
+- Follow the idioms and naming conventions of the file's language (for example error values in Go, Result in Rust, exceptions in Java and Python, snake_case or camelCase as the language expects).
 - Be brief, concrete and kind. Address the programmer as "you".
 - Line numbers in tool arguments and results are 1-based.
 - End every turn with a plain-text summary of 1-3 short sentences: what changed and what the programmer should do next. Do not restate the whole graph.`;
@@ -66,7 +67,8 @@ export function instructionsFor(mode: AgentMode | "struggling"): string {
 export function contextBlock(sections: [title: string, body: string | undefined][]): string {
   return sections
     .filter(([, body]) => body !== undefined && body.trim() !== "")
-    .map(([title, body]) => `## ${title}\n${body!.trim()}`)
+    // Only blank lines and trailing space are trimmed: leading spaces align numbered code.
+    .map(([title, body]) => `## ${title}\n${body!.replace(/^(\s*\n)+/, "").trimEnd()}`)
     .join("\n\n");
 }
 
