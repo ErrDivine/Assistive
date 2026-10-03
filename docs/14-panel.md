@@ -196,7 +196,7 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
 ### 14.5.5a All-done banner
 
-`renderDoneBanner(state, progress)` shows the element `#done-banner` under the tabs when the total of typed nodes is more than 0, all of them are done, and no task runs. It has **Review the file** and **Plan tests**. Both send a `send` message with a fixed request (`FILE_REVIEW_REQUEST`, `TESTS_REQUEST`). The banner is drawn again only when the total changes.
+`renderDoneBanner(state, progress)` shows the element `#done-banner` under the tabs. It shows it only if there are typed nodes, all of them are done, and no task runs. It has **Review the file** and **Plan tests**. Both send a `send` message with a fixed request (`FILE_REVIEW_REQUEST`, `TESTS_REQUEST`). The banner is drawn again only when the total changes.
 
 ### 14.5.6 Feed drawing
 

@@ -388,12 +388,12 @@ A draft can also use a different planned file. If the file imports it, the LLM r
 
 ## 4.22 When all pieces are typed
 
-When the status of each planned piece is **done**, a green line under the tabs shows "✓ All N planned pieces are typed." It has two buttons:
+When each planned piece is **done**, a green line shows under the tabs: "✓ All N planned pieces are typed." It has two buttons:
 
 | Button | Function |
 |---|---|
 | **Review the file** | Ask the LLM to review the whole file against the plan: correctness, the edge cases in the notes, error handling and clearly better ways. The LLM points to lines and does not rewrite the code. |
-| **Plan tests** | Ask the LLM to add `test` nodes to the graph, with the cases that each test checks, and to tell you where the tests go in the project. |
+| **Plan tests** | Ask the LLM to add `test` nodes to the graph, with the cases that each test checks. The LLM also tells you where the tests go in the project. |
 
 The line goes away while the LLM works, and when a new piece is added to the plan.
 
