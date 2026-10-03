@@ -145,7 +145,7 @@ export class Controller implements vscode.Disposable {
       vscode.workspace.onDidSaveTextDocument((d) => this.onSave(d)),
       vscode.workspace.onDidOpenTextDocument((d) => this.track(d)),
       vscode.workspace.onDidRenameFiles((e) => void this.onRename(e)),
-      vscode.languages.registerCodeLensProvider([{ scheme: "file" }, { scheme: "untitled" }], {
+      vscode.languages.registerCodeLensProvider({ scheme: "file" }, {
         onDidChangeCodeLenses: this.codeLensChanged.event,
         provideCodeLenses: (doc) => this.codeLenses(doc),
       }),
@@ -155,10 +155,7 @@ export class Controller implements vscode.Disposable {
         { provideCodeActions: (doc, _range, context) => this.codeActions(doc, context) },
         { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
       ),
-      vscode.languages.registerHoverProvider(
-        [{ scheme: "file" }, { scheme: "untitled" }],
-        { provideHover: (doc, pos) => this.hover(doc, pos) },
-      ),
+      vscode.languages.registerHoverProvider({ scheme: "file" }, { provideHover: (doc, pos) => this.hover(doc, pos) }),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration("assistive")) {
           this.reloadConfig();

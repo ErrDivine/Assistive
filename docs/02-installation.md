@@ -83,6 +83,8 @@ The script is `extension/scripts/install-local.mjs`. It does these steps:
 6. Select a model from the list that the endpoint returns. If the endpoint cannot list its models, type the model name.
 7. If Jev is not set up, select how the heartbeat triages your edits: with the LLM, with a Jev key, or off.
 
+![The setup wizard at the model step, and the panel before the LLM is set up](images/setup-wizard.png)
+
 The wizard writes the values to the `.env` file and tests the connection. To edit the file yourself, refer to [Configuration](03-configuration.md).
 
 > **Note:** The model must support tool calls. The wizard does not show embedding, speech and image models.

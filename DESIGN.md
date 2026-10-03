@@ -35,9 +35,11 @@ When a concept is the obstacle, the panel offers a few checked learning resource
 | `llm/prompts.ts` | The persona (senior engineer, never writes the implementation) and per-mode instructions |
 | `assistant/Assistant.ts` | Draft, chat, sync, heartbeat escalation and struggling turns. Shows graph edits live; rolls back on failure or Stop; one turn per file at a time, with programmer requests queued and heartbeat turns giving way. |
 | `heartbeat/policy.ts`, `heartbeat/Heartbeat.ts` | Jev questions, verdicts, decisions, timing, interrupt reconciliation, and the runner |
-| `store/GraphStore.ts` | Per-file graph, feed (last 200 items) and undo history (last 20 revisions), stored as JSON in workspace storage |
+| `store/GraphStore.ts` | Per-file graph, feed (last 200 items) and undo history (last 20 revisions), stored as JSON in workspace storage; records move with renames, and a lost plan is found again by its docstring |
+| `config/env.ts`, `config/setup.ts` | `.env` parsing and validation; the setup wizard (provider, key, a model from `GET /models`, triage) that writes the `.env` |
+| `editor/presenters.ts` | Pure text for the hover, code lens, status bar, squiggles and their quick fixes, planned-file picker and Markdown export |
 | `panel/` | Webview built with cytoscape + dagre (graph), a steps list, node details, a markdown feed (marked + DOMPurify) and the input box |
-| `controller.ts` | Ties it to VS Code: active file, auto-draft, `.env` watching, squiggles, status bar, toasts, commands |
+| `controller.ts` | Ties it to VS Code: active file, auto-draft, `.env` watching, renames, squiggles and quick fixes, hover, code lens, status bar, toasts, commands |
 
 ## Decisions
 
@@ -131,18 +133,22 @@ The Steps tab lists the same nodes in typing order: first by explicit `order`, t
   - the Jev client against a fake `/systemone` server, including errors and timeouts;
   - the heartbeat policy;
   - link checks;
-  - the store;
-  - the configuration;
-  - the Assistant and Heartbeat end to end.
+  - the store, with record moves and lost-plan adoption after renames;
+  - the configuration and the setup wizard (scripted UI, `.env` round trips);
+  - the editor presenters: hover, code lens, status bar, squiggles and quick fixes, Markdown export;
+  - the Assistant and Heartbeat end to end, with the queue, Stop and settle.
 - **Integration tests** (`npm run test:integration`) run the real extension in VS Code against fake servers:
-  - auto-draft after typing a docstring;
+  - auto-draft after typing a docstring, and no draft for files that are only opened;
   - instruction, then summary;
-  - undo;
-  - status tracking on save;
+  - undo, and direct node edits without the LLM;
+  - status tracking while typing (no save), the code lens and the hover;
   - a calm heartbeat;
-  - interrupt, then squiggle, then node flag, then resolution after the fix;
+  - interrupt, then squiggle (with explain/dismiss quick fixes and no edit), then node flag, then resolution after the fix;
+  - Go files, and untitled buffers (asked to be saved first);
+  - graphs that follow renames in VS Code and on disk;
+  - the setup wizard end to end;
   - Markdown export (Mermaid chart and a step checklist);
-  - `.env` template creation;
+  - `.env` template creation, and the guard against a workspace redirecting it;
   - the I1 buffer check.
 - **Not verified here:**
   - the live Jev service, whose documentation domain is not reachable from the build environment. The format follows TypeSafe's published examples: `questions` keyed by name, `criteria` per type, and `score` answers as a probability-weighted mean of 0-based levels.

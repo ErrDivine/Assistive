@@ -294,7 +294,7 @@ The live sync runs 800 ms after the last change to the active file. If the file 
 
 ### 15.6.8 Editor hover
 
-The controller registers a hover provider for all `file` and `untitled` documents. `hover(doc, position)` does these steps:
+The controller registers a hover provider for `file` documents (only saved files have plans). `hover(doc, position)` does these steps:
 
 1. It returns nothing if the document is not supported or has no graph.
 2. It finds the word at the position.
@@ -305,7 +305,7 @@ The hover only reads data. It does not change the document (invariant I1).
 
 ### 15.6.9 Code lens
 
-The controller registers a code lens provider for all `file` and `untitled` documents. `codeLenses(doc)` returns nothing if the document is not supported, has no graph, or `assistive.codeLens` is `false`. Else it returns two lenses on the first line of the module docstring. The presenter `lensItems` gives their titles and commands:
+The controller registers a code lens provider for `file` documents. `codeLenses(doc)` returns nothing if the document is not supported, has no graph, or `assistive.codeLens` is `false`. Else it returns two lenses on the first line of the module docstring. The presenter `lensItems` gives their titles and commands:
 
 - "Assistive: done/total done", with the command `assistive.focus`;
 - "Next: signature" of the next piece, with the command `assistive.showNode` and the node ID. If all pieces are done, the second lens says so.
