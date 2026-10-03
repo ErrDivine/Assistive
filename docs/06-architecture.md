@@ -86,7 +86,7 @@ The design has five invariants. Each invariant has a mechanism that enforces it.
 | I1 | Assistive never modifies the buffers of the programmer. **Copy signature** uses the clipboard. **Export** opens a new untitled document. | An ESLint rule forbids `applyEdit`, `edit`, `insertSnippet` and `new WorkspaceEdit` in `src/`. The integration test "never modified the programmer's buffer (I1)" records each change that the test did not type. |
 | I2 | The LLM changes the graph only through validated tools. | The schema validator examines the arguments before a tool runs. The `GraphEditor` returns `ok …` or `error …` for each item. |
 | I3 | Interrupts are rare and earned. | Jev thresholds, a cooldown, a maximum of one interrupt per beat, no repeat for an unchanged line, and the `stand_down` tool. |
-| I4 | Secrets are never sent. | The tools refuse `.env` files, keys and credential files (`isSecretPath`). The `.env` file has mode 600 and is in `.gitignore`. |
+| I4 | Secrets are never sent. | The tools refuse `.env` files, keys and credential files (`isSecretPath`). The `.env` file has mode 600 and is in `.gitignore`. A workspace cannot set `assistive.envFile` (machine scope), so a repository cannot redirect the API key to its own server. The link check never sends requests to link-local or cloud metadata addresses. |
 | I5 | Typing is never blocked. | All network work is asynchronous. A beat starts only after a 2-second pause and never runs two times at the same time. Updates to the webview are debounced. |
 
 ## 6.4 Data flows

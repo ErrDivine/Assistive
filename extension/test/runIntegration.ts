@@ -22,11 +22,16 @@ async function main(): Promise<void> {
     '// Package greet says hello in several languages.\npackage greet\n\nfunc Hello(lang string) string {\n\tpanic("not implemented")\n}\n',
   );
   fs.writeFileSync(path.join(workspace, "pyproject.toml"), '[project]\nname = "wc"\nversion = "0.1.0"\ndependencies = []\n');
+  // A workspace must not be able to redirect the API configuration: this value is ignored
+  // (assistive.envFile is machine-scoped); the user settings below point to the real file.
+  const decoy = path.join(scratch, "decoy", ".env");
   fs.writeFileSync(
     path.join(workspace, ".vscode", "settings.json"),
-    JSON.stringify({ "assistive.envFile": envFile, "assistive.notifications": "panel" }, null, 2),
+    JSON.stringify({ "assistive.envFile": decoy, "assistive.notifications": "panel" }, null, 2),
   );
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), "assistive-ud-"));
+  fs.mkdirSync(path.join(userData, "User"), { recursive: true });
+  fs.writeFileSync(path.join(userData, "User", "settings.json"), JSON.stringify({ "assistive.envFile": envFile }, null, 2));
   let code = 1;
   try {
     code = await runTests({

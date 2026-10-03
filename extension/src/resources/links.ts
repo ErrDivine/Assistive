@@ -20,6 +20,20 @@ export function isWebUrl(url: string): boolean {
   }
 }
 
+/**
+ * Link-local and cloud metadata addresses (169.254.0.0/16, fe80::/10,
+ * metadata.google.internal) are never learning resources, and the link
+ * check must not send requests there.
+ */
+export function isMetadataHost(url: string): boolean {
+  try {
+    const h = new URL(url).hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    return /^169\.254\.\d{1,3}\.\d{1,3}$/.test(h) || /^fe[89ab][0-9a-f]:/.test(h) || h === "metadata.google.internal" || h === "metadata";
+  } catch {
+    return false;
+  }
+}
+
 async function probe(url: string, fetchImpl: FetchLike, timeoutMs: number): Promise<number | undefined> {
   const attempt = async (method: "HEAD" | "GET") => {
     const res = await fetchImpl(url, {
@@ -60,6 +74,10 @@ export async function checkLinks(
     const url = r.url.trim();
     if (!isWebUrl(url)) {
       dropped.push({ url, reason: "not an http(s) URL" });
+      continue;
+    }
+    if (isMetadataHost(url)) {
+      dropped.push({ url, reason: "not a public web page" });
       continue;
     }
     if (seen.has(url)) {

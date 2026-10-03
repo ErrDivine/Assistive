@@ -137,7 +137,7 @@ The integration tests run the real extension inside VS Code against the fake ser
 The runner does these steps:
 
 1. It makes a scratch folder with a workspace `project/` and a configuration folder.
-2. It writes these files into the workspace: an empty `wc.py`, an `existing.py` with a docstring, a `greet.go` with a package comment, a `README.md`, a `pyproject.toml`, and `.vscode/settings.json`. The settings point `assistive.envFile` to the scratch `.env` file and set `assistive.notifications` to `panel`.
+2. It writes these files into the workspace: an empty `wc.py`, an `existing.py` with a docstring, a `greet.go` with a package comment, a `README.md`, a `pyproject.toml`, and `.vscode/settings.json`. The workspace settings set `assistive.notifications` to `panel`, and they point `assistive.envFile` to a decoy file. The user settings in the temporary user data folder point `assistive.envFile` to the scratch `.env` file. The tests prove that VS Code ignores the decoy.
 3. It starts VS Code with `@vscode/test-electron`. It uses `VSCODE_EXECUTABLE` (for example VSCodium) or downloads the version in `VSCODE_VERSION` (default `stable`).
 4. It gives these arguments: the workspace, `--disable-extensions`, `--disable-workspace-trust`, `--skip-welcome`, `--skip-release-notes`, `--no-sandbox`, `--disable-gpu` and a temporary user data folder.
 5. It gives the paths to the tests in `ASSISTIVE_IT_WORKSPACE` and `ASSISTIVE_IT_ENV`.
@@ -151,6 +151,7 @@ The tests start the fake servers and write the `.env` file with the fake URLs. T
 
 | Test | What it proves |
 |---|---|
+| ignores a workspace setting that redirects the API configuration | VS Code ignores `assistive.envFile` in workspace settings and refuses to write it there. |
 | registers its commands and the panel | The commands exist and the panel opens. |
 | tests the LLM and Jev connections | The connection test reaches both fake services. |
 | supports Go files: the package comment is the module docstring | A Go file is supported, its package comment is the closed module docstring, and the outline finds a stub. |

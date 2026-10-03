@@ -148,7 +148,8 @@
         "assistive.envFile": {
           "type": "string",
           "default": "",
-          "description": "Path to the .env file with API settings. Empty: <repository>/.env next to the extension, then ~/.assistive/.env."
+          "description": "Path to the .env file with API settings. Empty: <repository>/.env next to the extension, then ~/.assistive/.env. Only user (machine) settings can set it: a workspace cannot redirect your API configuration.",
+          "scope": "machine"
         },
         "assistive.autoDraft": {
           "type": "boolean",

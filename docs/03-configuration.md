@@ -14,7 +14,9 @@ Assistive keeps the API settings in a `.env` file. The file has one `NAME=value`
 
 Assistive examines these locations in this order. It uses the first file that it can read.
 
-1. The path in the VS Code setting `assistive.envFile`. A `~` at the start changes to your home folder.
+1. The path in the VS Code setting `assistive.envFile`. A `~` at the start changes to your home folder. Only your user settings can set this path. VS Code ignores it in the settings of a workspace (the setting has the scope `machine`).
+
+> **Caution:** This rule protects your API key. A repository could otherwise point `assistive.envFile` to its own `.env` file, with its own `ASSISTIVE_LLM_BASE_URL`. A key from your process environment would then go to that server.
 2. `<repository>/.env`, if the extension is linked from a source checkout. Assistive uses this location only if `.env.example` or `.env` exists in the parent folder of the extension.
 3. `~/.assistive/.env`.
 
@@ -140,7 +142,7 @@ Open the settings with **File → Preferences → Settings** and search for `ass
 
 | Setting | Default | Description |
 |---|---|---|
-| `assistive.envFile` | (empty) | The path to the `.env` file. Empty means `<repository>/.env`, then `~/.assistive/.env`. |
+| `assistive.envFile` | (empty) | The path to the `.env` file. Empty means `<repository>/.env`, then `~/.assistive/.env`. Only user settings can set it. |
 | `assistive.autoDraft` | `true` | Draft the graph automatically when you complete the module docstring of a file that has no graph. |
 | `assistive.heartbeat.enabled` | `true` | Turn the heartbeat on or off. The **Pause** button changes this setting. |
 | `assistive.notifications` | `toast` | `panel`: interrupts show only in the panel and as a squiggle. `toast`: a notification also shows when the panel is hidden. |

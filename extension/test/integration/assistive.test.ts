@@ -89,6 +89,15 @@ describe("Assistive in VS Code", function () {
     await fake.stop();
   });
 
+  it("ignores a workspace setting that redirects the API configuration", async () => {
+    // The scratch workspace sets assistive.envFile to a decoy; only the user setting counts.
+    assert.strictEqual(vscode.workspace.getConfiguration("assistive").get("envFile"), envFile);
+    assert.strictEqual(c().lastPanelState?.status.configPath ?? envFile, envFile);
+    await assert.rejects(
+      Promise.resolve(vscode.workspace.getConfiguration("assistive").update("envFile", "/tmp/evil/.env", vscode.ConfigurationTarget.Workspace)),
+    );
+  });
+
   it("registers its commands and the panel", async () => {
     const cmds = await vscode.commands.getCommands(true);
     for (const id of ["assistive.focus", "assistive.ask", "assistive.draftGraph", "assistive.heartbeatNow", "assistive.openConfig", "assistive.testConnection"]) {
@@ -249,7 +258,7 @@ describe("Assistive in VS Code", function () {
 
   it("creates the .env template when the configured file is missing", async () => {
     const fresh = path.join(path.dirname(envFile), "fresh", ".env");
-    await vscode.workspace.getConfiguration("assistive").update("envFile", fresh, vscode.ConfigurationTarget.Workspace);
+    await vscode.workspace.getConfiguration("assistive").update("envFile", fresh, vscode.ConfigurationTarget.Global);
     try {
       await c().openConfig();
       assert.ok(fs.existsSync(fresh));
@@ -258,7 +267,7 @@ describe("Assistive in VS Code", function () {
       await waitFor("llm missing", () => c().lastPanelState?.status.llm === "missing");
       await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
     } finally {
-      await vscode.workspace.getConfiguration("assistive").update("envFile", envFile, vscode.ConfigurationTarget.Workspace);
+      await vscode.workspace.getConfiguration("assistive").update("envFile", envFile, vscode.ConfigurationTarget.Global);
     }
     await waitFor("llm ready again", () => c().lastPanelState?.status.llm === "ready");
   });

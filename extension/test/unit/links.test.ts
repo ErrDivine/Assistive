@@ -1,5 +1,5 @@
 import * as assert from "node:assert";
-import { checkLinks, isWebUrl } from "../../src/resources/links";
+import { checkLinks, isMetadataHost, isWebUrl } from "../../src/resources/links";
 import type { Resource } from "../../src/types";
 
 // Every test injects a fake fetch: nothing here touches the network.
@@ -414,5 +414,35 @@ describe("checkLinks: several links", () => {
     await checkLinks([resource(A), resource(B)], { verify: true, fetchImpl });
     await new Promise((r) => setImmediate(r));
     assert.strictEqual(cancelled, 2);
+  });
+});
+
+describe("checkLinks: link-local and metadata hosts", () => {
+  it("drops them without sending a request", async () => {
+    const calls: string[] = [];
+    const r = await checkLinks(
+      [
+        { title: "a", url: "http://169.254.169.254/latest/meta-data/", type: "docs", why: "w" },
+        { title: "b", url: "http://metadata.google.internal/computeMetadata/v1/", type: "docs", why: "w" },
+        { title: "c", url: "http://[fe80::1]/x", type: "docs", why: "w" },
+        { title: "d", url: "https://docs.python.org/3/", type: "docs", why: "w" },
+      ],
+      {
+        verify: true,
+        fetchImpl: async (u) => {
+          calls.push(String(u));
+          return new Response(null, { status: 200 });
+        },
+      },
+    );
+    assert.deepStrictEqual(r.dropped.map((d) => d.reason), ["not a public web page", "not a public web page", "not a public web page"]);
+    assert.deepStrictEqual(r.kept.map((k) => k.title), ["d"]);
+    assert.deepStrictEqual(calls, ["https://docs.python.org/3/"]);
+  });
+
+  it("isMetadataHost leaves ordinary hosts alone", () => {
+    assert.strictEqual(isMetadataHost("https://docs.python.org/"), false);
+    assert.strictEqual(isMetadataHost("http://127.0.0.1:8080/docs"), false);
+    assert.strictEqual(isMetadataHost("not a url"), false);
   });
 });
