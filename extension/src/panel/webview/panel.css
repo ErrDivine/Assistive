@@ -175,11 +175,14 @@ button.link:hover {
 }
 .tabs {
   display: flex;
+  flex-wrap: wrap; /* in a narrow panel the legend moves to its own line instead of being cut */
   align-items: center;
   gap: 2px;
   padding: 2px 8px;
 }
 .tab {
+  white-space: nowrap;
+  flex-shrink: 0;
   background: transparent;
   color: var(--muted);
   border: none;
@@ -312,8 +315,10 @@ button.link:hover {
   border-top: 1px solid var(--border);
   padding: 6px 8px;
   max-height: 28vh;
+  min-height: 64px;
   overflow-y: auto;
-  flex: 0 0 auto;
+  /* Shrinks (and scrolls) with the graph when the panel is short, instead of being clipped. */
+  flex: 0 1 auto;
 }
 #details h3 {
   margin: 0 0 2px;
@@ -372,9 +377,13 @@ pre,
 }
 #details .actions {
   display: flex;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 4px;
+  margin: 4px 0;
   flex-wrap: wrap;
+}
+#details .actions button {
+  padding: 1px 6px;
+  font-size: 0.92em;
 }
 
 /* ------------------------------------------------------------ feed */

@@ -70,7 +70,7 @@ The legend shows the colors of the statuses. The **⤢** button fits the graph i
 
 ### 4.1.3 Node details
 
-When you select a node, the details box shows:
+When you select a node, the details box shows the buttons under the title, and then:
 
 - the label, the kind, the status and the line number;
 - the signature;

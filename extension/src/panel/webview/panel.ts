@@ -255,10 +255,23 @@ function renderGraph(graph: FileGraph | undefined): void {
   }
 }
 
+/** The programmer zoomed or panned since the last layout: resizes then keep their view. */
+let userViewport = false;
+
+/** Fit the whole graph into the view (at most 1.3× zoom). */
+function fit(): void {
+  cy.fit(undefined, 12);
+  if (cy.zoom() > 1.3) {
+    cy.zoom(1.3);
+    cy.center();
+  }
+}
+
 function layout(): void {
   if (tab !== "graph" || !cy.nodes().length) {
     return;
   }
+  userViewport = false;
   cy.resize();
   cy.layout({
     name: "dagre",
@@ -267,13 +280,10 @@ function layout(): void {
     rankSep: 46,
     edgeSep: 8,
     padding: 12,
-    fit: true,
+    fit: false,
     animate: false,
   } as cytoscape.LayoutOptions).run();
-  if (cy.zoom() > 1.3) {
-    cy.zoom(1.3);
-    cy.center();
-  }
+  fit();
 }
 
 function renderSteps(graph: FileGraph | undefined): void {
@@ -346,7 +356,8 @@ function renderDetails(): void {
     button("Copy signature", "secondary", () => post({ type: "copy", text: n.signature ?? n.symbol ?? n.label }), "Copy to the clipboard"),
     button("Ask about this", "secondary", () => focusInput(`About \`${name}\`: `)),
   );
-  box.appendChild(actions);
+  // Actions right under the title, so they stay visible when the details scroll.
+  box.querySelector("h3")?.after(actions);
 }
 
 function hintRequest(name: string): string {
@@ -697,7 +708,13 @@ document.addEventListener("click", (ev) => {
 
 new ResizeObserver(() => {
   cy.resize();
+  // Keep the whole graph visible when the panel or the details box changes size.
+  if (!userViewport && tab === "graph" && cy.nodes().length) fit();
 }).observe($("graph-wrap"));
+$("cy").addEventListener("wheel", () => (userViewport = true), { passive: true });
+cy.on("tapstart", (ev) => {
+  if (ev.target === cy) userViewport = true; // a drag on the background pans
+});
 
 // Re-color when the VS Code theme changes.
 new MutationObserver(() => cy.style(graphStyle())).observe(document.body, { attributes: true, attributeFilter: ["class"] });

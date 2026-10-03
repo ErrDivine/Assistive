@@ -154,7 +154,9 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 - **Same key:** the script changes only the data and the classes of the elements. The layout does not run again, so the nodes do not jump when a status changes.
 - **New key:** the script removes all elements, adds the new elements, and runs the layout.
 
-**Layout.** `layout()` runs `dagre` with these options: top to bottom, node separation 24, rank separation 46, edge separation 8, padding 12, fit to the view, no animation. If the zoom is more than 1.3 after the fit, it sets the zoom to 1.3 and centers the graph. The layout runs only on the **Graph** tab.
+**Layout.** `layout()` runs `dagre` with these options: top to bottom, node separation 24, rank separation 46, edge separation 8, no animation. Then `fit()` fits the graph into the view with a padding of 12 px. If the zoom is more than 1.3, it sets the zoom to 1.3 and centers the graph. The layout runs only on the **Graph** tab.
+
+**Resize.** When the graph area changes size (the panel, or the details box), the script fits the graph again. It does not do this after the programmer zoomed with the mouse wheel or panned the background, until the next layout.
 
 **Cytoscape options.** Minimum zoom 0.3, maximum zoom 2.5, wheel sensitivity 0.25, no box selection.
 
@@ -170,7 +172,7 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
 - `renderSteps(graph)` lists the nodes in typing order. Each item shows the label, the status and the signature. The next node (from `progress`) has the class `next` and a **next** badge. A click selects. A double-click sends `goto`.
 - `render(state)` sets the label of the Steps tab to **Steps done/total**, with the next node in the tooltip.
-- `renderDetails()` shows the selected node (refer to [User guide](04-user-guide.md#413-node-details)). It shows **Review** for a node whose code is done or flagged, and **Hint** for the other nodes. Both buttons send a `send` message with a fixed request (`hintRequest`, `reviewRequest`). An edge from the node shows as "calls **x**". An edge to the node shows as "**y** calls it".
+- `renderDetails()` shows the selected node (refer to [User guide](04-user-guide.md#413-node-details)). The buttons are directly under the title, so they stay visible when the details box scrolls. It shows **Review** for a node whose code is done or flagged, and **Hint** for the other nodes. Both buttons send a `send` message with a fixed request (`hintRequest`, `reviewRequest`). An edge from the node shows as "calls **x**". An edge to the node shows as "**y** calls it".
 - `renderHeader(state)` draws the file name and the three pills. It sets the button states:
 
   | Button | Not available if |
@@ -223,6 +225,8 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
 - **Tokens.** `:root` defines `--planned`, `--stubbed`, `--done`, `--attention`, `--accent`, `--muted`, `--border`, `--card` and `--hover` from the VS Code variables. Thus the panel follows the light, dark and high-contrast themes.
 - **Layout.** The body is a vertical flex box with the height of the view. The graph section can shrink (`flex: 0 1 auto; min-height: 0`), so the input box always stays visible. The graph area starts at 42% of the view height, has a minimum of 140 px, and the programmer can resize it vertically. The feed fills the rest of the height and scrolls.
+- **Details box.** The details box has a maximum height of 28% of the view. It can shrink to 64 px and then scrolls, so the graph section never cuts it.
+- **Tabs.** The tab labels do not wrap. In a narrow panel, the legend moves to its own line.
 - **`[hidden]`.** The rule `[hidden] { display: none !important; }` makes sure that a hidden element stays hidden, also if a different rule sets `display`.
 
 ## 14.7 Security
