@@ -217,7 +217,7 @@ The **Explain more** button and the **Explain** button of the notification call 
 
 ## 12.9 Local sync
 
-`localSync(handle)` computes the outline of the live text and calls `syncWithOutline` on a copy of the graph. If something changed, it saves the copy without an undo snapshot. It returns the outline. It has no LLM call, so it is fast. The controller calls it when the programmer saves a file. The heartbeat calls it at each beat.
+`localSync(handle)` computes the outline of the live text and calls `syncWithOutline` on a copy of the graph. If something changed, it saves the copy without an undo snapshot. It returns the outline. It has no LLM call, so it is fast. The controller calls it 800 ms after the last change to the active file, and when the programmer saves a file. The heartbeat calls it at each beat.
 
 ## 12.10 Exported helpers
 

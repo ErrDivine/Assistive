@@ -146,6 +146,8 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
 **Label.** `nodeText` puts the step number before the label, for example `2. count_words`. The step number comes from `orderedNodes`.
 
+**Next node.** The next node from `progress` has the class `next`. The style gives it an underlay (a halo) in the accent color.
+
 **Structure key.** The key is the file, the sorted node IDs and the sorted edges. `renderGraph(graph)` compares the new key with the old key:
 
 - **Same key:** the script changes only the data and the classes of the elements. The layout does not run again, so the nodes do not jump when a status changes.
@@ -165,7 +167,8 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
 ### 14.5.5 Steps, details, header and empty message
 
-- `renderSteps(graph)` lists the nodes in typing order. Each item shows the label, the status and the signature. A click selects. A double-click sends `goto`.
+- `renderSteps(graph)` lists the nodes in typing order. Each item shows the label, the status and the signature. The next node (from `progress`) has the class `next` and a **next** badge. A click selects. A double-click sends `goto`.
+- `render(state)` sets the label of the Steps tab to **Steps done/total**, with the next node in the tooltip.
 - `renderDetails()` shows the selected node (refer to [User guide](04-user-guide.md#413-node-details)). An edge from the node shows as "calls **x**". An edge to the node shows as "**y** calls it".
 - `renderHeader(state)` draws the file name and the three pills. It sets the button states:
 

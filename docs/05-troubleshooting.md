@@ -54,7 +54,7 @@ Run **Assistive: Test LLM and Jev Connections**. The result tells you if each se
 
 | Possible cause | Corrective action |
 |---|---|
-| You did not save the file, and no beat ran after the change. | Save the file. |
+| You type without a pause. The statuses change approximately one second after the last change. | Stop typing for a moment. |
 | The name in the code is different from the `symbol` of the node. | Run **Sync**. The LLM changes the node to the name in the code. Or rename the symbol in the code. |
 | Two symbols in the file have the same short name, and the node has no full dotted name. | Run **Sync**, or ask the LLM to set the full symbol, for example `Cache.get`. |
 | The file has a syntax error that stops the parser. | Correct the syntax error. |

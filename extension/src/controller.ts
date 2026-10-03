@@ -14,7 +14,7 @@ import { TreeSitter } from "./code/treesitter";
 import { VsWorkspace } from "./code/workspace";
 import { type AssistiveConfig, ensureEnvFile, envCandidates, loadConfig } from "./config/env";
 import { Debouncer } from "./code/debounce";
-import { toMermaid } from "./graph/model";
+import { nodeForWord, orderedNodes, progress, toMermaid } from "./graph/model";
 import { Heartbeat, type BeatReport } from "./heartbeat/Heartbeat";
 import { describeVerdict, reconcileInterrupts } from "./heartbeat/policy";
 import { Llm } from "./llm/agent";
@@ -27,6 +27,8 @@ import type { FeedItem, FromPanel, PanelState, ServiceStatus } from "./types";
 type Interrupt = Extract<FeedItem, { kind: "interrupt" }>;
 
 const AUTO_DRAFT_DELAY_MS = 2500;
+/** Statuses follow the code this long after the last keystroke. */
+const LIVE_SYNC_DELAY_MS = 800;
 const MIN_DOCSTRING_CHARS = 15;
 
 export class Controller implements vscode.Disposable {
@@ -57,6 +59,7 @@ export class Controller implements vscode.Disposable {
   private readonly refresh: Trigger;
   private readonly autoDraft: Trigger;
   private readonly reconcile: Trigger;
+  private readonly liveSync: Trigger;
 
   constructor(private readonly ctx: vscode.ExtensionContext) {
     this.log = vscode.window.createOutputChannel("Assistive", { log: true });
@@ -70,6 +73,10 @@ export class Controller implements vscode.Disposable {
     this.refresh = debounced(() => void this.pushState(), 60);
     this.autoDraft = debounced(() => void this.maybeAutoDraft(), AUTO_DRAFT_DELAY_MS);
     this.reconcile = debounced(() => this.reconcileInterrupts(), 400);
+    this.liveSync = debounced(() => {
+      const h = this.handle();
+      if (h && this.store.graph(h.key)?.nodes.length) void this.assistant.localSync(h);
+    }, LIVE_SYNC_DELAY_MS);
 
     this.reloadConfig();
 
@@ -116,6 +123,10 @@ export class Controller implements vscode.Disposable {
       vscode.workspace.onDidChangeTextDocument((e) => this.onDocChange(e)),
       vscode.workspace.onDidSaveTextDocument((d) => this.onSave(d)),
       vscode.workspace.onDidOpenTextDocument((d) => this.track(d)),
+      vscode.languages.registerHoverProvider(
+        [{ scheme: "file" }, { scheme: "untitled" }],
+        { provideHover: (doc, pos) => this.hover(doc, pos) },
+      ),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration("assistive")) {
           this.reloadConfig();
@@ -128,6 +139,7 @@ export class Controller implements vscode.Disposable {
       { dispose: () => this.refresh.cancel() },
       { dispose: () => this.autoDraft.cancel() },
       { dispose: () => this.reconcile.cancel() },
+      { dispose: () => this.liveSync.cancel() },
     );
     this.watchEnv();
     for (const d of vscode.workspace.textDocuments) this.track(d);
@@ -288,6 +300,7 @@ export class Controller implements vscode.Disposable {
       // Only typing near the head of the file (the docstring) can start a draft.
       this.headEdits.set(key, Math.min(this.headEdits.get(key) ?? Infinity, ...lines));
       this.autoDraft.trigger();
+      this.liveSync.trigger();
     }
     this.reconcile.trigger();
   }
@@ -486,9 +499,41 @@ export class Controller implements vscode.Disposable {
     const key = this.activeDoc?.uri.fsPath;
     const open = key ? this.openInterrupts(key).length : 0;
     const busy = key ? this.busy.get(key) : undefined;
-    this.statusItem.text = busy ? `$(sync~spin) ${busy.replace(/…$/, "")}` : open ? `$(type-hierarchy) $(warning) ${open}` : "$(type-hierarchy)";
-    this.statusItem.tooltip = busy ?? (open ? `${open} open note${open > 1 ? "s" : ""} from the assistant` : "Assistive: implementation graph");
+    const graph = key ? this.store.graph(key) : undefined;
+    const p = graph?.nodes.length ? progress(graph) : undefined;
+    const count = p?.total ? ` ${p.done}/${p.total}` : "";
+    this.statusItem.text = busy
+      ? `$(sync~spin) ${busy.replace(/…$/, "")}`
+      : open
+        ? `$(type-hierarchy)${count} $(warning) ${open}`
+        : `$(type-hierarchy)${count}`;
+    const plan = p?.total
+      ? `Assistive: ${p.done} of ${p.total} pieces done${p.next ? ` · next: ${p.next.symbol ?? p.next.label}` : " · all done"}`
+      : "Assistive: implementation graph";
+    this.statusItem.tooltip = busy ?? (open ? `${open} open note${open > 1 ? "s" : ""} from the assistant\n${plan}` : plan);
     this.statusItem.backgroundColor = open && !busy ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined;
+  }
+
+  // ------------------------------------------------------------ hover
+
+  /** The plan for the symbol under the mouse: read-only help while typing. */
+  async hover(doc: vscode.TextDocument, pos: vscode.Position): Promise<vscode.Hover | undefined> {
+    if (!this.supported(doc)) return undefined;
+    const graph = this.store.graph(doc.uri.fsPath);
+    const range = doc.getWordRangeAtPosition(pos, /[A-Za-z_$][\w$]*/);
+    if (!graph?.nodes.length || !range) return undefined;
+    const h = this.handleFor(doc);
+    const o = await this.outlineOf(h.file, doc.getText(), doc.languageId);
+    const node = nodeForWord(graph, o, doc.getText(range), pos.line);
+    if (!node) return undefined;
+    const step = orderedNodes(graph).findIndex((n) => n.id === node.id) + 1;
+    const md = new vscode.MarkdownString();
+    md.appendMarkdown(`**Assistive plan** · ${node.status === "done" ? "✓ done" : node.status} · step ${step} of ${graph.nodes.length}\n\n`);
+    if (node.signature) md.appendCodeblock(node.signature, doc.languageId);
+    md.appendMarkdown(escapeMarkdown(node.description));
+    if (node.notes.length) md.appendMarkdown("\n\n" + node.notes.map((n) => `- ${escapeMarkdown(n)}`).join("\n"));
+    if (node.attention) md.appendMarkdown(`\n\n⚠ ${escapeMarkdown(node.attention)}`);
+    return new vscode.Hover(md, range);
   }
 
   // ------------------------------------------------------------ actions
@@ -705,6 +750,10 @@ interface Trigger {
 function debounced(fn: () => void, ms: number): Trigger {
   const d = new Debouncer(ms);
   return { trigger: () => d.trigger(fn), cancel: () => d.cancel() };
+}
+
+function escapeMarkdown(text: string): string {
+  return text.replace(/[\\`*_{}[\]()#+\-.!<>|]/g, "\\$&");
 }
 
 function plain(markdown: string): string {

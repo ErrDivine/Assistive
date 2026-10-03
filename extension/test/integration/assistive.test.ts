@@ -160,6 +160,25 @@ describe("Assistive in VS Code", function () {
     assert.strictEqual(graph()!.nodes.find((n) => n.id === "parse_line")!.line, 5);
   });
 
+  it("updates statuses while the programmer types, before a save", async () => {
+    const more = "\n\ndef count_words(lines):\n    return Counter(w for l in lines for w in parse_line(l))\n";
+    expected += more;
+    const end = editor.document.lineAt(editor.document.lineCount - 1).range.end;
+    editor.selection = new vscode.Selection(end, end);
+    await typeText(more, 40);
+    assert.strictEqual(editor.document.getText(), expected);
+    assert.ok(editor.document.isDirty, "not saved");
+    await waitFor("count_words done", () => graph()!.nodes.find((n) => n.id === "count_words")?.status === "done", 5000);
+  });
+
+  it("shows the plan of a symbol on hover", async () => {
+    const hovers = await vscode.commands.executeCommand<vscode.Hover[]>("vscode.executeHoverProvider", editor.document.uri, new vscode.Position(5, 6));
+    const text = hovers.flatMap((h) => h.contents.map((c) => (typeof c === "string" ? c : c.value))).join("\n");
+    assert.match(text, /\*\*Assistive plan\*\* · stubbed · step 1 of 4/);
+    assert.match(text, /def parse_line\(line: str\) -> list\[str\]/);
+    assert.match(text, /Split one line into lowercase words/);
+  });
+
   it("stays quiet on a calm heartbeat", async () => {
     const before = feed().length;
     const r = await c().beatNow();

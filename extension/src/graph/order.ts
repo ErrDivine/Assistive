@@ -38,3 +38,16 @@ export function orderedNodes(graph: FileGraph): GraphNode[] {
     return oa !== ob ? oa - ob : rank.get(a.id)! - rank.get(b.id)!;
   });
 }
+
+const CODE_KINDS = new Set<string>(["class", "function", "method", "data", "constant", "test"]);
+
+/** Nodes the programmer types (not externals, plain steps or the module itself). */
+export function typedNodes(graph: FileGraph): GraphNode[] {
+  return orderedNodes(graph).filter((n) => n.kind !== "external" && n.kind !== "module" && (CODE_KINDS.has(n.kind) || !!n.symbol));
+}
+
+/** How far the programmer is: done / total typed nodes, and the next node to type (or fix) in typing order. */
+export function progress(graph: FileGraph): { done: number; total: number; next?: GraphNode } {
+  const typed = typedNodes(graph);
+  return { done: typed.filter((n) => n.status === "done").length, total: typed.length, next: typed.find((n) => n.status !== "done") };
+}

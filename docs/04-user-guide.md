@@ -33,7 +33,9 @@ To open the panel, push `Ctrl+Alt+G` or click the Assistive icon in the activity
 The graph area has two tabs:
 
 - **Graph** shows the nodes and edges in a top-to-bottom layout. The number before a label is the position of the node in the typing order.
-- **Steps** shows the nodes in typing order, with the status and the signature of each node.
+- **Steps** shows the nodes in typing order, with the status and the signature of each node. The tab label shows your progress, for example **Steps 3/7**. The next piece to type has a **next** badge.
+
+The count includes only the pieces that you type: classes, functions, methods, data types, constants and tests. It does not include `external` and `step` nodes. The next piece is the first piece in typing order that is not done. In the graph, the next node has a colored halo.
 
 The legend shows the colors of the statuses. The **⤢** button fits the graph into the area again. Drag the bottom edge of the area to change its height.
 
@@ -107,7 +109,7 @@ The status bar shows an Assistive item on the right side.
 
 | Text | Description |
 |---|---|
-| Graph icon | Assistive is ready. |
+| Graph icon and two numbers, for example `3/7` | Assistive is ready. The numbers show how many pieces of the plan you typed, of the total. The tooltip names the next piece. |
 | Spinner and a task | The LLM works, for example "Drafting the graph". |
 | Graph icon, warning icon and a number | The number of open interrupts. The background is the warning color. |
 
@@ -199,10 +201,10 @@ Sometimes the LLM must know a design decision that only you can make. It then sh
 1. Open the **Steps** tab to see the typing order.
 2. Select the first node to read its signature and notes.
 3. Type the code yourself. Optional: click **Copy signature** and paste the signature.
-4. Save the file.
-5. Look at the status of the node. It changes to **stubbed** or **done**.
+4. Stop typing for a moment.
+5. Look at the status of the node. It changes to **stubbed** or **done**. The **next** badge moves to the next piece.
 
-The statuses change when you save the file and at each beat. A Python `def` with only `pass` is stubbed. When you add a real body, the node changes to done.
+The statuses change approximately one second after you stop typing. You do not have to save the file. A Python `def` with only `pass` is stubbed. When you add a real body, the node changes to done.
 
 ## 4.8 Sync the graph with the code
 
@@ -315,3 +317,11 @@ Use this procedure if the LLM works on a request that you do not want, or if it 
 2. Read the note "Stopped. The graph is as it was before." in the feed.
 
 Assistive removes the graph changes that the stopped request made. If a different request waits, that request starts now.
+
+## 4.18 See the plan in the editor
+
+1. Put the mouse pointer on the name of a function, class or method in the editor.
+2. Read the hover. It shows "Assistive plan", the status, the step number, the planned signature, the description and the notes of the node.
+
+The hover works at the definition and at each call. It also works for a name that you did not define yet, if the plan has it. If two nodes have the same short name (for example `Cache.get` and `Store.get`), the hover shows a node only at its own definition.
+

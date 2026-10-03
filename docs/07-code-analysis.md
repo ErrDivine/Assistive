@@ -379,4 +379,4 @@ A debouncer runs a function a fixed time after the last call. Each new call star
 - `interface Timers` has `setTimeout` and `clearTimeout`. `realTimers` uses the timers of Node.js. The tests give a fake clock.
 - `class Debouncer(delayMs, timers)` has `trigger(fn)`, `cancel()` and the property `pending`.
 
-The controller uses three debouncers: the panel refresh (60 ms), the auto-draft (2.5 s) and the interrupt reconcile (400 ms).
+The controller uses four debouncers: the panel refresh (60 ms), the live status sync (800 ms), the auto-draft (2.5 s) and the interrupt reconcile (400 ms).

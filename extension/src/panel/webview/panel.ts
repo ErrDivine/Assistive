@@ -6,7 +6,7 @@ import cytoscape from "cytoscape";
 import dagre from "cytoscape-dagre";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
-import { orderedNodes } from "../../graph/order";
+import { orderedNodes, progress } from "../../graph/order";
 import type { FeedItem, FileGraph, FromPanel, GraphNode, PanelState, Resource, ToPanel } from "../../types";
 
 declare function acquireVsCodeApi(): {
@@ -128,6 +128,10 @@ function graphStyle(): cytoscape.StylesheetJson {
     { selector: "node.kind-class, node.kind-module", style: { "font-weight": "bold" } },
     { selector: "node:selected", style: { "overlay-color": p.accent, "overlay-opacity": 0.18, "overlay-padding": 4 } },
     {
+      selector: "node.next",
+      style: { "underlay-color": p.accent, "underlay-opacity": 0.35, "underlay-padding": 5, "underlay-shape": "round-rectangle" },
+    },
+    {
       selector: "edge",
       style: {
         width: 1.2,
@@ -212,6 +216,7 @@ function renderGraph(graph: FileGraph | undefined): void {
     return;
   }
   const order = stepNumbers(graph);
+  const next = progress(graph).next?.id;
   const key =
     graph.file +
     "|" +
@@ -222,7 +227,7 @@ function renderGraph(graph: FileGraph | undefined): void {
     const text = nodeText(n, order);
     return { id: n.id, text, ...nodeSize(text) };
   };
-  const classesOf = (n: GraphNode) => `${n.status} kind-${n.kind}`;
+  const classesOf = (n: GraphNode) => `${n.status} kind-${n.kind}${n.id === next ? " next" : ""}`;
   if (key === structureKey) {
     for (const n of graph.nodes) {
       const ele = cy.getElementById(n.id);
@@ -275,11 +280,13 @@ function renderSteps(graph: FileGraph | undefined): void {
   const list = $("steps");
   list.innerHTML = "";
   if (!graph) return;
+  const next = progress(graph).next?.id;
   for (const n of orderedNodes(graph)) {
     const li = el(
       "li",
-      n.id === selected ? "selected" : "",
+      [n.id === selected ? "selected" : "", n.id === next ? "next" : ""].filter(Boolean).join(" "),
       `<span class="label">${esc(n.label)}</span><span class="status ${n.status}">${n.status === "done" ? "✓ done" : n.status}</span>` +
+        (n.id === next ? `<span class="badge" title="The next piece to type, in typing order">next</span>` : "") +
         (n.signature ? `<span class="sig">${esc(n.signature)}</span>` : ""),
     );
     li.addEventListener("click", () => select(n.id));
@@ -686,6 +693,9 @@ function render(s: PanelState): void {
     selected = s.graph?.nodes.some((n) => n.id === selected) ? selected : undefined;
   }
   renderHeader(s);
+  const p = s.graph?.nodes.length ? progress(s.graph) : undefined;
+  $("tab-steps").textContent = p?.total ? `Steps ${p.done}/${p.total}` : "Steps";
+  $("tab-steps").title = p?.total ? `${p.done} of ${p.total} pieces typed${p.next ? `; next: ${p.next.label}` : ""}` : "";
   renderEmpty(s);
   renderGraph(s.graph);
   if (tab === "steps") renderSteps(s.graph);

@@ -4,7 +4,7 @@ An **implementation graph** that you and an LLM build together, in a VS Code sid
 
 1. **Write the module docstring.** Describe what the file should do at its top. The assistant drafts a graph of what you will type: functions, classes and methods with concrete signatures, the technical considerations for each, the external APIs involved, and a suggested typing order. It drafts from your docstring and your project (file tree, manifests, README, and the modules you import).
 2. **Steer it in plain language.** Type instructions in the panel's input box, such as "split parsing into its own function" or "what's the best way to cache this?". The LLM edits the graph through a set of tools and replies with a brief summary.
-3. **Type the code yourself.** The assistant never writes your implementation or touches your buffers. As your code appears, the graph follows it: nodes go from *planned* to *stub* to *done*.
+3. **Type the code yourself.** The assistant never writes your implementation or touches your buffers. As your code appears, the graph follows it within a second, no save needed: nodes go from *planned* to *stub* to *done*, and the next piece to type is highlighted.
 4. **A heartbeat watches, calmly.** While you type, a heartbeat runs at a relaxed interval (45 s by default). [Jev](https://typesafe.ai), TypeSafe AI's System One model, triages each beat in about 100 ms with calibrated probabilities. It looks for a typo, a logic error, API misuse, a missed edge case, a clearly better approach, a security problem, or drift from the plan. Only when Jev's answers cross the thresholds does the LLM take a closer look and decide whether to interrupt you. An interrupt shows in the panel, squiggles the line, and flags the graph node. It resolves itself once you change that line.
 5. **Learn what you're missing.** When the assistant notices that you lack a concept, it recommends a few resources. They are mostly official docs, and every link is checked before it appears in the panel.
 
@@ -59,7 +59,8 @@ The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration
 | Open the panel | Activity bar → Assistive, or `Ctrl+Alt+G` |
 | Draft a graph | Write the module docstring and close it: the draft starts by itself when the file has no graph yet. Files you only open are not drafted automatically; press **Draft** for those, or **Redraft** after changing a docstring. |
 | Tell the assistant something | Type in the input box (`Enter` sends, `Shift+Enter` adds a line), or press `Ctrl+Alt+/` from the editor |
-| See what to type next | **Steps** tab: nodes in typing order with signatures |
+| See what to type next | **Steps** tab: nodes in typing order with signatures; the tab shows your progress (`Steps 3/7`) and the next piece has a **next** badge (also a halo in the graph and `3/7` in the status bar) |
+| See the plan while you type | Hover a function, class or method name in the editor: its planned signature, description and notes |
 | Inspect a node | Click it to see its signature, description, notes and edges, plus **Go to code**, **Copy signature** and **Ask about this**. Double-click jumps to the code. |
 | Bring the graph in line with the code | **Sync** (also runs on its own when a heartbeat finds the graph out of date) |
 | Undo a graph change | **Undo** (keeps the last 20 revisions per file) |

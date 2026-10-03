@@ -197,6 +197,15 @@ This function removes the flags. With `why`, it removes only the flags with this
 
 This function returns the outline symbols that no node refers to. It ignores variables. The sync prompt lists them, so the LLM can add nodes for them.
 
+### 8.5.6 `nodeForWord(graph, outline, word, line)`
+
+The editor hover uses this function to find the node of a word at a 0-based line:
+
+1. It finds the nodes whose symbol name (the last part of the dotted name) is the word. For a node without a symbol, the name is the label, but only for symbol kinds.
+2. Of these nodes, it returns the innermost node whose code contains the line. This is the case at the definition.
+3. If no such node exists, it returns the only node with the name. This is the case at a call, or for a symbol that is not typed yet.
+4. If more than one node has the name, it returns nothing. Thus `get` at a call site does not choose between `Cache.get` and `Store.get`.
+
 ## 8.6 Text renderings
 
 ### 8.6.1 `compactGraph(graph)`
@@ -252,5 +261,17 @@ The function does these steps:
 1. It makes a dependency set for each node. For each edge, except `contains` edges and edges to unknown nodes, the `from` node depends on the `to` node. For example, if `main` calls `count_words`, the programmer types `count_words` first.
 2. It does a depth-first search and adds each node after its dependencies (a post-order topological sort). A stack of the nodes in progress stops cycles.
 3. It sorts the nodes. A node with an explicit `order` comes first, from the smallest order. Nodes without an order, and nodes with the same order, keep their topological rank.
+
+### 8.7.1 Progress
+
+`typedNodes(graph)` returns the nodes that the programmer types, in typing order. These are the nodes of kind `class`, `function`, `method`, `data`, `constant` or `test`, and other nodes with a symbol. Nodes of kind `external` and `module` are never included.
+
+`progress(graph)` returns `{done, total, next}`:
+
+- `done`: the number of typed nodes with the status `done`;
+- `total`: the number of typed nodes;
+- `next`: the first typed node, in typing order, that is not `done`. A flagged node can be the next node.
+
+The panel shows the progress on the **Steps** tab and marks the next node. The status bar shows `done/total`.
 
 The module imports only types. Thus the webview bundle can import it without the rest of the host code.

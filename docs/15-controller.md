@@ -53,7 +53,7 @@ The constructor makes these objects, in this order:
 3. The `TreeSitter` with `dist/wasm/`.
 4. The diagnostic collection "Assistive".
 5. The status bar item (right side, priority 90, command `assistive.focus`).
-6. Three debouncers: the panel refresh (60 ms), the auto-draft (2.5 s) and the interrupt reconcile (400 ms).
+6. Four debouncers: the panel refresh (60 ms), the live status sync (800 ms), the auto-draft (2.5 s), and the interrupt reconcile (400 ms).
 7. The configuration and the clients (`reloadConfig`).
 8. The `Assistant`, the `Heartbeat` and the `PanelProvider`.
 9. The event listeners and the disposables.
@@ -123,7 +123,7 @@ For each change of a supported document, the controller:
 
 1. computes the touched lines: from the start line of each change to the start line plus the number of new lines (maximum 50 lines);
 2. calls `edits.edited(key, lines)`;
-3. if the document is the active document: refreshes the panel, records the first touched line for the auto-draft, and triggers the auto-draft debouncer;
+3. if the document is the active document: refreshes the panel, records the first touched line for the auto-draft, and triggers the auto-draft and live sync debouncers;
 4. triggers the interrupt reconcile debouncer.
 
 ### 15.4.2 `maybeAutoDraft()`
@@ -226,7 +226,22 @@ When the store reports a change for a file, the controller:
 |---|---|---|
 | A turn runs | Spinner and the busy label | Default |
 | Open interrupts | Graph icon, warning icon, number | Warning color |
-| Other | Graph icon | Default |
+| Other | Graph icon, and `done/total` if the file has a graph | Default |
+
+### 15.6.6 Live status sync
+
+The live sync runs 800 ms after the last change to the active file. If the file has a graph with nodes, it calls `assistant.localSync`. Thus the statuses follow the code while the programmer types, without a save and without the LLM.
+
+### 15.6.7 Editor hover
+
+The controller registers a hover provider for all `file` and `untitled` documents. `hover(doc, position)` does these steps:
+
+1. It returns nothing if the document is not supported or has no graph.
+2. It finds the word at the position.
+3. It calls `nodeForWord(graph, outline, word, line)` (refer to [Graph model](08-graph-model.md#856-nodeforwordgraph-outline-word-line)).
+4. It makes a Markdown hover. The hover has "**Assistive plan**", the status and the step number. It also has the signature (a code block in the language of the file), the description, the notes and the attention reason.
+
+The hover only reads data. It does not change the document (invariant I1).
 
 ## 15.7 Actions
 
@@ -268,5 +283,5 @@ All commands that need a file call `requireFile()`. If there is no supported fil
 
 - They stop the heartbeat timer.
 - They flush the store.
-- They cancel the three debouncers.
+- They cancel the four debouncers.
 - They remove the watchers, the listeners, the diagnostic collection, the status bar item, the output channel and the panel.

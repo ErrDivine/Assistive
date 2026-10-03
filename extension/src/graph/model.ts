@@ -14,9 +14,9 @@ import {
   type NodeStatus,
 } from "../types";
 import type { FileOutline, OutlineSymbol } from "../code/outline";
-import { orderedNodes } from "./order";
+import { orderedNodes, progress, typedNodes } from "./order";
 
-export { orderedNodes };
+export { orderedNodes, progress, typedNodes };
 
 export const MAX_NODES = 60;
 export const MAX_EDGES = 150;
@@ -488,6 +488,26 @@ export function clearAttention(graph: FileGraph, outline: FileOutline, why?: str
     syncWithOutline(graph, outline);
   }
   return changed;
+}
+
+/**
+ * The node the programmer means by `word` at 0-based `line` (an editor hover):
+ * the innermost node whose code contains the line and has that name, else the
+ * only node with that name (a call site, or a symbol not typed yet).
+ */
+export function nodeForWord(graph: FileGraph, outline: FileOutline, word: string, line: number): GraphNode | undefined {
+  const named = graph.nodes.filter((n) => {
+    const name = n.symbol ? symbolName(n.symbol) : SYMBOL_KINDS.has(n.kind) ? n.label : "";
+    return !!name && name.split(".").pop() === word;
+  });
+  let best: { node: GraphNode; size: number } | undefined;
+  for (const node of named) {
+    const sym = findSymbol(node, outline.symbols);
+    if (sym && sym.line <= line && line <= sym.endLine && (!best || sym.endLine - sym.line < best.size)) {
+      best = { node, size: sym.endLine - sym.line };
+    }
+  }
+  return best?.node ?? (named.length === 1 ? named[0] : undefined);
 }
 
 /** Symbols in the code that no node refers to (for sync prompts). */

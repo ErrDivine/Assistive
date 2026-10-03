@@ -190,7 +190,10 @@ sequenceDiagram
 
 The LLM does not set the status of a symbol node. The code sets it:
 
-1. The controller or the heartbeat calls `Assistant.localSync`. This occurs when the programmer saves a file and at each beat.
+1. The controller or the heartbeat calls `Assistant.localSync`. This occurs at three times:
+   - 800 ms after the last change to the active file;
+   - when the programmer saves a file;
+   - at each beat.
 2. `localSync` computes the outline of the live text.
 3. `syncWithOutline` finds the symbol of each node and sets `planned`, `stubbed` or `done`. It keeps `attention`.
 4. If a status or a line changed, the store saves the graph without an undo snapshot.
@@ -225,6 +228,7 @@ The extension host has one JavaScript thread. Assistive uses `async` functions a
 | Heartbeat tick | 3 s | `heartbeat/Heartbeat.ts` |
 | Pause before a beat | 2 s | `heartbeat/policy.ts` |
 | Panel refresh debounce | 60 ms | `controller.ts` |
+| Status sync after typing (live sync) | 800 ms | `controller.ts` |
 | Auto-draft debounce | 2.5 s | `controller.ts` |
 | Interrupt reconcile debounce | 400 ms | `controller.ts` |
 | Store save debounce | 400 ms | `store/GraphStore.ts` |

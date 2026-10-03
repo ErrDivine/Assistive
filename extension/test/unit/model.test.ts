@@ -10,6 +10,7 @@ import {
   findSymbol,
   graphForJev,
   GraphEditor,
+  nodeForWord,
   MAX_EDGES,
   MAX_NODES,
   slugify,
@@ -17,7 +18,7 @@ import {
   toMermaid,
   unplannedSymbols,
 } from "../../src/graph/model";
-import { orderedNodes } from "../../src/graph/order";
+import { orderedNodes, progress, typedNodes } from "../../src/graph/order";
 import { EDGE_KINDS, type FileGraph, type GraphEdge, type GraphNode, NODE_KINDS } from "../../src/types";
 
 // ---------------------------------------------------------------- factories
@@ -1194,6 +1195,71 @@ describe("unplannedSymbols", () => {
 });
 
 // ---------------------------------------------------------------- orderedNodes
+
+describe("progress and typedNodes", () => {
+  it("counts only the pieces the programmer types and finds the next one in typing order", () => {
+    const g = graph(
+      [
+        node({ id: "main", order: 3, status: "planned" }),
+        node({ id: "parse", order: 1, status: "done" }),
+        node({ id: "count", order: 2, status: "stubbed" }),
+        node({ id: "requests", kind: "external", status: "planned" }),
+        node({ id: "validate", kind: "step", status: "planned" }),
+        node({ id: "file", kind: "module", status: "planned" }),
+        node({ id: "check_input", kind: "step", symbol: "check_input", status: "planned", order: 4 }),
+      ],
+      [edge("main", "count")],
+    );
+    assert.deepStrictEqual(
+      typedNodes(g).map((n) => n.id),
+      ["parse", "count", "main", "check_input"],
+    );
+    const p = progress(g);
+    assert.strictEqual(p.done, 1);
+    assert.strictEqual(p.total, 4);
+    assert.strictEqual(p.next?.id, "count", "a stub is the next piece to finish");
+  });
+
+  it("points at a flagged node and has no next node when all are done", () => {
+    assert.strictEqual(progress(graph([node({ id: "a", status: "done" }), node({ id: "b", status: "attention" })])).next?.id, "b");
+    const done = progress(graph([node({ id: "a", status: "done" })]));
+    assert.deepStrictEqual([done.done, done.total, done.next], [1, 1, undefined]);
+    assert.deepStrictEqual(progress(graph([node({ id: "x", kind: "external" })])), { done: 0, total: 0, next: undefined });
+  });
+});
+
+describe("nodeForWord", () => {
+  const g = graph([
+    node({ id: "parse_line", symbol: "parse_line" }),
+    node({ id: "cache_get", kind: "method", symbol: "Cache.get" }),
+    node({ id: "store_get", kind: "method", symbol: "Store.get" }),
+    node({ id: "helper", label: "helper" }),
+    node({ id: "requests", kind: "external", label: "requests" }),
+  ]);
+  const o = outlineOf(
+    sym("parse_line", { line: 2, endLine: 4 }),
+    sym("Cache", { kind: "class", line: 6, endLine: 10 }),
+    sym("Cache.get", { kind: "method", line: 7, endLine: 8, parent: "Cache" }),
+    sym("Store.get", { kind: "method", line: 12, endLine: 13, parent: "Store" }),
+  );
+
+  it("finds a node at its definition or at a call site", () => {
+    assert.strictEqual(nodeForWord(g, o, "parse_line", 3)?.id, "parse_line");
+    assert.strictEqual(nodeForWord(g, o, "parse_line", 20)?.id, "parse_line", "a call elsewhere");
+    assert.strictEqual(nodeForWord(g, o, "helper", 0)?.id, "helper", "a planned symbol that is not typed yet");
+  });
+
+  it("uses the position to choose between nodes with the same short name", () => {
+    assert.strictEqual(nodeForWord(g, o, "get", 7)?.id, "cache_get");
+    assert.strictEqual(nodeForWord(g, o, "get", 13)?.id, "store_get");
+    assert.strictEqual(nodeForWord(g, o, "get", 30), undefined, "ambiguous outside both");
+  });
+
+  it("ignores external nodes and unknown words", () => {
+    assert.strictEqual(nodeForWord(g, o, "requests", 0), undefined);
+    assert.strictEqual(nodeForWord(g, o, "nothing", 0), undefined);
+  });
+});
 
 describe("orderedNodes", () => {
   const names = (g: FileGraph) => orderedNodes(g).map((n) => n.id);

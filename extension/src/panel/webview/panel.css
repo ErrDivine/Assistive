@@ -251,6 +251,17 @@ button.link:hover {
 #steps li.selected {
   outline: 1px solid var(--accent);
 }
+#steps li.next {
+  border-left: 3px solid var(--accent);
+}
+#steps .badge {
+  font-size: 0.75em;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 8px;
+  color: var(--vscode-badge-foreground, #fff);
+  background: var(--vscode-badge-background, var(--accent));
+}
 #steps .sig {
   font-family: var(--vscode-editor-font-family);
   font-size: 0.9em;
