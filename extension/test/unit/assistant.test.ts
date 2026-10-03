@@ -382,6 +382,8 @@ describe("Assistant + Heartbeat with fake OpenAI and Jev servers", () => {
     const t = harness(fake);
     await t.assistant.draft(t.h);
     assert.ok(t.streams.some((x) => x?.startsWith("Drafted 3")), "the summary streamed");
+    const summary = feedOf(t.store, "assistant")[0] as Extract<FeedItem, { kind: "assistant" }>;
+    assert.deepStrictEqual(summary.usage, { prompt: 200, completion: 40 }, "two streamed rounds, usage from each");
     assert.strictEqual(t.streams.at(-1), undefined, "cleared when the turn ended");
     assert.ok(fake.chatRequests.every((q) => q.stream === true));
   });

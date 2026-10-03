@@ -290,7 +290,7 @@ A `FeedItem` always has an `id` (8 characters) and a `ts` (ISO time). The `kind`
 | `kind` | Other fields |
 |---|---|
 | `user` | `text` |
-| `assistant` | `text`, `mode` (`AgentMode`), and an optional `changes` (`GraphChangeSummary`) |
+| `assistant` | `text`, `mode` (`AgentMode`), an optional `changes` (`GraphChangeSummary`) and an optional `usage` (prompt and completion tokens) |
 | `interrupt` | `title`, `message`, `line` (0-based), optional `endLine`, `issue`, `severity` (1, 2 or 3), `status` (`open`, `resolved`, `dismissed`), optional `lineText`, optional `triage` |
 | `resources` | `topic`, `items` (`Resource[]`) |
 | `question` | `question`, `options`, optional `answered` |

@@ -36,7 +36,7 @@ The constructor makes an `OpenAI` client with these options:
 
 ### 9.3.2 `complete(body, signal, onText?)`
 
-This method sends one request. It adds `model` and `temperature` to the body.
+This method sends one request. It puts the fields of `ASSISTIVE_LLM_EXTRA_BODY` first, then the body of the call, then `model` and `temperature`. Thus the extra fields cannot replace the fields of the loop.
 
 Some compatible servers reject a part of the request with HTTP 400. The method then sends the request again without that part. The client never sends that part again:
 
@@ -44,11 +44,12 @@ Some compatible servers reject a part of the request with HTTP 400. The method t
 |---|---|
 | "temperature" | `temperature` |
 | "tool_choice" | `tool_choice` |
+| "stream_options" or "include_usage" (only for a streaming request) | `stream_options`. Streaming continues, without token counts. |
 | "stream" (only for a streaming request) | Streaming. The client sends normal requests after this. |
 
 A server can also ignore `stream: true` and send a normal JSON reply. The stream reader then fails with an error that is not an HTTP error. In this case too, the client stops the use of streaming and sends the request again.
 
-**Streaming.** If `onText` is given and streaming is on (`ASSISTIVE_LLM_STREAM`), the method uses the `stream()` helper of the SDK. The helper receives the reply as server-sent events. For each new part of the text, the method calls `onText` with all text so far. `stripThinkingPartial` hides `<think>` blocks, also a block that is not closed yet. At the end, the helper gives the complete reply with its tool calls, in the same form as a normal request.
+**Streaming.** If `onText` is given and streaming is on (`ASSISTIVE_LLM_STREAM`), the method uses the `stream()` helper of the SDK. It asks for the token usage with `stream_options: {include_usage: true}`. The helper receives the reply as server-sent events. For each new part of the text, the method calls `onText` with all text so far. `stripThinkingPartial` hides `<think>` blocks, also a block that is not closed yet. At the end, the helper gives the complete reply with its tool calls, in the same form as a normal request.
 
 All other errors go through `toLlmError`.
 

@@ -106,7 +106,14 @@ interface FeedBase {
 
 export type FeedItem =
   | (FeedBase & { kind: "user"; text: string })
-  | (FeedBase & { kind: "assistant"; text: string; changes?: GraphChangeSummary; mode: AgentMode })
+  | (FeedBase & {
+      kind: "assistant";
+      text: string;
+      changes?: GraphChangeSummary;
+      mode: AgentMode;
+      /** Tokens the turn used, when the server reports them. */
+      usage?: { prompt: number; completion: number };
+    })
   | (FeedBase & {
       kind: "interrupt";
       title: string;

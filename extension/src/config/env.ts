@@ -16,6 +16,8 @@ export interface LlmConfig {
   timeoutMs: number;
   maxToolRounds: number;
   extraHeaders: Record<string, string>;
+  /** Merged into every request body, e.g. { reasoning_effort: "low" }. */
+  extraBody: Record<string, unknown>;
   /** Stream replies into the panel as they are written. */
   stream: boolean;
 }
@@ -70,6 +72,8 @@ ASSISTIVE_LLM_MAX_TOOL_ROUNDS=8
 ASSISTIVE_LLM_STREAM=true
 # JSON object of extra HTTP headers, e.g. {"HTTP-Referer":"https://example.com"}
 ASSISTIVE_LLM_EXTRA_HEADERS=
+# JSON object merged into every request body, e.g. {"reasoning_effort":"low"}
+ASSISTIVE_LLM_EXTRA_BODY=
 
 # --- Jev, TypeSafe AI's System One model (https://typesafe.ai) ---
 ASSISTIVE_JEV_BASE_URL=https://api.typesafe.ai/v1
@@ -128,6 +132,8 @@ function num(
   return n;
 }
 
+const RESERVED_BODY_FIELDS = ["model", "messages", "tools", "tool_choice", "stream", "stream_options", "response_format"];
+
 function isFalse(value: string): boolean {
   return /^(false|0|no|off)$/i.test(value);
 }
@@ -142,20 +148,29 @@ export function parseConfig(vars: Record<string, string>, source?: string): Assi
   // Blank values count as unset, like the numeric settings.
   const get = (k: string, d = "") => vars[k]?.trim() || d;
 
-  let extraHeaders: Record<string, string> = {};
-  const rawHeaders = get("ASSISTIVE_LLM_EXTRA_HEADERS");
-  if (rawHeaders) {
+  const jsonObject = (key: string): Record<string, unknown> => {
+    const raw = get(key);
+    if (!raw) {
+      return {};
+    }
     try {
-      const parsed = JSON.parse(rawHeaders) as unknown;
+      const parsed = JSON.parse(raw) as unknown;
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        extraHeaders = Object.fromEntries(
-          Object.entries(parsed as Record<string, unknown>).map(([k, v]) => [k, String(v)]),
-        );
-      } else {
-        problems.push("ASSISTIVE_LLM_EXTRA_HEADERS must be a JSON object.");
+        return parsed as Record<string, unknown>;
       }
+      problems.push(`${key} must be a JSON object.`);
     } catch {
-      problems.push("ASSISTIVE_LLM_EXTRA_HEADERS is not valid JSON.");
+      problems.push(`${key} is not valid JSON.`);
+    }
+    return {};
+  };
+  const extraHeaders = Object.fromEntries(Object.entries(jsonObject("ASSISTIVE_LLM_EXTRA_HEADERS")).map(([k, v]) => [k, String(v)]));
+  // Fields the agent loop controls cannot be overridden.
+  const extraBody = jsonObject("ASSISTIVE_LLM_EXTRA_BODY");
+  for (const k of RESERVED_BODY_FIELDS) {
+    if (k in extraBody) {
+      delete extraBody[k];
+      problems.push(`ASSISTIVE_LLM_EXTRA_BODY cannot set "${k}"; it is ignored.`);
     }
   }
 
@@ -167,6 +182,7 @@ export function parseConfig(vars: Record<string, string>, source?: string): Assi
     timeoutMs: num(vars, "ASSISTIVE_LLM_TIMEOUT_SECONDS", 120, problems, 5, 900) * 1000,
     maxToolRounds: Math.round(num(vars, "ASSISTIVE_LLM_MAX_TOOL_ROUNDS", 8, problems, 1, 30)),
     extraHeaders,
+    extraBody,
     stream: !isFalse(get("ASSISTIVE_LLM_STREAM", "true")),
   };
   const jev: JevConfig = {

@@ -11,6 +11,7 @@ const cfg = (base: string, extra: Partial<LlmConfig> = {}): LlmConfig => ({
   timeoutMs: 5000,
   maxToolRounds: 4,
   extraHeaders: {},
+  extraBody: {},
   stream: true,
   ...extra,
 });
@@ -197,6 +198,35 @@ describe("Llm.run (OpenAI tool-calling loop)", () => {
     assert.strictEqual(r.text, "plain json");
     await llm.run({ messages: [{ role: "user", content: "again" }], tools: [echo as unknown as AgentTool], onText: () => undefined });
     assert.deepStrictEqual(fake.chatRequests.map((q) => q.stream === true), [true, false, false]);
+  });
+
+  it("asks for usage when streaming, and drops only stream_options if the server rejects it", async () => {
+    fake.chat = () => ({ content: "x" });
+    const r = await new Llm(cfg(fake.base)).run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool], onText: () => undefined });
+    assert.deepStrictEqual(r.usage, { prompt: 100, completion: 20 }, "usage arrives in the last chunk");
+    fake.reset();
+    fake.rejectStreamOptions = true;
+    fake.chat = () => ({ content: "y" });
+    const llm = new Llm(cfg(fake.base));
+    const r2 = await llm.run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool], onText: () => undefined });
+    assert.strictEqual(r2.text, "y");
+    assert.deepStrictEqual(
+      fake.chatRequests.map((q) => [q.stream === true, !!q.stream_options]),
+      [
+        [true, true],
+        [true, false],
+      ],
+      "still streaming, without stream_options",
+    );
+  });
+
+  it("merges ASSISTIVE_LLM_EXTRA_BODY into each request without overriding the loop's own fields", async () => {
+    fake.chat = () => ({ content: "ok" });
+    await new Llm(cfg(fake.base, { extraBody: { reasoning_effort: "low", top_p: 0.9 } })).run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool] });
+    const q = fake.chatRequests[0];
+    assert.strictEqual(q.reasoning_effort, "low");
+    assert.strictEqual(q.top_p, 0.9);
+    assert.strictEqual(q.tool_choice, "auto");
   });
 
   it("does not stream without onText or with streaming turned off", async () => {

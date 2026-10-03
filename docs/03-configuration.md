@@ -53,6 +53,7 @@ You do not have to restart the editor after a change to the `.env` file.
 | `ASSISTIVE_LLM_TIMEOUT_SECONDS` | `120` | 5 to 900 | The maximum time for one request. |
 | `ASSISTIVE_LLM_MAX_TOOL_ROUNDS` | `8` | 1 to 30 | The maximum number of tool rounds in one turn. After this number, the LLM must write its summary. |
 | `ASSISTIVE_LLM_EXTRA_HEADERS` | (none) | JSON object | Extra HTTP headers, for example `{"HTTP-Referer":"https://example.com"}`. |
+| `ASSISTIVE_LLM_EXTRA_BODY` | (none) | JSON object | Extra fields for each request body, for example `{"reasoning_effort":"low"}` or provider options. Assistive ignores the fields that it controls: `model`, `messages`, `tools`, `tool_choice`, `stream`, `stream_options` and `response_format`. |
 | `ASSISTIVE_LLM_STREAM` | `true` | `false`, `0`, `no` or `off` disable it | Show the replies of the LLM in the panel while it writes them. If the server rejects streaming, Assistive stops the use of it automatically. |
 
 ### 3.2.2 Jev variables
@@ -91,7 +92,8 @@ Assistive does not stop when a value is not correct. It uses a safe value and wr
 | A number that is not a number, for example `abc` | Assistive uses the default value. |
 | A number out of range | Assistive uses the nearest limit of the range. For example, `ASSISTIVE_HEARTBEAT_SECONDS=5` becomes 15. |
 | `ASSISTIVE_LLM_MAX_TOOL_ROUNDS` with decimals | Assistive rounds the value to the nearest integer. |
-| `ASSISTIVE_LLM_EXTRA_HEADERS` that is not valid JSON, or not a JSON object | Assistive sends no extra headers. |
+| `ASSISTIVE_LLM_EXTRA_HEADERS` or `ASSISTIVE_LLM_EXTRA_BODY` that is not valid JSON, or not a JSON object | Assistive sends no extra headers or fields. |
+| `ASSISTIVE_LLM_EXTRA_BODY` with a field that Assistive controls | Assistive ignores that field. |
 | `ASSISTIVE_TRIAGE` with an unknown value | Assistive uses `jev`. |
 
 To see the messages, open **View → Output** and select **Assistive**.
@@ -159,7 +161,7 @@ The module is `src/config/env.ts`. It has no `vscode` import, so the unit tests 
 
 | Type | Fields |
 |---|---|
-| `LlmConfig` | `baseUrl`, `apiKey`, `model`, `temperature`, `timeoutMs`, `maxToolRounds`, `extraHeaders`, `stream` |
+| `LlmConfig` | `baseUrl`, `apiKey`, `model`, `temperature`, `timeoutMs`, `maxToolRounds`, `extraHeaders`, `extraBody`, `stream` |
 | `JevConfig` | `baseUrl`, `apiKey`, `model`, `timeoutMs` |
 | `HeartbeatConfig` | `intervalMs`, `interruptThreshold`, `cooldownMs`, `graphSyncThreshold`, `explainThreshold` |
 | `AssistiveConfig` | `llm`, `jev`, `triage`, `heartbeat`, `verifyLinks`, `llmReady`, `jevReady`, `problems`, `source` |
@@ -177,7 +179,7 @@ This function returns `true` for an absent or empty value. It also returns `true
 This function is pure. It changes a map of variable names to values into an `AssistiveConfig`. It does these steps:
 
 1. It reads each string with `get(key, default)`. A value that is absent or blank after trim gives the default.
-2. It parses `ASSISTIVE_LLM_EXTRA_HEADERS` as JSON. It accepts only an object. It changes each value to a string.
+2. It parses `ASSISTIVE_LLM_EXTRA_HEADERS` and `ASSISTIVE_LLM_EXTRA_BODY` as JSON (function `jsonObject`). It accepts only objects. It changes each header value to a string. It removes the reserved fields from the body (`RESERVED_BODY_FIELDS`) and adds a problem for each one.
 3. It reads each number with `num(vars, key, fallback, problems, min, max)`. The function `num` returns the fallback for a blank value. It returns the fallback and adds a problem for a value that is not finite. It clamps a value out of range and adds a problem.
 4. It removes slashes at the end of the two base URLs.
 5. It changes the triage value to lower case and accepts `jev`, `llm` or `off`.

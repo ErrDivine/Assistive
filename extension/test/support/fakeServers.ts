@@ -39,6 +39,8 @@ export class FakeServers {
   rejectStreaming = false;
   /** Answer streaming requests with plain JSON, like a server that ignores `stream`. */
   ignoreStreaming = false;
+  /** Answer HTTP 400 to `stream_options`, like an older compatible server. */
+  rejectStreamOptions = false;
   jev: (req: JevRequest) => { status?: number; body: unknown } = (req) => ({ body: jevAnswers(req, {}) });
   private server?: http.Server;
   private callId = 0;
@@ -63,6 +65,7 @@ export class FakeServers {
     this.chatDelayMs = 0;
     this.rejectStreaming = false;
     this.ignoreStreaming = false;
+    this.rejectStreamOptions = false;
     this.chatRequests.length = 0;
     this.jevRequests.length = 0;
     this.linkRequests.length = 0;
@@ -94,6 +97,9 @@ export class FakeServers {
       );
     }
     send({}, "calls" in reply ? "tool_calls" : "stop");
+    if ((body.stream_options as { include_usage?: boolean } | undefined)?.include_usage) {
+      res.write(`data: ${JSON.stringify({ ...base, choices: [], usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 } })}\n\n`);
+    }
     res.write("data: [DONE]\n\n");
     res.end();
   }
@@ -123,6 +129,10 @@ export class FakeServers {
           return;
         }
         if (body.stream === true && !this.ignoreStreaming) {
+          if (this.rejectStreamOptions && body.stream_options) {
+            json(400, { error: { message: "Unrecognized request argument supplied: stream_options", type: "invalid_request_error" } });
+            return;
+          }
           if (this.rejectStreaming) {
             json(400, { error: { message: "stream is not supported by this server", type: "invalid_request_error" } });
             return;

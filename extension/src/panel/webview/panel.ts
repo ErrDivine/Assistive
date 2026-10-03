@@ -544,7 +544,12 @@ function renderItem(f: FeedItem): HTMLElement {
       box.textContent = f.text;
       break;
     case "assistant": {
-      box.append(meta(f.mode === "draft" ? "Drafted" : f.mode === "sync" ? "Synced" : f.mode === "heartbeat" ? "Heartbeat" : "Assistant"));
+      const head = meta(f.mode === "draft" ? "Drafted" : f.mode === "sync" ? "Synced" : f.mode === "heartbeat" ? "Heartbeat" : "Assistant");
+      if (f.usage) {
+        const ts = head.querySelector(".ts") as HTMLElement | null;
+        if (ts) ts.title = `${f.usage.prompt.toLocaleString()} prompt + ${f.usage.completion.toLocaleString()} completion tokens`;
+      }
+      box.append(head);
       box.append(el("div", "md", md(f.text)));
       if (f.changes) {
         const c = f.changes;

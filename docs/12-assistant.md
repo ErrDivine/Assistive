@@ -123,7 +123,7 @@ The rules decide if the summary of the LLM goes into the feed:
 | Sync | The graph changed, **or** the programmer asked for the sync. An automatic sync that changes nothing stays quiet. |
 | Draft, chat | Always. |
 
-If the text is empty, the feed shows "Updated the graph (+2 nodes, +1 edge)." or "Done.". The assistant item has the `changes` summary if the graph changed.
+If the text is empty, the feed shows "Updated the graph (+2 nodes, +1 edge)." or "Done.". The assistant item has the `changes` summary if the graph changed, and the token `usage` of the turn if the server reported it.
 
 ## 12.2 Draft
 

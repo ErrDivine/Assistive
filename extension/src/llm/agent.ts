@@ -84,6 +84,7 @@ export class Llm {
   readonly client: OpenAI;
   private sendTemperature = true;
   private sendToolChoice = true;
+  private sendStreamOptions = true;
   private streaming: boolean;
 
   constructor(
@@ -114,6 +115,7 @@ export class Llm {
     for (let attempt = 0; ; attempt++) {
       const { tool_choice, ...rest } = body;
       const params: ChatCompletionCreateParamsNonStreaming = {
+        ...this.cfg.extraBody,
         ...rest,
         ...(tool_choice !== undefined && this.sendToolChoice ? { tool_choice } : {}),
         model: this.cfg.model,
@@ -121,7 +123,10 @@ export class Llm {
       };
       try {
         if (onText && this.streaming) {
-          const stream = this.client.chat.completions.stream({ ...params, stream: true as const }, { signal });
+          const stream = this.client.chat.completions.stream(
+            { ...params, stream: true as const, ...(this.sendStreamOptions ? { stream_options: { include_usage: true } } : {}) },
+            { signal },
+          );
           stream.on("content", (_delta, snapshot) => onText(stripThinkingPartial(snapshot)));
           return (await stream.finalChatCompletion()) as ChatCompletion;
         }
@@ -140,6 +145,10 @@ export class Llm {
           }
           if (this.sendToolChoice && tool_choice !== undefined && /tool_choice/i.test(err.message)) {
             this.sendToolChoice = false;
+            continue;
+          }
+          if (this.sendStreamOptions && onText && this.streaming && /stream_options|include_usage/i.test(err.message)) {
+            this.sendStreamOptions = false; // usage counts are only nice to have
             continue;
           }
           if (this.streaming && onText && /stream/i.test(err.message)) {

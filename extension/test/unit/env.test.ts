@@ -107,6 +107,7 @@ describe("parseConfig defaults", () => {
       timeoutMs: 120_000,
       maxToolRounds: 8,
       extraHeaders: {},
+      extraBody: {},
       stream: true,
     });
     assert.deepStrictEqual(cfg.jev, { baseUrl: "https://api.typesafe.ai/v1", apiKey: "", model: "jev-latest", timeoutMs: 10_000 });
@@ -163,6 +164,7 @@ describe("parseConfig defaults", () => {
       timeoutMs: 60_000,
       maxToolRounds: 5,
       extraHeaders: {},
+      extraBody: {},
       stream: false,
     });
     assert.deepStrictEqual(c.jev, { baseUrl: "https://jev.example/v1", apiKey: "jev-real-key", model: "jev-2", timeoutMs: 20_000 });
@@ -863,3 +865,19 @@ describe("ensureEnvFile", () => {
     assert.deepStrictEqual(cfg.problems, [LLM_PROBLEM, JEV_PROBLEM]);
   });
 });
+
+describe("parseConfig extra body", () => {
+  it("parses a JSON object and refuses fields the agent loop controls", () => {
+    const c = parseConfig({ ASSISTIVE_LLM_EXTRA_BODY: '{"reasoning_effort":"low","model":"x","tools":[]}' });
+    assert.deepStrictEqual(c.llm.extraBody, { reasoning_effort: "low" });
+    assert.ok(c.problems.includes('ASSISTIVE_LLM_EXTRA_BODY cannot set "model"; it is ignored.'));
+    assert.ok(c.problems.includes('ASSISTIVE_LLM_EXTRA_BODY cannot set "tools"; it is ignored.'));
+  });
+
+  it("reports values that are not JSON objects", () => {
+    assert.ok(parseConfig({ ASSISTIVE_LLM_EXTRA_BODY: "[1]" }).problems.includes("ASSISTIVE_LLM_EXTRA_BODY must be a JSON object."));
+    assert.ok(parseConfig({ ASSISTIVE_LLM_EXTRA_BODY: "{bad" }).problems.includes("ASSISTIVE_LLM_EXTRA_BODY is not valid JSON."));
+    assert.deepStrictEqual(parseConfig({}).llm.extraBody, {});
+  });
+});
+

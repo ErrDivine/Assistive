@@ -480,6 +480,7 @@ export class Assistant {
           text: text || (editor.changed ? `Updated the graph (${describeSummary(changes)}).` : "Done."),
           changes: editor.changed ? changes : undefined,
           mode,
+          usage: result.usage.prompt + result.usage.completion > 0 ? result.usage : undefined,
         });
       }
       this.deps.log(
