@@ -744,6 +744,7 @@ function render(s: PanelState): void {
   state = s;
   if (fileChanged) {
     selected = s.graph?.nodes.some((n) => n.id === selected) ? selected : undefined;
+    renderStream(undefined); // a reply streaming for the other file does not belong here
   }
   renderHeader(s);
   const p = s.graph?.nodes.length ? progress(s.graph) : undefined;

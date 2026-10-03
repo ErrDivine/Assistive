@@ -535,7 +535,8 @@ export class Controller implements vscode.Disposable {
     const flush = () => {
       this.streamTimer = undefined;
       const s = this.streamText;
-      if (s && s.key === this.activeDoc?.uri.fsPath) this.panel.post({ type: "stream", text: s.text || undefined });
+      // The end of a stream always goes out, so a reply never stays on screen after a file switch.
+      if (s && (s.text === undefined || s.key === this.activeDoc?.uri.fsPath)) this.panel.post({ type: "stream", text: s.text || undefined });
     };
     if (text === undefined) {
       clearTimeout(this.streamTimer);

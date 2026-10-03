@@ -127,6 +127,12 @@ export class Llm {
         }
         return await this.client.chat.completions.create(params, { signal });
       } catch (err) {
+        // A server that ignores `stream: true` answers with plain JSON, which the stream
+        // reader cannot parse (an OpenAIError that is not an HTTP error): use plain requests.
+        if (onText && this.streaming && !(err instanceof OpenAI.APIError) && !signal?.aborted) {
+          this.streaming = false;
+          continue;
+        }
         if (attempt < 3 && err instanceof OpenAI.BadRequestError) {
           if (this.sendTemperature && /temperature/i.test(err.message)) {
             this.sendTemperature = false;

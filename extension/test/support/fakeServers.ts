@@ -37,6 +37,8 @@ export class FakeServers {
   chatDelayMs = 0;
   /** Answer streaming requests with HTTP 400, like a server without streaming. */
   rejectStreaming = false;
+  /** Answer streaming requests with plain JSON, like a server that ignores `stream`. */
+  ignoreStreaming = false;
   jev: (req: JevRequest) => { status?: number; body: unknown } = (req) => ({ body: jevAnswers(req, {}) });
   private server?: http.Server;
   private callId = 0;
@@ -60,6 +62,7 @@ export class FakeServers {
   reset(): void {
     this.chatDelayMs = 0;
     this.rejectStreaming = false;
+    this.ignoreStreaming = false;
     this.chatRequests.length = 0;
     this.jevRequests.length = 0;
     this.linkRequests.length = 0;
@@ -119,7 +122,7 @@ export class FakeServers {
           json(reply.status, { error: { message: reply.error, type: "invalid_request_error" } });
           return;
         }
-        if (body.stream === true) {
+        if (body.stream === true && !this.ignoreStreaming) {
           if (this.rejectStreaming) {
             json(400, { error: { message: "stream is not supported by this server", type: "invalid_request_error" } });
             return;

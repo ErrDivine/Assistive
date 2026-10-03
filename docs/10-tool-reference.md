@@ -129,7 +129,7 @@ wc.py lines 1-400 of 512:
 
 | Parameter | Type | Required | Rules | Meaning |
 |---|---|:-:|---|---|
-| `symbol` | string | ✓ | Not empty | The name as the outline shows it, for example `parse_args` or `Cache.get`. A keyword at the start (`def`, `class`, `function`) and a parameter list are ignored. |
+| `symbol` | string | ✓ | Not empty | The name as the outline shows it, for example `parse_args` or `Cache.get`. The tool cleans the name with `symbolName`: keywords, modifiers and a parameter list are ignored, `Cache::get` is `Cache.get`, and `func (c *Cache) Get(` is `Cache.Get`. |
 | `path` | string | | | A workspace-relative path. Omit it for the current file. |
 
 The tool finds the symbol by its exact dotted name first. If there is no exact match, it accepts a short name that only one symbol has. It returns a maximum of 400 lines.

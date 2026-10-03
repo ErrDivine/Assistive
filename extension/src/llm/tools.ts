@@ -8,7 +8,7 @@
 import { type Baseline, type EditTracker } from "../code/changes";
 import { isSecretPath, normalizeRel, numberLines, projectSummary, riskyRegex, type WorkspaceAccess } from "../code/context";
 import { type FileOutline, formatOutline, symbolAt } from "../code/outline";
-import { closest, compactGraph, type EdgeInput, type GraphEditor, type NodeInput, type NodeUpdate } from "../graph/model";
+import { closest, compactGraph, type EdgeInput, type GraphEditor, type NodeInput, type NodeUpdate, symbolName } from "../graph/model";
 import type { LinkCheck } from "../resources/links";
 import {
   type AgentMode,
@@ -207,10 +207,7 @@ function lookTools(env: ToolEnv): Tool[] {
         const text = await textOf(r.rel!);
         if (text === undefined) return `error: no file '${r.rel}'. Use list_files to find the right path.`;
         const o = await env.outlineOf(r.rel!, text);
-        const wanted = symbol
-          .trim()
-          .replace(/^(async\s+)?(def|class|function)\s+/, "")
-          .replace(/\(.*$/, "");
+        const wanted = symbolName(symbol); // also `fn new`, `Cache::get`, `func (c *Cache) Get(`
         const last = wanted.split(".").pop()!;
         const byName = o.symbols.filter((s) => s.name === last);
         const sym = o.symbols.find((s) => s.qualname === wanted) ?? (byName.length === 1 ? byName[0] : undefined);

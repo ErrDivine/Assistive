@@ -189,6 +189,16 @@ describe("Llm.run (OpenAI tool-calling loop)", () => {
     );
   });
 
+  it("falls back to plain requests when the server ignores stream and answers with JSON", async () => {
+    fake.ignoreStreaming = true;
+    fake.chat = () => ({ content: "plain json" });
+    const llm = new Llm(cfg(fake.base));
+    const r = await llm.run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool], onText: () => undefined });
+    assert.strictEqual(r.text, "plain json");
+    await llm.run({ messages: [{ role: "user", content: "again" }], tools: [echo as unknown as AgentTool], onText: () => undefined });
+    assert.deepStrictEqual(fake.chatRequests.map((q) => q.stream === true), [true, false, false]);
+  });
+
   it("does not stream without onText or with streaming turned off", async () => {
     fake.chat = () => ({ content: "x" });
     await new Llm(cfg(fake.base)).run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool] });

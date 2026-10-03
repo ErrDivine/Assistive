@@ -232,7 +232,7 @@ When the store reports a change for a file, the controller:
 
 ### 15.6.6 Streamed replies
 
-The Assistant calls `setStreaming(key, text)` while the LLM writes a reply. `streamToPanel` keeps the latest text and sends it to the panel a maximum of one time in 80 ms, as a `stream` message. It sends the end of the stream (no text) at once. It sends nothing for a file that is not the active file.
+The Assistant calls `setStreaming(key, text)` while the LLM writes a reply. `streamToPanel` keeps the latest text and sends it to the panel a maximum of one time in 80 ms, as a `stream` message. It sends the end of the stream (no text) at once, for any file, so that a reply never stays on screen. It sends no text for a file that is not the active file.
 
 ### 15.6.7 Live status sync
 

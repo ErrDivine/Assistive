@@ -152,6 +152,7 @@ describe("look tools", () => {
     ws.files["two.py"] = "class A:\n    def get(self):\n        return 1\n\nclass B:\n    def get(self):\n        return 2\n";
     assert.match(await call("read_symbol", { symbol: "get", path: "two.py" }), /^error: 'get' is ambiguous in two.py: A.get, B.get/);
     assert.match(await call("read_symbol", { symbol: "B.get", path: "two.py" }), /method B.get, lines 6-7:\n6\| {5}def get\(self\):\n7\| {9}return 2/);
+    assert.match(await call("read_symbol", { symbol: "B::get", path: "two.py" }), /method B.get, lines 6-7/, "Rust-style paths work too");
     assert.match(await call("read_symbol", { symbol: "x", path: "app/.env" }), /secrets or credentials/);
   });
 
