@@ -75,7 +75,7 @@ This function returns `{kept, dropped}`. It does these steps:
 
 1. It trims each URL.
 2. It drops each URL that is not a web URL, with the reason "not an http(s) URL".
-3. It drops each URL with a link-local or cloud metadata host (`169.254.0.0/16`, `fe80::/10`, `metadata.google.internal`), with the reason "not a public web page" (function `isMetadataHost`). It sends no request to these hosts.
+3. It drops each URL with a link-local or cloud metadata host: `169.254.0.0/16`, `fe80::/10` or `metadata.google.internal` (function `isMetadataHost`). The reason is "not a public web page". It sends no request to these hosts.
 4. It removes duplicate URLs.
 5. If `verify` is `false` (`ASSISTIVE_VERIFY_LINKS=false`), it keeps all links and marks them `unverified`.
 6. If not, it probes all links in parallel (refer to [13.2.3](#1323-the-probe)).

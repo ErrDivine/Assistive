@@ -342,6 +342,7 @@ Assistive examines each link before it shows the link. It removes links that giv
 
 - If you open a file in a language that Assistive does not support, the panel continues to show the last supported file. Thus you can read documentation or a configuration file and keep the plan in view.
 - If no supported file was open before, the panel tells you to open a supported file.
+- For an untitled buffer in a supported language, the panel tells you to save the file. Assistive keeps each graph with the path of its file, so it plans only saved files.
 
 ## 4.17 Stop a request
 

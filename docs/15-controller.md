@@ -56,7 +56,11 @@ The constructor makes these objects, in this order:
 3. The `TreeSitter` with `dist/wasm/`.
 4. The diagnostic collection "Assistive".
 5. The status bar item (right side, priority 90, command `assistive.focus`).
-6. Four debouncers: the panel refresh (60 ms), the live status sync (800 ms), the auto-draft (2.5 s), and the interrupt reconcile (400 ms).
+6. Four debouncers:
+   - the panel refresh (60 ms);
+   - the live status sync (800 ms);
+   - the auto-draft (2.5 s);
+   - the interrupt reconcile (400 ms).
 7. The configuration and the clients (`reloadConfig`).
 8. The `Assistant`, the `Heartbeat` and the `PanelProvider`.
 9. The event listeners and the disposables.
@@ -94,7 +98,7 @@ Then it tracks the open documents, sets the active editor, starts the heartbeat 
 
 ### 15.3.1 Supported documents
 
-`supported(doc)` returns `true` if the document scheme is `file` or `untitled`, and the language ID is in the setting `assistive.languages`.
+`supported(doc)` returns `true` if the document scheme is `file` and the language ID is in the setting `assistive.languages`. Untitled buffers are not supported: the store keeps graphs by path, and VS Code reuses untitled names such as `Untitled-1`. For an untitled buffer in a supported language, the panel state has `unsaved: true`, and the panel asks the programmer to save the file.
 
 ### 15.3.2 Workspaces and handles
 
@@ -107,7 +111,7 @@ Then it tracks the open documents, sets the active editor, starts the heartbeat 
 `onActiveEditor(editor)` decides which file the panel shows:
 
 - If there is no editor (the focus moved to the panel or to a different view), the panel keeps the last file.
-- If the new document is not supported and the last document is still open, the panel keeps the last document. Thus the programmer can read documentation and keep the plan in view.
+- If the new document is not supported and the last document is still open, the panel keeps the last document. Thus the programmer can read documentation and keep the plan in view. An untitled buffer in a supported language is an exception: the panel shows it, with the request to save it.
 - In all other cases, the new document becomes the active document. The controller tracks it and refreshes the panel.
 
 ### 15.3.4 Outline cache
@@ -246,7 +250,7 @@ The controller registers a hover provider for all `file` and `untitled` document
 1. It returns nothing if the document is not supported or has no graph.
 2. It finds the word at the position.
 3. It calls `nodeForWord(graph, outline, word, line)` (refer to [Graph model](08-graph-model.md#856-nodeforwordgraph-outline-word-line)).
-4. It makes a Markdown hover. The hover has "**Assistive plan**", the status and the step number. It also has the signature (a code block in the language of the file), the description, the notes and the attention reason.
+4. It makes a Markdown hover. The hover has "**Assistive plan**", the status and the step number. Then it has the signature as a code block in the language of the file. Last, it has the description, the notes and the attention reason.
 
 The hover only reads data. It does not change the document (invariant I1).
 

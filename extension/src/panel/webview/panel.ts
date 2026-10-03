@@ -455,7 +455,11 @@ function renderHeader(s: PanelState): void {
   const doc = $("docstring");
   doc.classList.toggle("hint", !s.moduleString);
   if (!s.supported) {
-    doc.textContent = s.file ? "This language is not supported yet (Python, TypeScript, JavaScript, Go, Rust, Java)." : "";
+    doc.textContent = s.unsaved
+      ? "Save the file to plan it."
+      : s.file
+        ? "This language is not supported yet (Python, TypeScript, JavaScript, Go, Rust, Java)."
+        : "";
   } else if (!s.moduleString) {
     doc.textContent = "Describe the module at the top of the file to start.";
   } else {
@@ -487,6 +491,8 @@ function renderEmpty(s: PanelState): void {
   box.innerHTML = "";
   if (!s.file) {
     box.append(el("div", "", "Open a Python, TypeScript, JavaScript, Go, Rust or Java file to plan it here."));
+  } else if (s.unsaved) {
+    box.append(el("div", "", "Save the file first: the graph is kept with the file's path."));
   } else if (!s.supported) {
     box.append(el("div", "", `${esc(s.language)} files are not supported yet.`));
   } else if (s.status.busy) {

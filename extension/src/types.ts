@@ -155,6 +155,8 @@ export interface PanelState {
   status: ServiceStatus;
   canUndo: boolean;
   supported: boolean;
+  /** The active document is an untitled buffer: it must be saved before it can be planned. */
+  unsaved?: boolean;
 }
 
 export type ToPanel =

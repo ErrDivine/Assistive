@@ -218,7 +218,8 @@ export class Controller implements vscode.Disposable {
   // ------------------------------------------------------------ files
 
   private supported(doc: vscode.TextDocument | undefined): boolean {
-    if (!doc || (doc.uri.scheme !== "file" && doc.uri.scheme !== "untitled")) {
+    // Saved files only: graphs are stored by path, and untitled names (Untitled-1) are reused.
+    if (!doc || doc.uri.scheme !== "file") {
       return false;
     }
     const langs = this.settings().get<string[]>("languages", DEFAULT_LANGUAGES);
@@ -286,7 +287,8 @@ export class Controller implements vscode.Disposable {
       return; // focus moved to the panel or another view: keep showing the last file
     }
     const doc = editor.document;
-    if (!this.supported(doc) && this.activeDoc && !this.activeDoc.isClosed) {
+    const unsavedCode = doc.uri.scheme === "untitled" && this.settings().get<string[]>("languages", DEFAULT_LANGUAGES).includes(doc.languageId);
+    if (!this.supported(doc) && !unsavedCode && this.activeDoc && !this.activeDoc.isClosed) {
       return; // reading docs or config: keep showing the file being implemented
     }
     this.activeDoc = doc;
@@ -477,6 +479,7 @@ export class Controller implements vscode.Disposable {
       return {
         file: doc && !doc.isClosed ? vscode.workspace.asRelativePath(doc.uri) : undefined,
         language: doc?.languageId,
+        unsaved: doc?.uri.scheme === "untitled" ? true : undefined,
         feed: [],
         status: this.status(),
         canUndo: false,

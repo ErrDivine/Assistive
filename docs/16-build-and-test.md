@@ -155,6 +155,7 @@ The tests start the fake servers and write the `.env` file with the fake URLs. T
 | registers its commands and the panel | The commands exist and the panel opens. |
 | tests the LLM and Jev connections | The connection test reaches both fake services. |
 | supports Go files: the package comment is the module docstring | A Go file is supported, its package comment is the closed module docstring, and the outline finds a stub. |
+| asks to save an untitled buffer before planning it | An untitled Python buffer is not planned; the panel state has `unsaved`. |
 | does not draft files that are only opened | A file with a docstring that the programmer only opens does not start a draft. |
 | drafts the graph once the module docstring is written | The auto-draft runs, the draft prompt contains the README, the dead link is dropped, and the panel receives the state. |
 | changes the graph from an instruction and summarizes | A chat message adds a node and posts a summary. |

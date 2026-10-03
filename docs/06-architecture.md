@@ -303,7 +303,7 @@ The type `NewFeedItem` is a `FeedItem` without `id` and `ts`. The store adds the
 
 **`ServiceStatus`:** `llm` (`ready`, `missing`, `error`), `jev` (`ready`, `missing`, `error`, `off`), `triage`, `heartbeat` (`on`, `paused`, `off`), `heartbeatSeconds`, and the optional `lastBeat`, `lastVerdict`, `busy` and `configPath`.
 
-**`PanelState`:** `file`, `language`, `moduleString`, `moduleStringClosed`, `graph`, `feed`, `status`, `canUndo` and `supported`.
+**`PanelState`:** `file`, `language`, `moduleString`, `moduleStringClosed`, `graph`, `feed`, `status`, `canUndo`, `supported` and `unsaved` (an untitled buffer in a supported language).
 
 **`ToPanel`** (host to webview) and **`FromPanel`** (webview to host): refer to [Panel](14-panel.md#143-message-protocol).
 

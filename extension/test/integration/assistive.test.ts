@@ -137,6 +137,14 @@ describe("Assistive in VS Code", function () {
     await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
   });
 
+  it("asks to save an untitled buffer before planning it", async () => {
+    const untitled = await vscode.workspace.openTextDocument({ language: "python", content: '"""A scratch module."""\n' });
+    await vscode.window.showTextDocument(untitled, vscode.ViewColumn.One);
+    const st = await waitFor("unsaved state", () => (c().lastPanelState?.unsaved ? c().lastPanelState : undefined));
+    assert.strictEqual(st.supported, false);
+    await vscode.commands.executeCommand("workbench.action.revertAndCloseActiveEditor");
+  });
+
   it("drafts the graph once the module docstring is written", async () => {
     const doc = await vscode.workspace.openTextDocument(wcPath);
     editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
