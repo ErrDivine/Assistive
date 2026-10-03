@@ -392,7 +392,7 @@ When each planned piece is **done**, a green line shows under the tabs: "✓ All
 
 | Button | Function |
 |---|---|
-| **Review the file** | Ask the LLM to review the whole file against the plan: correctness, the edge cases in the notes, error handling and clearly better ways. The LLM points to lines and does not rewrite the code. |
+| **Review the file** | Ask the LLM to review the whole file against the plan: correctness, the edge cases in the notes, the treatment of errors and clearly better ways. The LLM points to lines and does not rewrite the code. |
 | **Plan tests** | Ask the LLM to add `test` nodes to the graph, with the cases that each test checks. The LLM also tells you where the tests go in the project. |
 
 The line goes away while the LLM works, and when a new piece is added to the plan.

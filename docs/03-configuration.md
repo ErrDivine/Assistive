@@ -16,7 +16,7 @@ Assistive examines these locations in this order. It uses the first file that it
 
 1. The path in the VS Code setting `assistive.envFile`. A `~` at the start changes to your home folder. Only your user settings can set this path. VS Code ignores it in the settings of a workspace (the setting has the scope `machine`).
 
-> **Caution:** This rule protects your API key. A repository could otherwise point `assistive.envFile` to its own `.env` file, with its own `ASSISTIVE_LLM_BASE_URL`. A key from your process environment would then go to that server.
+> **Caution:** This rule protects your API key. Without it, a repository can point `assistive.envFile` to its own `.env` file, with its own `ASSISTIVE_LLM_BASE_URL`. Then a key from your process environment goes to that server.
 2. `<repository>/.env`, if the extension is linked from a source checkout. Assistive uses this location only if `.env.example` or `.env` exists in the parent folder of the extension.
 3. `~/.assistive/.env`.
 
