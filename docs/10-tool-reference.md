@@ -65,6 +65,7 @@ The Assistant gives each tool an environment. The tools use only this environmen
 | `emit(item)` | Adds an item to the feed of the panel. Returns `false` if the item was not added because it is a duplicate. |
 | `feed()` | The feed of the file. The tools use it so that they do not repeat what the programmer saw. |
 | `plannedOf(rel)` | The signatures that the graph of a different file plans but that are not typed yet. |
+| `graphOf(rel)` | The stored graph of a different file, for `get_graph` with a `path`. |
 
 ### 10.3.1 Path rules of the look tools
 
@@ -208,11 +209,15 @@ The model must call it one time, when it needs to know the libraries and convent
 
 ### 10.4.8 `get_graph`
 
-**Purpose:** Show the current graph of the file: each node with its ID, kind, status, line, symbol, signature, description and notes, in typing order, and each edge.
+**Purpose:** Show the graph of the current file, or of a different planned file in the workspace: each node with its ID, kind, status, line, symbol, signature, description and notes, in typing order, and each edge.
 
-**Parameters:** none.
+| Parameter | Type | Required | Rules | Meaning |
+|---|---|:-:|---|---|
+| `path` | string | | | The workspace-relative path of a different file. Omit it for the current file. |
 
-**Result:** `Graph for wc.py (revision 3):` and the output of `compactGraph`. The graph is the copy that this turn changes, so it includes the edits that the model made in the same turn.
+**Result:** `Graph for wc.py (revision 3):` and the output of `compactGraph`. For the current file, the graph is the copy that this turn changes. Thus it includes the edits of the model in the same turn. For a different file, the header ends with "(read-only)": the graph tools change only the current file.
+
+If the file has no graph with nodes, the result is `<path> has no implementation graph yet.` A path outside the workspace gives `error: '<path>' is outside the workspace.`
 
 ### 10.4.9 `get_recent_edits`
 

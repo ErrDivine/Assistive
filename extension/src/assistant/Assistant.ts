@@ -419,6 +419,7 @@ export class Assistant {
       },
       feed: () => store.get(h.key).feed,
       plannedOf: (rel: string) => this.plannedOf(h, rel),
+      graphOf: (rel: string) => this.deps.store.graph(path.join(h.ws.root, ...rel.split("/"))),
     };
     let finished = false;
     const publish = async () => {

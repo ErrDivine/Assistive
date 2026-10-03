@@ -223,6 +223,28 @@ describe("graph tools", () => {
   });
 });
 
+describe("get_graph for another file", () => {
+  it("reads another planned file's graph read-only, and says when there is none", async () => {
+    const { call, env } = setup("chat");
+    env.graphOf = (rel) =>
+      rel === "app/util.py"
+        ? {
+            file: "app/util.py",
+            language: "python",
+            moduleString: "Helpers.",
+            nodes: [{ id: "tokenize", kind: "function", label: "tokenize", symbol: "tokenize", description: "Split text.", notes: [], status: "done", line: 1 }],
+            edges: [],
+            revision: 4,
+            updatedAt: "",
+          }
+        : undefined;
+    assert.match(await call("get_graph", { path: "app/util.py" }), /^Graph for app\/util.py \(revision 4\) \(read-only\):\nnodes \(1\):\n- tokenize \[function, done, L2\]/);
+    assert.strictEqual(await call("get_graph", { path: "README.md" }), "README.md has no implementation graph yet.");
+    assert.match(await call("get_graph", { path: "../x.py" }), /outside the workspace/);
+    assert.strictEqual(await call("get_graph", {}), "app/main.py has no implementation graph yet.");
+  });
+});
+
 describe("talk tools", () => {
   it("recommend_resources shows checked links and reports dropped ones", async () => {
     const { call, emitted } = setup("chat");

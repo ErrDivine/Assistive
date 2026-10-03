@@ -14,6 +14,7 @@ import {
   type AgentMode,
   EDGE_KINDS,
   type FeedItem,
+  type FileGraph,
   type IssueKind,
   type NewFeedItem,
   NODE_KINDS,
@@ -40,6 +41,8 @@ export interface ToolEnv {
   feed(): readonly FeedItem[];
   /** Signatures planned in another file's graph that are not typed yet. */
   plannedOf?(rel: string): string[];
+  /** The stored graph of another workspace file, if it has one. */
+  graphOf?(rel: string): FileGraph | undefined;
 }
 
 const MAX_READ_LINES = 400;
@@ -322,15 +325,23 @@ function projectTool(env: ToolEnv): Tool {
 
 function graphReadTools(env: ToolEnv): Tool[] {
   return [
-    tool<Record<string, never>>({
+    tool<{ path?: string }>({
       name: "get_graph",
       description:
-        "The current implementation graph of this file: every node (id, kind, status, line, symbol, signature, description, notes) " +
-        "in typing order, and every edge. Statuses: planned (not typed), stubbed (placeholder body), done, attention (flagged).",
-      parameters: { type: "object", additionalProperties: false, properties: {} },
-      run() {
-        const g = env.editor.graph;
-        return `Graph for ${g.file} (revision ${g.revision}):\n${compactGraph(g)}`;
+        "The implementation graph of this file (or, with path, of another planned file in the workspace): every node (id, kind, " +
+        "status, line, symbol, signature, description, notes) in typing order, and every edge. Statuses: planned (not typed), " +
+        "stubbed (placeholder body), done, attention (flagged). Another file's graph is read-only here.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { path: str("Workspace-relative path of another file; omit for the current file.") },
+      },
+      run({ path }) {
+        const rel = path ? normalizeRel(env.ws.root, path) : env.file;
+        if (rel === undefined) return `error: '${path}' is outside the workspace.`;
+        const g = rel === env.file ? env.editor.graph : env.graphOf?.(rel);
+        if (!g?.nodes.length) return `${rel} has no implementation graph yet.`;
+        return `Graph for ${g.file} (revision ${g.revision})${rel === env.file ? "" : " (read-only)"}:\n${compactGraph(g)}`;
       },
     }),
     tool<{ since?: Baseline }>({
