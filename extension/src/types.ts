@@ -153,6 +153,7 @@ export interface PanelState {
 export type ToPanel =
   | { type: "state"; state: PanelState }
   | { type: "focusInput"; text?: string }
+  | { type: "stream"; text?: string }
   | { type: "selectNode"; id: string };
 
 export type FromPanel =

@@ -1,6 +1,6 @@
 import * as assert from "node:assert";
 import type { LlmConfig } from "../../src/config/env";
-import { type AgentTool, Llm, LlmError, stripThinking } from "../../src/llm/agent";
+import { type AgentTool, Llm, LlmError, stripThinking, stripThinkingPartial } from "../../src/llm/agent";
 import { FakeServers, lastMessage, toolNames } from "../support/fakeServers";
 
 const cfg = (base: string, extra: Partial<LlmConfig> = {}): LlmConfig => ({
@@ -11,6 +11,7 @@ const cfg = (base: string, extra: Partial<LlmConfig> = {}): LlmConfig => ({
   timeoutMs: 5000,
   maxToolRounds: 4,
   extraHeaders: {},
+  stream: true,
   ...extra,
 });
 
@@ -148,5 +149,76 @@ describe("Llm.run (OpenAI tool-calling loop)", () => {
 
   it("strips <think> blocks", () => {
     assert.strictEqual(stripThinking("<think>a\nb</think>\n Answer"), "Answer");
+    assert.strictEqual(stripThinkingPartial("<think>still thinking"), "");
+    assert.strictEqual(stripThinkingPartial("<think>x</think> Ans"), "Ans");
+  });
+
+  it("streams each round's text and still runs tool calls", async () => {
+    fake.chat = (req) =>
+      lastMessage(req).role === "tool"
+        ? { content: "Added the helper. Start with parse_line." }
+        : { content: "Let me add it.", calls: [{ name: "echo", args: { text: "hi" } }] };
+    const texts: string[] = [];
+    const r = await new Llm(cfg(fake.base)).run({
+      messages: [{ role: "user", content: "go" }],
+      tools: [echo as unknown as AgentTool],
+      onText: (t) => texts.push(t),
+    });
+    assert.strictEqual(r.text, "Added the helper. Start with parse_line.");
+    assert.deepStrictEqual(r.steps.map((s) => s.result), ["echo: hi"]);
+    assert.ok(fake.chatRequests.every((q) => q.stream === true), "both rounds streamed");
+    // Each round starts empty and grows; the last snapshot is the final text.
+    assert.strictEqual(texts[0], "");
+    assert.ok(texts.includes("Let me a"), "partial text arrived");
+    assert.ok(texts.lastIndexOf("") > texts.indexOf("Let me add it."), "the second round started empty");
+    assert.strictEqual(texts.at(-1), "Added the helper. Start with parse_line.");
+  });
+
+  it("falls back to plain requests when the server rejects streaming", async () => {
+    fake.rejectStreaming = true;
+    fake.chat = () => ({ content: "plain" });
+    const llm = new Llm(cfg(fake.base));
+    const texts: string[] = [];
+    const r = await llm.run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool], onText: (t) => texts.push(t) });
+    assert.strictEqual(r.text, "plain");
+    await llm.run({ messages: [{ role: "user", content: "again" }], tools: [echo as unknown as AgentTool], onText: (t) => texts.push(t) });
+    assert.deepStrictEqual(
+      fake.chatRequests.map((q) => q.stream === true),
+      [true, false, false],
+      "streaming is dropped once and not tried again",
+    );
+  });
+
+  it("does not stream without onText or with streaming turned off", async () => {
+    fake.chat = () => ({ content: "x" });
+    await new Llm(cfg(fake.base)).run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool] });
+    await new Llm(cfg(fake.base, { stream: false })).run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool], onText: () => undefined });
+    assert.ok(fake.chatRequests.every((q) => q.stream !== true));
+  });
+
+  it("drops tool_choice for servers that reject it, and then asks for the summary without tools", async () => {
+    fake.chat = (req) => {
+      if ("tool_choice" in req) return { status: 400, error: "tool_choice is not supported" };
+      if (!req.tools) return { content: "Summary without tools." };
+      return { calls: [{ name: "echo", args: { text: "again" } }] };
+    };
+    const r = await new Llm(cfg(fake.base, { maxToolRounds: 1 })).run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool] });
+    assert.strictEqual(r.text, "Summary without tools.");
+    assert.deepStrictEqual(
+      fake.chatRequests.map((q) => ["tool_choice" in q, !!q.tools]),
+      [
+        [true, true],
+        [false, true],
+        [false, false],
+      ],
+    );
+  });
+
+  it("explains that a model without tool support cannot be used", async () => {
+    fake.chat = () => ({ status: 400, error: "This model does not support tools" });
+    await assert.rejects(
+      new Llm(cfg(fake.base)).run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool] }),
+      /The model 'fake-model' does not support tool calls .* ASSISTIVE_LLM_MODEL/,
+    );
   });
 });

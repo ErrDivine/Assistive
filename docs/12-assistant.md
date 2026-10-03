@@ -17,7 +17,7 @@ This document describes the `Assistant` class. The Assistant runs each **turn**:
 | `text()` | The live text, with unsaved edits. |
 | `cursorLine()` | The 0-based cursor line, if the file is in a visible editor. |
 
-**`AssistantDeps`** are the dependencies that the controller gives: `llm()`, `store`, `edits`, `outlineOf()`, `checkLinks()`, `setBusy(file, label)` and `log(message)`.
+**`AssistantDeps`** are the dependencies that the controller gives: `llm()`, `store`, `edits`, `outlineOf()`, `checkLinks()`, `setBusy(file, label)`, the optional `setStreaming(file, text)` and `log(message)`.
 
 ### 12.1.2 One turn at a time for each file
 
@@ -83,16 +83,17 @@ sequenceDiagram
    - a user message with the context block;
    - the tools of the mode;
    - the abort signal.
-8. For each tool step, `onStep` does three things:
+8. For a turn that is not silent, `onText` sends the reply text to `setStreaming` while it streams. The panel shows it at the end of the feed. At the end of the turn, `setStreaming(file, undefined)` removes it.
+9. For each tool step, `onStep` does three things:
    - It changes the busy label (refer to [12.1.4](#1214-busy-labels)).
    - It writes failed tool calls to the log.
    - If a graph tool (`add_nodes`, `update_nodes`, `remove_nodes`, `connect`, `disconnect`) changed the graph, it publishes a **live preview**. The preview is `editor.result()` with `syncWithOutline`. The store saves it without an undo snapshot. Thus the programmer sees the graph grow while the LLM works.
-9. When the loop ends, it sets `finished`. A preview that arrives late does not overwrite the final graph.
-10. If the graph changed, it computes the final graph and syncs it with a fresh outline. It saves the graph with `before` as the undo snapshot. If the file had no graph before the turn, the snapshot is an empty graph. Thus one turn makes one undo step, also after many previews, and also a first draft can be undone.
-11. It runs the `after` hook. For a draft, the hook sets the `graph_created` baseline of the `EditTracker`.
-12. It adds the summary to the feed, by the post rules (refer to [12.1.5](#1215-post-rules)).
-13. It writes the rounds, the tool calls and the tokens to the log.
-14. At the end, it clears the busy label. It removes the turn from `running` if the entry is still for this turn.
+10. When the loop ends, it sets `finished`. A preview that arrives late does not overwrite the final graph.
+11. If the graph changed, it computes the final graph and syncs it with a fresh outline. It saves the graph with `before` as the undo snapshot. If the file had no graph before the turn, the snapshot is an empty graph. Thus one turn makes one undo step, also after many previews, and also a first draft can be undone.
+12. It runs the `after` hook. For a draft, the hook sets the `graph_created` baseline of the `EditTracker`.
+13. It adds the summary to the feed, by the post rules (refer to [12.1.5](#1215-post-rules)).
+14. It writes the rounds, the tool calls and the tokens to the log.
+15. At the end, it clears the busy label. It removes the turn from `running` if the entry is still for this turn.
 
 **Failure.** If the loop throws:
 

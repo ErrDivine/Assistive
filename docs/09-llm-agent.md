@@ -16,7 +16,7 @@ Each tool is a `function` tool with a name, a description and a JSON Schema for 
 | `ToolContext` | `signal`, `stop` | `signal` stops the work. A tool sets `stop` to end the loop after the current round. |
 | `AgentStep` | `tool`, `args`, `result`, `ok` | One tool call and its result. `ok` is `false` if the result starts with `error`. |
 | `AgentResult` | `text`, `steps`, `rounds`, `stopped`, `usage` | The result of `run`. `text` is the final summary. `usage` counts the prompt and completion tokens. |
-| `AgentOptions` | `messages`, `tools`, `maxRounds`, `signal`, `onStep`, `maxResultChars` | The input of `run`. `onStep` receives each step as it occurs. |
+| `AgentOptions` | `messages`, `tools`, `maxRounds`, `signal`, `onStep`, `onText`, `maxResultChars` | The input of `run`. `onStep` receives each step as it occurs. `onText` receives the text of the current round as it streams. |
 | `LlmError` | `message`, `status` | An error with a message that tells the programmer what to do. |
 
 ## 9.3 `class Llm`
@@ -34,11 +34,21 @@ The constructor makes an `OpenAI` client with these options:
 | `defaultHeaders` | `ASSISTIVE_LLM_EXTRA_HEADERS` |
 | `fetch` | A replacement `fetch` function. Only the tests use it. |
 
-### 9.3.2 `complete(body, signal)`
+### 9.3.2 `complete(body, signal, onText?)`
 
 This method sends one request. It adds `model` and `temperature` to the body.
 
-Some models do not accept `temperature`. If the server answers HTTP 400 with "temperature" in the message, the method sends the request again without `temperature`. The client then never sends `temperature` again. All other errors go through `toLlmError`.
+Some compatible servers reject a part of the request with HTTP 400. The method then sends the request again without that part. The client never sends that part again:
+
+| The error message contains | Part that the client stops to send |
+|---|---|
+| "temperature" | `temperature` |
+| "tool_choice" | `tool_choice` |
+| "stream" (only for a streaming request) | Streaming. The client sends normal requests after this. |
+
+**Streaming.** If `onText` is given and streaming is on (`ASSISTIVE_LLM_STREAM`), the method uses the `stream()` helper of the SDK. The helper receives the reply as server-sent events. For each new part of the text, the method calls `onText` with all text so far. `stripThinkingPartial` hides `<think>` blocks, also a block that is not closed yet. At the end, the helper gives the complete reply with its tool calls, in the same form as a normal request.
+
+All other errors go through `toLlmError`.
 
 ### 9.3.3 `text(messages, signal, json = false)`
 
@@ -73,13 +83,15 @@ The loop does these steps:
 1. It sends the messages and all tools with `tool_choice: "auto"`.
 2. It adds the token usage of the reply to the totals.
 3. If the reply has no message, it throws `LlmError("The LLM returned no message.")`.
+
+   Before each round, the loop calls `onText("")`, so the panel shows only the text of the current round.
 4. If the reply has no function tool calls, the text of the reply is the summary. The loop returns.
 5. If not, it appends the assistant message with its `tool_calls` to the conversation.
 6. It runs each tool call with `runTool`. It calls `onStep` for each step.
 7. It appends one `tool` message for each call, with the `tool_call_id`. A result longer than 12 000 characters is cut and ends with "…(truncated)".
 8. If a tool set `ctx.stop` (for example `stand_down`), the loop returns. The result has an empty text and `stopped` is the reason.
 9. If the signal is aborted, the loop throws.
-10. After `maxRounds` rounds (default 8), it appends a user message that asks for the summary. It sends the request with `tool_choice: "none"`. If the server answers HTTP 400, it sends the request again without tools.
+10. After `maxRounds` rounds (default 8), it appends a user message that asks for the summary. It sends the request with `tool_choice: "none"`. If the server does not accept `tool_choice`, it sends the request without tools, because "none" cannot be expressed. If the server answers HTTP 400, it sends the request again without tools.
 
 The text of the message in step 10 is:
 
@@ -113,6 +125,7 @@ The function `toLlmError(err, cfg)` changes SDK errors into messages that name t
 | `RateLimitError` | The LLM API rate limit was reached (HTTP 429). Try again shortly. | 429 |
 | `APIConnectionTimeoutError` | The LLM did not answer within N s. | none |
 | `APIConnectionError` | Could not reach the LLM at `<base>`: … | none |
+| `BadRequestError` that says the model does not support tools or function calls | The model '`<model>`' does not support tool calls (HTTP 400). Set ASSISTIVE_LLM_MODEL to a model with tool calling. | 400 |
 | Other `APIError` | LLM error (HTTP n): … | n |
 | `APIUserAbortError` or `AbortError` | The original error stays, so that the caller sees a cancel. | none |
 | An `LlmError` | No change. | as before |

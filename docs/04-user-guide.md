@@ -94,7 +94,7 @@ The feed shows the conversation and the events for the current file. The newest 
 | Item | Look |
 |---|---|
 | Your message | Aligned on the right side |
-| Assistant reply | Markdown text with a label: "Drafted", "Synced", "Heartbeat" or "Assistant". A line such as "Graph: +4 nodes, +3 edges" shows the graph changes. |
+| Assistant reply | Markdown text with a label: "Drafted", "Synced", "Heartbeat" or "Assistant". A line such as "Graph: +4 nodes, +3 edges" shows the graph changes. While the LLM writes a reply, the text shows at the bottom of the feed with a blinking cursor. |
 | Interrupt | A card with the issue kind, the line number, a title, a message and three buttons. The color shows the severity. |
 | Resources | "📚 Learn: topic" with a list of links. Each link has a type and one sentence about its use. |
 | Question | A question from the LLM, with buttons for the answers. |

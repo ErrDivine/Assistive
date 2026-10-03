@@ -35,6 +35,8 @@ export class FakeServers {
   chat: Responder = () => ({ content: "OK" });
   /** Delay before each chat reply, to test turns that overlap. */
   chatDelayMs = 0;
+  /** Answer streaming requests with HTTP 400, like a server without streaming. */
+  rejectStreaming = false;
   jev: (req: JevRequest) => { status?: number; body: unknown } = (req) => ({ body: jevAnswers(req, {}) });
   private server?: http.Server;
   private callId = 0;
@@ -57,9 +59,40 @@ export class FakeServers {
 
   reset(): void {
     this.chatDelayMs = 0;
+    this.rejectStreaming = false;
     this.chatRequests.length = 0;
     this.jevRequests.length = 0;
     this.linkRequests.length = 0;
+  }
+
+  /** Answer a streaming request with server-sent events in the Chat Completions chunk format. */
+  private streamReply(res: http.ServerResponse, body: ChatRequest, reply: Exclude<ChatReply, { status: number }>): void {
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+    const base = { id: `chatcmpl-${this.chatRequests.length}`, object: "chat.completion.chunk", created: Math.floor(Date.now() / 1000), model: body.model };
+    const send = (delta: unknown, finish: string | null = null) =>
+      res.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`);
+    send({ role: "assistant", content: "" });
+    const content = reply.content ?? "";
+    for (let i = 0; i < content.length; i += 8) {
+      send({ content: content.slice(i, i + 8) });
+    }
+    if ("calls" in reply) {
+      reply.calls.forEach((c, index) =>
+        send({
+          tool_calls: [
+            {
+              index,
+              id: `call_${++this.callId}`,
+              type: "function",
+              function: { name: c.name, arguments: typeof c.args === "string" ? c.args : JSON.stringify(c.args) },
+            },
+          ],
+        }),
+      );
+    }
+    send({}, "calls" in reply ? "tool_calls" : "stop");
+    res.write("data: [DONE]\n\n");
+    res.end();
   }
 
   private async handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
@@ -84,6 +117,14 @@ export class FakeServers {
         const reply = this.chat(body, this.chatRequests.length - 1);
         if ("status" in reply) {
           json(reply.status, { error: { message: reply.error, type: "invalid_request_error" } });
+          return;
+        }
+        if (body.stream === true) {
+          if (this.rejectStreaming) {
+            json(400, { error: { message: "stream is not supported by this server", type: "invalid_request_error" } });
+            return;
+          }
+          this.streamReply(res, body, reply);
           return;
         }
         const message =

@@ -53,6 +53,7 @@ You do not have to restart the editor after a change to the `.env` file.
 | `ASSISTIVE_LLM_TIMEOUT_SECONDS` | `120` | 5 to 900 | The maximum time for one request. |
 | `ASSISTIVE_LLM_MAX_TOOL_ROUNDS` | `8` | 1 to 30 | The maximum number of tool rounds in one turn. After this number, the LLM must write its summary. |
 | `ASSISTIVE_LLM_EXTRA_HEADERS` | (none) | JSON object | Extra HTTP headers, for example `{"HTTP-Referer":"https://example.com"}`. |
+| `ASSISTIVE_LLM_STREAM` | `true` | `false`, `0`, `no` or `off` disable it | Show the replies of the LLM in the panel while it writes them. If the server rejects streaming, Assistive stops the use of it automatically. |
 
 ### 3.2.2 Jev variables
 
@@ -158,7 +159,7 @@ The module is `src/config/env.ts`. It has no `vscode` import, so the unit tests 
 
 | Type | Fields |
 |---|---|
-| `LlmConfig` | `baseUrl`, `apiKey`, `model`, `temperature`, `timeoutMs`, `maxToolRounds`, `extraHeaders` |
+| `LlmConfig` | `baseUrl`, `apiKey`, `model`, `temperature`, `timeoutMs`, `maxToolRounds`, `extraHeaders`, `stream` |
 | `JevConfig` | `baseUrl`, `apiKey`, `model`, `timeoutMs` |
 | `HeartbeatConfig` | `intervalMs`, `interruptThreshold`, `cooldownMs`, `graphSyncThreshold`, `explainThreshold` |
 | `AssistiveConfig` | `llm`, `jev`, `triage`, `heartbeat`, `verifyLinks`, `llmReady`, `jevReady`, `problems`, `source` |
@@ -180,7 +181,7 @@ This function is pure. It changes a map of variable names to values into an `Ass
 3. It reads each number with `num(vars, key, fallback, problems, min, max)`. The function `num` returns the fallback for a blank value. It returns the fallback and adds a problem for a value that is not finite. It clamps a value out of range and adds a problem.
 4. It removes slashes at the end of the two base URLs.
 5. It changes the triage value to lower case and accepts `jev`, `llm` or `off`.
-6. It sets `verifyLinks` to `false` only for `false`, `0`, `no` or `off`.
+6. It sets `verifyLinks` and `llm.stream` to `false` only for `false`, `0`, `no` or `off` (function `isFalse`).
 7. It sets `llmReady` if the key and the model are not placeholders. The base URL must also start with `http://` or `https://`.
 8. It sets `jevReady` if the key is not a placeholder and the base URL starts with `http://` or `https://`.
 9. It adds a problem if the LLM is not ready. It adds a problem if the triage is `jev` and Jev is not ready.

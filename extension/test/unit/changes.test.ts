@@ -507,3 +507,15 @@ describe("EditTracker", () => {
     assert.notStrictEqual(tracker.diff("m.py", v2, "last_heartbeat"), "", "the heartbeat baseline is unaffected by a new graph");
   });
 });
+
+describe("EditTracker.meaningfulChange", () => {
+  it("ignores indentation, trailing spaces and blank lines, but not real edits", () => {
+    const t = new EditTracker();
+    assert.strictEqual(t.meaningfulChange("a.py", "x = 1\n"), true, "no baseline yet");
+    t.open("a.py", "def f():\n    return 1\n");
+    assert.strictEqual(t.meaningfulChange("a.py", "def f():\n\n        return 1   \n\n"), false);
+    assert.strictEqual(t.meaningfulChange("a.py", "def f():\n    return 2\n"), true);
+    t.beat("a.py", "def f():\n    return 2\n");
+    assert.strictEqual(t.meaningfulChange("a.py", "def f():\n    return 2\n"), false);
+  });
+});

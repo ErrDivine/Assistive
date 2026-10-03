@@ -46,6 +46,8 @@ export interface AssistantDeps {
   checkLinks(items: Resource[]): Promise<LinkCheck>;
   /** Progress for the panel ("Drafting the graph…"); undefined when idle. */
   setBusy(file: string, label: string | undefined): void;
+  /** The reply as it streams (programmer turns only); undefined when the turn ends. */
+  setStreaming?(file: string, text: string | undefined): void;
   log(message: string): void;
 }
 
@@ -427,6 +429,7 @@ export class Assistant {
         messages,
         tools: toolsFor(opts.mode ?? mode, env),
         signal: abort.signal,
+        onText: opts.silent ? undefined : (t) => this.deps.setStreaming?.(h.key, t),
         onStep: (step) => {
           const label = stepLabel(step);
           if (label) {
@@ -498,6 +501,9 @@ export class Assistant {
         this.running.delete(h.key);
       }
       this.deps.setBusy(h.key, undefined);
+      if (!opts.silent) {
+        this.deps.setStreaming?.(h.key, undefined);
+      }
     }
   }
 

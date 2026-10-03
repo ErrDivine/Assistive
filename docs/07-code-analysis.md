@@ -272,6 +272,7 @@ For each file, it also keeps these values:
 | `beat(file, text)` | Sets the `last_heartbeat` baseline to `text`. Resets the count and the touched lines. |
 | `graphCreated(file, text)` | Sets the `graph_created` baseline to `text`. |
 | `diff(file, text, since, maxChars?)` | Returns `renderDiff(baseline, text)`, or an empty string if there is no baseline. |
+| `meaningfulChange(file, text)` | `false` if `text` and the `last_heartbeat` baseline are the same after the method trims each line and removes blank lines. An automatic beat then does not call Jev. |
 | `stats(file)` | Returns `lastEditAt`, `editsSinceBeat` and the sorted touched lines. |
 | `forget(file)` | Removes the record of the file. |
 

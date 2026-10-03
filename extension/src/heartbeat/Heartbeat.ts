@@ -51,6 +51,8 @@ export interface BeatReport {
 }
 
 const TICK_MS = 3000;
+/** Longest pause after repeated triage failures. */
+export const MAX_BACKOFF_MS = 10 * 60_000;
 
 export class Heartbeat {
   private timer?: NodeJS.Timeout;
@@ -58,6 +60,9 @@ export class Heartbeat {
   private readonly lastBeatAt = new Map<string, number>();
   private readonly policy = new Map<string, PolicyState>();
   private readonly now: () => number;
+  /** Consecutive failed beats, and the time before which automatic beats wait. */
+  private failures = 0;
+  private pausedUntil = 0;
 
   constructor(private readonly deps: HeartbeatDeps) {
     this.now = deps.now ?? Date.now;
@@ -95,7 +100,7 @@ export class Heartbeat {
       return;
     }
     const h = this.deps.active();
-    if (!h) {
+    if (!h || this.now() < this.pausedUntil) {
       return;
     }
     const stats = this.deps.edits.stats(h.key);
@@ -108,12 +113,15 @@ export class Heartbeat {
       focused: this.deps.focused(),
     });
     if (due) {
-      await this.beat(h);
+      await this.beat(h, { auto: true });
     }
   }
 
-  /** Run one heartbeat now (also the "Beat now" button). */
-  async beat(h: FileHandle | undefined = this.deps.active()): Promise<BeatReport | undefined> {
+  /**
+   * Run one heartbeat now. The "Check now" button calls it directly; automatic
+   * beats (`auto`) skip changes that are only whitespace.
+   */
+  async beat(h: FileHandle | undefined = this.deps.active(), opts: { auto?: boolean } = {}): Promise<BeatReport | undefined> {
     if (!h || this.beating) {
       return undefined;
     }
@@ -123,6 +131,12 @@ export class Heartbeat {
     const report: BeatReport = { file: h.key, at, outcome: "no_action", actions: [] };
     const text = h.text();
     try {
+      if (opts.auto && !this.deps.edits.meaningfulChange(h.key, text)) {
+        this.deps.edits.beat(h.key, text);
+        report.outcome = "skipped";
+        report.actions = ["only whitespace changed"];
+        return report;
+      }
       const outline = await this.deps.assistant.localSync(h);
       const diff = this.deps.edits.diff(h.key, text, "last_heartbeat", 4000);
       const cfg = this.deps.config();
@@ -133,6 +147,7 @@ export class Heartbeat {
         report.outcome = "skipped";
         return report;
       }
+      this.failures = 0;
       report.verdict = verdict;
       const st = this.state(h.key);
       const graph = this.deps.store.graph(h.key);
@@ -158,7 +173,11 @@ export class Heartbeat {
     } catch (err) {
       report.outcome = "error";
       report.error = (err as Error).message;
-      this.deps.log(`heartbeat failed: ${report.error}`);
+      // Back off: twice the interval after one failure, doubling up to 10 minutes.
+      this.failures++;
+      const wait = Math.min(MAX_BACKOFF_MS, this.deps.config().heartbeat.intervalMs * 2 ** this.failures);
+      this.pausedUntil = this.now() + wait;
+      this.deps.log(`heartbeat failed (${this.failures} in a row, next automatic beat in ${Math.round(wait / 1000)}s): ${report.error}`);
       return report;
     } finally {
       this.beating = false;

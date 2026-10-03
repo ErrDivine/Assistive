@@ -107,6 +107,7 @@ describe("parseConfig defaults", () => {
       timeoutMs: 120_000,
       maxToolRounds: 8,
       extraHeaders: {},
+      stream: true,
     });
     assert.deepStrictEqual(cfg.jev, { baseUrl: "https://api.typesafe.ai/v1", apiKey: "", model: "jev-latest", timeoutMs: 10_000 });
     assert.strictEqual(cfg.triage, "jev");
@@ -143,6 +144,7 @@ describe("parseConfig defaults", () => {
       ASSISTIVE_LLM_TEMPERATURE: "0.7",
       ASSISTIVE_LLM_TIMEOUT_SECONDS: "60",
       ASSISTIVE_LLM_MAX_TOOL_ROUNDS: "5",
+      ASSISTIVE_LLM_STREAM: "off",
       ASSISTIVE_JEV_BASE_URL: "https://jev.example/v1",
       ASSISTIVE_JEV_MODEL: "jev-2",
       ASSISTIVE_JEV_TIMEOUT_SECONDS: "20",
@@ -161,6 +163,7 @@ describe("parseConfig defaults", () => {
       timeoutMs: 60_000,
       maxToolRounds: 5,
       extraHeaders: {},
+      stream: false,
     });
     assert.deepStrictEqual(c.jev, { baseUrl: "https://jev.example/v1", apiKey: "jev-real-key", model: "jev-2", timeoutMs: 20_000 });
     assert.strictEqual(c.triage, "llm");

@@ -534,6 +534,16 @@ pre,
   padding: 6px 8px;
   flex: 0 0 auto;
 }
+.item.streaming::after {
+  content: "▍";
+  opacity: 0.6;
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink {
+  to {
+    opacity: 0;
+  }
+}
 #busy {
   font-size: 0.85em;
   color: var(--muted);

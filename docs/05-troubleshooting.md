@@ -113,8 +113,9 @@ The panel shows the active editor if its language is supported. If the active fi
 | Could not reach the LLM at … | There is no network connection to the base URL. | Examine the URL, the network and the proxy. |
 | LLM error (HTTP 400): … | The server rejected the request for a different reason. | Read the detail. Make sure that the model supports tool calls. |
 | The LLM returned no message. | The server sent a reply without a message. | Try a different model or provider. |
+| The model '…' does not support tool calls (HTTP 400). Set ASSISTIVE_LLM_MODEL to a model with tool calling. | The model cannot use tools. Assistive needs tools. | Choose a model with tool calls. |
 
-> **Note:** If the model rejects the `temperature` parameter, Assistive sends the request again without it. If the server rejects `response_format`, Assistive sends the request again without it. You do not see these errors.
+> **Note:** Some servers reject a part of a request: `temperature`, `tool_choice`, `response_format` or streaming. Assistive then sends the request again without that part. You do not see these errors.
 
 ### 5.3.2 Jev messages
 
@@ -129,6 +130,8 @@ The panel shows the active editor if its language is supported. If the active fi
 | Jev returned a response that is not JSON: … | The endpoint is not a Jev endpoint, or a proxy changed the reply. | Examine `ASSISTIVE_JEV_BASE_URL`. |
 | Jev's response had no answers for the questions asked. | The reply had no `answers` (or `results`) for the questions. | Examine the base URL and the model name. |
 | Jev error HTTP 500: … | An error on the Jev server. | Wait and try again. |
+
+> **Note:** After a beat fails, the heartbeat waits longer before the next automatic beat: two intervals after the first failure, then four, up to 10 minutes. The output channel shows "heartbeat failed (N in a row, next automatic beat in Ns)". **♥ Check now** does not wait.
 
 ### 5.3.3 Other messages
 

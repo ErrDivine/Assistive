@@ -16,6 +16,8 @@ export interface LlmConfig {
   timeoutMs: number;
   maxToolRounds: number;
   extraHeaders: Record<string, string>;
+  /** Stream replies into the panel as they are written. */
+  stream: boolean;
 }
 
 export interface JevConfig {
@@ -64,6 +66,8 @@ ASSISTIVE_LLM_MODEL=REPLACE_ME
 ASSISTIVE_LLM_TEMPERATURE=0.2
 ASSISTIVE_LLM_TIMEOUT_SECONDS=120
 ASSISTIVE_LLM_MAX_TOOL_ROUNDS=8
+# Show replies in the panel while they are written (true/false).
+ASSISTIVE_LLM_STREAM=true
 # JSON object of extra HTTP headers, e.g. {"HTTP-Referer":"https://example.com"}
 ASSISTIVE_LLM_EXTRA_HEADERS=
 
@@ -124,6 +128,10 @@ function num(
   return n;
 }
 
+function isFalse(value: string): boolean {
+  return /^(false|0|no|off)$/i.test(value);
+}
+
 function trimSlash(url: string): string {
   return url.trim().replace(/\/+$/, "");
 }
@@ -159,6 +167,7 @@ export function parseConfig(vars: Record<string, string>, source?: string): Assi
     timeoutMs: num(vars, "ASSISTIVE_LLM_TIMEOUT_SECONDS", 120, problems, 5, 900) * 1000,
     maxToolRounds: Math.round(num(vars, "ASSISTIVE_LLM_MAX_TOOL_ROUNDS", 8, problems, 1, 30)),
     extraHeaders,
+    stream: !isFalse(get("ASSISTIVE_LLM_STREAM", "true")),
   };
   const jev: JevConfig = {
     baseUrl: trimSlash(get("ASSISTIVE_JEV_BASE_URL", "https://api.typesafe.ai/v1")),
@@ -182,7 +191,7 @@ export function parseConfig(vars: Record<string, string>, source?: string): Assi
     graphSyncThreshold: num(vars, "ASSISTIVE_GRAPH_SYNC_THRESHOLD", 0.7, problems, 0, 1),
     explainThreshold: num(vars, "ASSISTIVE_EXPLAIN_THRESHOLD", 0.75, problems, 0, 1),
   };
-  const verifyLinks = !/^(false|0|no|off)$/i.test(get("ASSISTIVE_VERIFY_LINKS", "true"));
+  const verifyLinks = !isFalse(get("ASSISTIVE_VERIFY_LINKS", "true"));
 
   const llmReady = !isPlaceholder(llm.apiKey) && !isPlaceholder(llm.model) && /^https?:\/\//.test(llm.baseUrl);
   const jevReady = !isPlaceholder(jev.apiKey) && /^https?:\/\//.test(jev.baseUrl);

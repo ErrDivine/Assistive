@@ -48,6 +48,8 @@ export interface AgentOptions {
   maxRounds?: number;
   signal?: AbortSignal;
   onStep?: (step: AgentStep) => void;
+  /** The model's text so far in the current round, as it streams ("" when a round starts). */
+  onText?: (text: string) => void;
   /** Max characters of a single tool result sent back to the model. */
   maxResultChars?: number;
 }
@@ -69,6 +71,11 @@ export function stripThinking(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 }
 
+/** Like stripThinking, for text still streaming: an unclosed <think> block is hidden too. */
+export function stripThinkingPartial(text: string): string {
+  return text.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trimStart();
+}
+
 export function toOpenAiTool(t: AgentTool): ChatCompletionTool {
   return { type: "function", function: { name: t.name, description: t.description, parameters: t.parameters as unknown as Record<string, unknown> } };
 }
@@ -76,6 +83,8 @@ export function toOpenAiTool(t: AgentTool): ChatCompletionTool {
 export class Llm {
   readonly client: OpenAI;
   private sendTemperature = true;
+  private sendToolChoice = true;
+  private streaming: boolean;
 
   constructor(
     readonly cfg: LlmConfig,
@@ -89,32 +98,51 @@ export class Llm {
       defaultHeaders: cfg.extraHeaders,
       ...(fetchImpl ? { fetch: fetchImpl } : {}),
     });
+    this.streaming = cfg.stream;
   }
 
-  /** One completion, retrying once without `temperature` for models that reject it. */
+  /**
+   * One completion. Some compatible servers reject parts of the request; each
+   * is dropped once and never sent again: `temperature`, `tool_choice`, and
+   * streaming. With `onText`, the reply streams and `onText` receives the text so far.
+   */
   async complete(
     body: Omit<ChatCompletionCreateParamsNonStreaming, "model" | "temperature">,
     signal?: AbortSignal,
+    onText?: (text: string) => void,
   ): Promise<ChatCompletion> {
-    const send = () =>
-      this.client.chat.completions.create(
-        {
-          ...body,
-          model: this.cfg.model,
-          ...(this.sendTemperature ? { temperature: this.cfg.temperature } : {}),
-        },
-        { signal },
-      );
-    try {
-      return await send();
-    } catch (err) {
-      if (this.sendTemperature && err instanceof OpenAI.BadRequestError && /temperature/i.test(err.message)) {
-        this.sendTemperature = false;
-        return await send().catch((e: unknown) => {
-          throw toLlmError(e, this.cfg);
-        });
+    for (let attempt = 0; ; attempt++) {
+      const { tool_choice, ...rest } = body;
+      const params: ChatCompletionCreateParamsNonStreaming = {
+        ...rest,
+        ...(tool_choice !== undefined && this.sendToolChoice ? { tool_choice } : {}),
+        model: this.cfg.model,
+        ...(this.sendTemperature ? { temperature: this.cfg.temperature } : {}),
+      };
+      try {
+        if (onText && this.streaming) {
+          const stream = this.client.chat.completions.stream({ ...params, stream: true as const }, { signal });
+          stream.on("content", (_delta, snapshot) => onText(stripThinkingPartial(snapshot)));
+          return (await stream.finalChatCompletion()) as ChatCompletion;
+        }
+        return await this.client.chat.completions.create(params, { signal });
+      } catch (err) {
+        if (attempt < 3 && err instanceof OpenAI.BadRequestError) {
+          if (this.sendTemperature && /temperature/i.test(err.message)) {
+            this.sendTemperature = false;
+            continue;
+          }
+          if (this.sendToolChoice && tool_choice !== undefined && /tool_choice/i.test(err.message)) {
+            this.sendToolChoice = false;
+            continue;
+          }
+          if (this.streaming && onText && /stream/i.test(err.message)) {
+            this.streaming = false;
+            continue;
+          }
+        }
+        throw toLlmError(err, this.cfg);
       }
-      throw toLlmError(err, this.cfg);
     }
   }
 
@@ -143,7 +171,8 @@ export class Llm {
     const ctx: ToolContext = { signal: opts.signal };
 
     for (let round = 1; round <= maxRounds; round++) {
-      const res = await this.complete({ messages, tools, tool_choice: "auto" }, opts.signal);
+      opts.onText?.("");
+      const res = await this.complete({ messages, tools, tool_choice: "auto" }, opts.signal, opts.onText);
       usage.prompt += res.usage?.prompt_tokens ?? 0;
       usage.completion += res.usage?.completion_tokens ?? 0;
       const msg = res.choices[0]?.message;
@@ -173,14 +202,18 @@ export class Llm {
       role: "user",
       content: "Tool budget reached. Stop calling tools and give your brief summary of what changed now.",
     });
+    opts.onText?.("");
     let res: ChatCompletion;
     try {
-      res = await this.complete({ messages, tools, tool_choice: "none" }, opts.signal);
+      // Without tool_choice support, "none" cannot be expressed: send no tools at all.
+      res = this.sendToolChoice
+        ? await this.complete({ messages, tools, tool_choice: "none" }, opts.signal, opts.onText)
+        : await this.complete({ messages }, opts.signal, opts.onText);
     } catch (err) {
       if (!(err instanceof LlmError) || err.status !== 400) {
         throw err;
       }
-      res = await this.complete({ messages }, opts.signal);
+      res = await this.complete({ messages }, opts.signal, opts.onText);
     }
     usage.prompt += res.usage?.prompt_tokens ?? 0;
     usage.completion += res.usage?.completion_tokens ?? 0;
@@ -251,6 +284,12 @@ export function toLlmError(err: unknown, cfg: LlmConfig): Error {
   }
   if (err instanceof OpenAI.APIConnectionError) {
     return new LlmError(`Could not reach the LLM at ${cfg.baseUrl}: ${err.message}`);
+  }
+  if (err instanceof OpenAI.BadRequestError && /\b(tools?|function[_ ]?call\w*)\b[^.]{0,60}\b(not supported|unsupported|does not support)|does not support (tools|function)/i.test(err.message)) {
+    return new LlmError(
+      `The model '${cfg.model}' does not support tool calls (HTTP 400). Set ASSISTIVE_LLM_MODEL to a model with tool calling.`,
+      400,
+    );
   }
   if (err instanceof OpenAI.APIError) {
     return new LlmError(`LLM error (HTTP ${err.status ?? "?"}): ${err.message}`, err.status);

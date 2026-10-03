@@ -90,6 +90,7 @@ Graphs and conversations are stored per workspace in the extension's storage fol
 | `ASSISTIVE_LLM_TIMEOUT_SECONDS` | `120` | Per request |
 | `ASSISTIVE_LLM_MAX_TOOL_ROUNDS` | `8` | Tool-calling rounds per turn before a summary is forced |
 | `ASSISTIVE_LLM_EXTRA_HEADERS` | — | JSON object of extra headers (e.g. OpenRouter's `HTTP-Referer`) |
+| `ASSISTIVE_LLM_STREAM` | `true` | Show replies in the panel as they are written (turned off automatically if the server cannot stream) |
 | `ASSISTIVE_JEV_BASE_URL` | `https://api.typesafe.ai/v1` | Jev endpoint; requests go to `{base}/systemone` |
 | `ASSISTIVE_JEV_API_KEY` | — | Jev API key |
 | `ASSISTIVE_JEV_MODEL` | `jev-latest` | |

@@ -53,6 +53,7 @@ VS Code calls this method when the panel opens the first time. The method does t
 |---|---|
 | `{type: "state", state}` | Draws the full `PanelState`. |
 | `{type: "focusInput", text?}` | Puts the focus in the input box. With `text`, replaces the content of the box. |
+| `{type: "stream", text?}` | Shows the reply that the LLM writes now, as a temporary item at the end of the feed. Without `text`, removes the item. |
 | `{type: "selectNode", id}` | Selects a node. The protocol has this message, but the current host code does not send it. |
 
 ### 14.3.2 Webview to host (`FromPanel`)
@@ -201,14 +202,18 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
 `renderItem(item)` draws one item by its `kind`. An assistant reply with graph changes has a line such as "Graph: +2 nodes, −1 removed". If nodes were removed with a reason, the tooltip of that line shows the reasons. An interrupt has a CSS class for its severity (`sev-1` to `sev-3`) and its status. It has an icon for its issue kind, for example ✎ for `typo` and 🔒 for `security`. Its buttons show only while it is open.
 
-### 14.5.7 Input box
+### 14.5.7 Streamed reply
+
+`renderStream(text)` shows the reply that the LLM writes now. The element has the classes `item assistant streaming` and stays after the last feed item. The text is Markdown, cleaned by `DOMPurify`. A CSS rule adds a blinking cursor. Without text, the element goes away. When the turn ends, the real reply arrives in the next `state` message.
+
+### 14.5.8 Input box
 
 - `Enter` sends the text. `Shift+Enter` adds a line. During IME composition, `Enter` does not send.
 - The box grows with the text, up to 140 px.
 - `send()` sends nothing if the box is empty or the file is not supported.
 - The box is disabled if the file is not supported.
 
-### 14.5.8 Other listeners
+### 14.5.9 Other listeners
 
 - A click on a link inside Markdown text sends `openLink` for `http` and `https` URLs. The webview never opens a link itself.
 - A `ResizeObserver` on the graph area calls `cy.resize()`.

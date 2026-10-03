@@ -113,6 +113,21 @@ export class EditTracker {
     return renderDiff(base, text, 2, maxChars);
   }
 
+  /** Whether `text` differs from the last-heartbeat baseline in more than whitespace and blank lines. */
+  meaningfulChange(file: string, text: string): boolean {
+    const base = this.files.get(file)?.beatBase;
+    if (base === undefined) {
+      return true;
+    }
+    const norm = (t: string) =>
+      t
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .join("\n");
+    return norm(base) !== norm(text);
+  }
+
   stats(file: string): { lastEditAt: number; editsSinceBeat: number; touched: number[] } {
     const t = this.files.get(file);
     return { lastEditAt: t?.lastEditAt ?? 0, editsSinceBeat: t?.editsSinceBeat ?? 0, touched: [...(t?.touched ?? [])].sort((a, b) => a - b) };

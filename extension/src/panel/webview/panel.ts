@@ -708,9 +708,25 @@ function render(s: PanelState): void {
   input.disabled = !s.supported;
 }
 
+// The reply as it streams: a temporary item after the last feed item.
+const streamEl = el("div", "item assistant streaming");
+function renderStream(text: string | undefined): void {
+  const box = $("feed");
+  if (!text) {
+    streamEl.remove();
+    return;
+  }
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  streamEl.innerHTML = md(text);
+  box.querySelector(".welcome")?.remove();
+  box.appendChild(streamEl); // keeps it last
+  if (nearBottom) box.scrollTop = box.scrollHeight;
+}
+
 window.addEventListener("message", (ev: MessageEvent<ToPanel>) => {
   const m = ev.data;
   if (m.type === "state") render(m.state);
+  else if (m.type === "stream") renderStream(m.text);
   else if (m.type === "focusInput") focusInput(m.text);
   else if (m.type === "selectNode") select(m.id);
 });

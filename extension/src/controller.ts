@@ -86,6 +86,7 @@ export class Controller implements vscode.Disposable {
       edits: this.edits,
       outlineOf: (rel, text, language) => this.outlineOf(rel, text, language),
       checkLinks: (items) => checkLinks(items, { verify: this.config.verifyLinks }),
+      setStreaming: (key, text) => this.streamToPanel(key, text),
       setBusy: (key, label) => {
         if (label) this.busy.set(key, label);
         else this.busy.delete(key);
@@ -140,6 +141,7 @@ export class Controller implements vscode.Disposable {
       { dispose: () => this.autoDraft.cancel() },
       { dispose: () => this.reconcile.cancel() },
       { dispose: () => this.liveSync.cancel() },
+      { dispose: () => clearTimeout(this.streamTimer) },
     );
     this.watchEnv();
     for (const d of vscode.workspace.textDocuments) this.track(d);
@@ -426,6 +428,9 @@ export class Controller implements vscode.Disposable {
   }
 
   private onBeat(r: BeatReport): void {
+    if (r.outcome === "skipped" && !r.verdict) {
+      return; // nothing was triaged: keep showing the last verdict
+    }
     this.lastBeat = r;
     if (r.error) {
       if (/jev/i.test(r.error)) this.errors.jev = r.error;
@@ -512,6 +517,27 @@ export class Controller implements vscode.Disposable {
       : "Assistive: implementation graph";
     this.statusItem.tooltip = busy ?? (open ? `${open} open note${open > 1 ? "s" : ""} from the assistant\n${plan}` : plan);
     this.statusItem.backgroundColor = open && !busy ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined;
+  }
+
+  // ------------------------------------------------------------ streaming
+
+  private streamText?: { key: string; text?: string };
+  private streamTimer?: NodeJS.Timeout;
+
+  /** Send the reply as it streams, at most every 80 ms; the end of the stream goes at once. */
+  private streamToPanel(key: string, text: string | undefined): void {
+    this.streamText = { key, text };
+    const flush = () => {
+      this.streamTimer = undefined;
+      const s = this.streamText;
+      if (s && s.key === this.activeDoc?.uri.fsPath) this.panel.post({ type: "stream", text: s.text || undefined });
+    };
+    if (text === undefined) {
+      clearTimeout(this.streamTimer);
+      flush();
+    } else {
+      this.streamTimer ??= setTimeout(flush, 80);
+    }
   }
 
   // ------------------------------------------------------------ hover

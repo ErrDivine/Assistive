@@ -18,7 +18,7 @@ const ts = new TreeSitter(path.resolve(__dirname, "../../../node_modules/@vscode
 
 const DOC = '"""Count the most common words in a text file and print them."""\n';
 
-function harness(fake: FakeServers, triage: "jev" | "llm" | "off" = "jev") {
+function harness(fake: FakeServers, triage: "jev" | "llm" | "off" = "jev", now: () => number = Date.now) {
   const config = parseConfig({
     ASSISTIVE_LLM_BASE_URL: `${fake.base}/v1`,
     ASSISTIVE_LLM_API_KEY: "sk-test",
@@ -28,12 +28,13 @@ function harness(fake: FakeServers, triage: "jev" | "llm" | "off" = "jev") {
     ASSISTIVE_TRIAGE: triage,
   });
   const store = new GraphStore(undefined);
-  const edits = new EditTracker();
+  const edits = new EditTracker(now);
   const ws = new MemoryWorkspace({ "wc.py": DOC, "pyproject.toml": '[project]\nname = "wc"\ndependencies = []\n' });
   let text = DOC;
   let cursor = 0;
   const h: FileHandle = { key: "/ws/wc.py", file: "wc.py", ws, language: "python", text: () => text, cursorLine: () => cursor };
   const busy: (string | undefined)[] = [];
+  const streams: (string | undefined)[] = [];
   const logs: string[] = [];
   const llm = new Llm(config.llm);
   const outlineOf = (rel: string, t: string, language?: string) => outline(ts, language ?? (rel.endsWith(".py") ? "python" : "plaintext"), t);
@@ -44,6 +45,7 @@ function harness(fake: FakeServers, triage: "jev" | "llm" | "off" = "jev") {
     outlineOf,
     checkLinks: (items) => checkLinks(items, { verify: true, timeoutMs: 2000 }),
     setBusy: (_k, label) => busy.push(label),
+    setStreaming: (_k, text) => streams.push(text),
     log: (m) => logs.push(m),
   });
   const reports: BeatReport[] = [];
@@ -60,6 +62,7 @@ function harness(fake: FakeServers, triage: "jev" | "llm" | "off" = "jev") {
     outlineOf,
     onBeat: (r) => reports.push(r),
     log: (m) => logs.push(m),
+    now,
   });
   edits.open(h.key, text);
   return {
@@ -69,6 +72,7 @@ function harness(fake: FakeServers, triage: "jev" | "llm" | "off" = "jev") {
     assistant,
     heartbeat,
     busy,
+    streams,
     logs,
     reports,
     type(newText: string, line: number) {
@@ -332,6 +336,66 @@ describe("Assistant + Heartbeat with fake OpenAI and Jev servers", () => {
     assert.ok(tools.includes("recommend_resources"));
     assert.ok(!tools.includes("interrupt_programmer") && !tools.includes("update_nodes"));
     assert.strictEqual(t.store.get("/ws/wc.py").feed.length, 0, "'No help needed' posts nothing");
+  });
+
+  it("streams the reply of a programmer turn and clears it at the end", async () => {
+    const t = harness(fake);
+    await t.assistant.draft(t.h);
+    assert.ok(t.streams.some((x) => x?.startsWith("Drafted 3")), "the summary streamed");
+    assert.strictEqual(t.streams.at(-1), undefined, "cleared when the turn ended");
+    assert.ok(fake.chatRequests.every((q) => q.stream === true));
+  });
+
+  it("heartbeat turns do not stream", async () => {
+    const t = harness(fake);
+    t.type(DOC + "\ndef parse_line(line):\n    return [w.lowr() for w in line.split()]\n", 3);
+    fake.jev = (req) => ({ body: jevAnswers(req, { interrupt: 0.92, issue: "typo", severity: 3 }) });
+    await t.heartbeat.beat();
+    assert.deepStrictEqual(t.streams, []);
+    assert.ok(fake.chatRequests.every((q) => q.stream !== true));
+  });
+
+  it("automatic beats skip changes that are only whitespace; Check now does not", async () => {
+    let clock = 1_000_000;
+    const t = harness(fake, "jev", () => clock);
+    t.type(DOC + "\n\n   \n", 2);
+    clock += 60_000;
+    await t.heartbeat.tick();
+    assert.strictEqual(t.reports.at(-1)?.outcome, "skipped");
+    assert.deepStrictEqual(t.reports.at(-1)?.actions, ["only whitespace changed"]);
+    assert.strictEqual(fake.jevRequests.length, 0);
+    await t.heartbeat.beat();
+    assert.strictEqual(fake.jevRequests.length, 1, "a manual beat always triages");
+  });
+
+  it("backs off after repeated triage failures, then recovers", async () => {
+    let clock = 1_000_000;
+    const t = harness(fake, "jev", () => clock);
+    fake.jev = () => ({ status: 500, body: { error: { message: "down" } } });
+    const typeAndWait = (n: number) => {
+      t.type(DOC + `x = ${n}\n`, 1);
+      clock += 50_000; // past the 45 s interval and the 2 s pause
+    };
+    typeAndWait(1);
+    await t.heartbeat.tick();
+    assert.strictEqual(fake.jevRequests.length, 1);
+    assert.match(t.logs.at(-1)!, /heartbeat failed \(1 in a row, next automatic beat in 90s\)/);
+    typeAndWait(2); // 50 s later: still inside the 90 s pause
+    await t.heartbeat.tick();
+    assert.strictEqual(fake.jevRequests.length, 1, "no request during the pause");
+    typeAndWait(3); // 100 s after the failure
+    await t.heartbeat.tick();
+    assert.strictEqual(fake.jevRequests.length, 2);
+    assert.match(t.logs.at(-1)!, /2 in a row, next automatic beat in 180s/);
+    fake.jev = (req) => ({ body: jevAnswers(req, {}) });
+    clock += 200_000;
+    typeAndWait(4);
+    await t.heartbeat.tick();
+    assert.strictEqual(t.reports.at(-1)?.outcome, "no_action", "recovered");
+    clock += 1;
+    typeAndWait(5);
+    await t.heartbeat.tick();
+    assert.strictEqual(fake.jevRequests.length, 4, "no pause after a success");
   });
 
   it("scopeCode marks the cursor inside the enclosing symbol", async () => {

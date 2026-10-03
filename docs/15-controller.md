@@ -193,7 +193,7 @@ When the store reports a change for a file, the controller:
 
 ### 15.6.2 Beat reports
 
-`onBeat(report)` keeps the report as the last beat. It also keeps the error state of each service:
+`onBeat(report)` keeps the report as the last beat. A `skipped` report without a verdict does not replace the last beat, so the tooltip keeps the last verdict. It also keeps the error state of each service:
 
 - An error that contains "jev" marks Jev as failed. A different error marks the LLM as failed.
 - A verdict from Jev clears the Jev error.
@@ -228,11 +228,15 @@ When the store reports a change for a file, the controller:
 | Open interrupts | Graph icon, warning icon, number | Warning color |
 | Other | Graph icon, and `done/total` if the file has a graph | Default |
 
-### 15.6.6 Live status sync
+### 15.6.6 Streamed replies
+
+The Assistant calls `setStreaming(key, text)` while the LLM writes a reply. `streamToPanel` keeps the latest text and sends it to the panel a maximum of one time in 80 ms, as a `stream` message. It sends the end of the stream (no text) at once. It sends nothing for a file that is not the active file.
+
+### 15.6.7 Live status sync
 
 The live sync runs 800 ms after the last change to the active file. If the file has a graph with nodes, it calls `assistant.localSync`. Thus the statuses follow the code while the programmer types, without a save and without the LLM.
 
-### 15.6.7 Editor hover
+### 15.6.8 Editor hover
 
 The controller registers a hover provider for all `file` and `untitled` documents. `hover(doc, position)` does these steps:
 

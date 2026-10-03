@@ -249,7 +249,14 @@ The controller gives the runner these dependencies: `config()`, `enabled()`, `je
 
 ### 11.5.2 The timer
 
-`start()` starts a timer that calls `tick()` every 3 seconds (`TICK_MS`). `tick()` returns at once if a beat is in progress, if the heartbeat is disabled, or if no supported file is active. If not, it calls `beatDue` with the statistics of the `EditTracker`. If a beat is due, it calls `beat()`.
+`start()` starts a timer that calls `tick()` every 3 seconds (`TICK_MS`). `tick()` returns at once in these conditions:
+
+- a beat is in progress;
+- the heartbeat is disabled;
+- no supported file is active;
+- the heartbeat waits after failures (refer to [11.5.7](#1157-backoff-after-failures)).
+
+If not, it calls `beatDue` with the statistics of the `EditTracker`. If a beat is due, it calls `beat(handle, {auto: true})`.
 
 ### 11.5.3 `beat(handle)`
 
@@ -258,19 +265,20 @@ One beat does these steps:
 1. If no file is given, or a beat is in progress, it returns `undefined`.
 2. It sets the `beating` flag and records the time of the beat for this file.
 3. It takes a copy of the text.
-4. It calls `assistant.localSync` to update the statuses from the outline.
-5. It computes the diff since the last beat (maximum 4000 characters).
-6. It runs the triage (refer to [11.5.4](#1154-triage)).
-7. It calls `edits.beat(file, text)`. The next diff starts from the text that this beat examined. Thus typing during a long escalation goes into the next beat.
-8. If there is no verdict (triage `off`), the outcome is `skipped`.
-9. It calls `decide` and writes the verdict and the reasons to the log.
-10. If `escalate` is true and the LLM is configured, it calls `assistant.heartbeat`. If the outcome is `interrupted`, it records the time of the interrupt.
-11. If `sync` is true, it records the time and calls `assistant.sync(handle, "after a heartbeat")`. A failure goes to the log only.
-12. If `explain` is true, it records the time and calls `assistant.struggling`. A failure goes to the log only.
-13. If an error occurs, the outcome is `error` and the report has the message.
-14. At the end, it clears the `beating` flag and calls `onBeat(report)`.
+4. For an automatic beat, it calls `edits.meaningfulChange`. If only whitespace or blank lines changed, it moves the baseline and stops. The outcome is `skipped` with the action "only whitespace changed". Jev receives no request.
+5. It calls `assistant.localSync` to update the statuses from the outline.
+6. It computes the diff since the last beat (maximum 4000 characters).
+7. It runs the triage (refer to [11.5.4](#1154-triage)).
+8. It calls `edits.beat(file, text)`. The next diff starts from the text that this beat examined. Thus typing during a long escalation goes into the next beat.
+9. If there is no verdict (triage `off`), the outcome is `skipped`. If there is a verdict, the failure count goes back to 0.
+10. It calls `decide` and writes the verdict and the reasons to the log.
+11. If `escalate` is true and the LLM is configured, it calls `assistant.heartbeat`. If the outcome is `interrupted`, it records the time of the interrupt.
+12. If `sync` is true, it records the time and calls `assistant.sync(handle, "after a heartbeat")`. A failure goes to the log only.
+13. If `explain` is true, it records the time and calls `assistant.struggling`. A failure goes to the log only.
+14. If an error occurs, the outcome is `error` and the report has the message. The heartbeat starts to wait (refer to [11.5.7](#1157-backoff-after-failures)).
+15. At the end, it clears the `beating` flag and calls `onBeat(report)`.
 
-The **♥ Check now** button calls `beat` directly. Thus it ignores the interval, the pause, the focus and the edit count.
+The **♥ Check now** button calls `beat` directly. Thus it ignores the interval, the pause, the focus, the edit count, the whitespace rule and the wait after failures.
 
 ### 11.5.4 Triage
 
@@ -296,6 +304,14 @@ The controller calls this method when a new interrupt shows. It sets the time of
 | `error` | The error message, if the outcome is `error`. |
 
 The controller shows the last report in the status of the panel.
+
+### 11.5.7 Backoff after failures
+
+A failed beat (for example, Jev is not available) increases a failure count $n$. The automatic beats then wait for
+
+$$\min(10\ \text{min},\ \text{interval} \times 2^{n})$$
+
+With the default interval of 45 s, the waits are 90 s, 180 s, 360 s, and then 10 minutes (`MAX_BACKOFF_MS`). The log shows each wait. A beat with a verdict sets $n$ to 0.
 
 ## 11.6 The state that Jev receives
 
