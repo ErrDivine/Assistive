@@ -613,6 +613,17 @@ export class Controller implements vscode.Disposable {
     if (ok === "Clear") this.store.clear(h.key);
   }
 
+  async clearConversation(): Promise<void> {
+    const h = this.requireFile();
+    if (!h || !this.store.get(h.key).feed.length) return;
+    const ok = await vscode.window.showWarningMessage(
+      `Clear the conversation for ${h.file}? The graph and open interrupts stay; the assistant forgets the earlier messages.`,
+      { modal: true },
+      "Clear",
+    );
+    if (ok === "Clear") this.store.clearFeed(h.key);
+  }
+
   /** Stop the LLM request in progress for the active file (the panel's Stop button). */
   stop(): void {
     const h = this.handle();

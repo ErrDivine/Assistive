@@ -140,6 +140,13 @@ export class GraphStore {
     }
   }
 
+  /** Clear the conversation of a file; open interrupts stay (their squiggles are still shown). */
+  clearFeed(file: string): void {
+    const rec = this.get(file);
+    rec.feed = rec.feed.filter((f) => f.kind === "interrupt" && f.status === "open");
+    this.changed(file);
+  }
+
   /** Files with a record loaded in memory. */
   files(): string[] {
     return [...this.records.keys()];

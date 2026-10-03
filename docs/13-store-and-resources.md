@@ -43,6 +43,7 @@ The constructor receives a folder and a save delay (default 400 ms). The control
 | `findFeed(id)` | Finds an item by its ID in all loaded records. Returns the file and the item. |
 | `updateFeed(file, id, patch)` | Changes the fields of an item. |
 | `clear(file)` | Sets the graph to `undefined`, with the old graph as the snapshot. Thus **Undo** restores a cleared graph. |
+| `clearFeed(file)` | Removes all feed items except the open interrupts. The chat history of the LLM comes from the feed, so the LLM forgets the earlier messages. |
 | `files()` | The keys of the records in memory. |
 | `changed(file)` | Calls the listeners and schedules a save. |
 | `flush()` | Writes all scheduled saves now. |

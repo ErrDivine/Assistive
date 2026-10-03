@@ -871,3 +871,27 @@ describe("GraphStore (persisted)", () => {
     });
   });
 });
+
+describe("GraphStore.clearFeed", () => {
+  it("clears the conversation but keeps open interrupts", () => {
+    const store = new GraphStore(undefined);
+    store.addFeed("/a.py", { kind: "user", text: "hi" });
+    store.addFeed("/a.py", { kind: "assistant", text: "hello", mode: "chat" });
+    const open = store.addFeed("/a.py", {
+      kind: "interrupt",
+      title: "Typo",
+      message: "m",
+      line: 1,
+      issue: "typo",
+      severity: 3,
+      status: "open",
+      lineText: "x",
+    });
+    store.addFeed("/a.py", { kind: "interrupt", title: "Old", message: "m", line: 2, issue: "typo", severity: 1, status: "dismissed" });
+    let fired = 0;
+    store.onChange(() => fired++);
+    store.clearFeed("/a.py");
+    assert.deepStrictEqual(store.get("/a.py").feed.map((f) => f.id), [open.id]);
+    assert.strictEqual(fired, 1);
+  });
+});

@@ -79,11 +79,13 @@ When you select a node, the details box shows:
 - the reason for the flag, if the status is `attention`;
 - the edges to and from the node.
 
-The box has three buttons:
+The box has four buttons:
 
 | Button | Function |
 |---|---|
 | **Go to code** | Open the code of the node. The button shows "Not typed yet" if the code does not exist. |
+| **Hint** (if the code is not done) | Ask the LLM for the steps and the APIs to implement the node, without the code. |
+| **Review** (if the code is done or flagged) | Ask the LLM for a review of your code for the node: correctness, the edge cases of the plan, and a clearly better way. The LLM points to lines and does not rewrite the code. |
 | **Copy signature** | Copy the signature to the clipboard. Assistive does not paste it into your file. |
 | **Ask about this** | Put "About \`symbol\`: " into the input box. |
 
@@ -298,6 +300,7 @@ Assistive examines each link before it shows the link. It removes links that giv
 | Assistive: Undo Last Graph Change | Restore the previous revision. |
 | Assistive: Clear Graph for This File | Remove the graph. |
 | Assistive: Stop the Current Request | Stop the LLM request in progress. |
+| Assistive: Clear Conversation for This File | Remove the messages of the file from the feed. The graph and the open interrupts stay. |
 | Assistive: Run a Heartbeat Now | Run one beat. |
 | Assistive: Pause / Resume Heartbeat | Turn the heartbeat off or on. |
 | Assistive: Export Graph as Mermaid | Open the graph as Mermaid text. |
@@ -324,4 +327,23 @@ Assistive removes the graph changes that the stopped request made. If a differen
 2. Read the hover. It shows "Assistive plan", the status, the step number, the planned signature, the description and the notes of the node.
 
 The hover works at the definition and at each call. It also works for a name that you did not define yet, if the plan has it. If two nodes have the same short name (for example `Cache.get` and `Store.get`), the hover shows a node only at its own definition.
+
+## 4.19 Ask for a hint or a review
+
+1. Select the node in the graph or in the **Steps** tab.
+2. Do one of these:
+   - If you do not know how to start, click **Hint**.
+   - If you finished the code of the node, click **Review**.
+3. Read the reply in the feed.
+
+The buttons send a normal message, so the reply also shows in the feed and the LLM can change the graph or recommend resources.
+
+## 4.20 Clear the conversation
+
+Use this procedure if the feed of a file is long, or if you want the LLM to forget the earlier messages.
+
+1. Run **Assistive: Clear Conversation for This File**.
+2. Click **Clear** in the dialog.
+
+The graph and the open interrupts stay. The LLM no longer receives the earlier messages.
 

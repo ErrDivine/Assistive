@@ -106,7 +106,7 @@ sequenceDiagram
     C->>C: watch the .env locations
     C->>C: track the open documents
     C->>H: start() (tick every 3 s)
-    E->>VS: register 12 commands
+    E->>VS: register 13 commands
     E-->>VS: return { controller }
 ```
 

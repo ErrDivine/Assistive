@@ -170,7 +170,7 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
 - `renderSteps(graph)` lists the nodes in typing order. Each item shows the label, the status and the signature. The next node (from `progress`) has the class `next` and a **next** badge. A click selects. A double-click sends `goto`.
 - `render(state)` sets the label of the Steps tab to **Steps done/total**, with the next node in the tooltip.
-- `renderDetails()` shows the selected node (refer to [User guide](04-user-guide.md#413-node-details)). An edge from the node shows as "calls **x**". An edge to the node shows as "**y** calls it".
+- `renderDetails()` shows the selected node (refer to [User guide](04-user-guide.md#413-node-details)). It shows **Review** for a node whose code is done or flagged, and **Hint** for the other nodes. Both buttons send a `send` message with a fixed request (`hintRequest`, `reviewRequest`). An edge from the node shows as "calls **x**". An edge to the node shows as "**y** calls it".
 - `renderHeader(state)` draws the file name and the three pills. It sets the button states:
 
   | Button | Not available if |

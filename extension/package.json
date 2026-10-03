@@ -85,6 +85,11 @@
         "category": "Assistive"
       },
       {
+        "command": "assistive.clearConversation",
+        "title": "Clear Conversation for This File",
+        "category": "Assistive"
+      },
+      {
         "command": "assistive.stop",
         "title": "Stop the Current Request",
         "category": "Assistive"

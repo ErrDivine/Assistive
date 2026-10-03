@@ -21,6 +21,7 @@ export function activate(context: vscode.ExtensionContext): AssistiveApi {
   register("assistive.undoGraph", () => c.undo());
   register("assistive.clearGraph", () => c.clear());
   register("assistive.stop", () => c.stop());
+  register("assistive.clearConversation", () => c.clearConversation());
   register("assistive.heartbeatNow", () => c.beatNow());
   register("assistive.toggleHeartbeat", () => c.toggleHeartbeat());
   register("assistive.exportGraph", () => c.exportGraph());

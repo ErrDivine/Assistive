@@ -335,12 +335,26 @@ function renderDetails(): void {
   const actions = el("div", "actions");
   const go = button(n.line !== undefined ? "Go to code" : "Not typed yet", "secondary", () => n.line !== undefined && post({ type: "goto", line: n.line }));
   go.disabled = n.line === undefined;
+  const name = n.symbol ?? n.id;
+  const typed = n.line !== undefined && (n.status === "done" || n.status === "attention");
   actions.append(
     go,
+    // A learner's two questions: how do I start this, and is what I wrote right?
+    typed
+      ? button("Review", "secondary", () => post({ type: "send", text: reviewRequest(name) }), "Ask for a review of your code for this piece")
+      : button("Hint", "secondary", () => post({ type: "send", text: hintRequest(name) }), "Ask how to start, without the code"),
     button("Copy signature", "secondary", () => post({ type: "copy", text: n.signature ?? n.symbol ?? n.label }), "Copy to the clipboard"),
-    button("Ask about this", "secondary", () => focusInput(`About \`${n.symbol ?? n.id}\`: `)),
+    button("Ask about this", "secondary", () => focusInput(`About \`${name}\`: `)),
   );
   box.appendChild(actions);
+}
+
+function hintRequest(name: string): string {
+  return `Give me a hint for \`${name}\`: the steps to implement it and the APIs to use. Don't write the code for me.`;
+}
+
+function reviewRequest(name: string): string {
+  return `Review my code for \`${name}\`: is it correct, does it handle the edge cases in the plan, and is there a clearly better way? Point to the lines; don't rewrite it for me.`;
 }
 
 // ---------------------------------------------------------------- header

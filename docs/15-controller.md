@@ -18,7 +18,7 @@ VS Code activates the extension on these events (from `package.json`):
 The function does these steps:
 
 1. It makes a `Controller`.
-2. It registers the 12 commands:
+2. It registers the 13 commands:
 
    | Command ID | Controller call |
    |---|---|
@@ -29,6 +29,7 @@ The function does these steps:
    | `assistive.undoGraph` | `undo()` |
    | `assistive.clearGraph` | `clear()` |
    | `assistive.stop` | `stop()` |
+   | `assistive.clearConversation` | `clearConversation()` |
    | `assistive.heartbeatNow` | `beatNow()` |
    | `assistive.toggleHeartbeat` | `toggleHeartbeat()` |
    | `assistive.exportGraph` | `exportGraph()` |
@@ -263,6 +264,7 @@ All assistant actions go through `run`. If the action succeeds, `run` clears the
 | `undo()` | `GraphStore.undo`. Shows "Assistive: nothing to undo." if the history is empty. |
 | `clear()` | Asks for confirmation in a modal dialog, then `GraphStore.clear`. |
 | `stop()` | `Assistant.cancel` for the active file. The **Stop** button sends the same request. |
+| `clearConversation()` | Asks for confirmation in a modal dialog, then `GraphStore.clearFeed`. |
 | `beatNow()` | `Heartbeat.beat` for the active file. Returns the report. |
 | `toggleHeartbeat()` | Changes the user setting `assistive.heartbeat.enabled`. Shows "Assistive heartbeat paused" or "resumed" in the status bar for 2.5 seconds. |
 | `exportGraph()` | Opens a new untitled Markdown document beside the editor. The document has the title "Implementation graph: `<file>`", the docstring as a quote, and the Mermaid text in a code fence. |

@@ -61,7 +61,7 @@ The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration
 | Tell the assistant something | Type in the input box (`Enter` sends, `Shift+Enter` adds a line), or press `Ctrl+Alt+/` from the editor |
 | See what to type next | **Steps** tab: nodes in typing order with signatures; the tab shows your progress (`Steps 3/7`) and the next piece has a **next** badge (also a halo in the graph and `3/7` in the status bar) |
 | See the plan while you type | Hover a function, class or method name in the editor: its planned signature, description and notes |
-| Inspect a node | Click it to see its signature, description, notes and edges, plus **Go to code**, **Copy signature** and **Ask about this**. Double-click jumps to the code. |
+| Inspect a node | Click it to see its signature, description, notes and edges, plus **Go to code**, **Hint** (how to start, no code) or **Review** (once its code is done), **Copy signature** and **Ask about this**. Double-click jumps to the code. |
 | Bring the graph in line with the code | **Sync** (also runs on its own when a heartbeat finds the graph out of date) |
 | Undo a graph change | **Undo** (keeps the last 20 revisions per file) |
 | Stop a request in progress | **Stop** on the busy line above the input box |
