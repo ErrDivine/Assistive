@@ -15,7 +15,8 @@ import { TreeSitter } from "./code/treesitter";
 import { VsWorkspace } from "./code/workspace";
 import { type AssistiveConfig, ensureEnvFile, envCandidates, loadConfig } from "./config/env";
 import { Debouncer } from "./code/debounce";
-import { GraphEditor, nodeForWord, orderedNodes, progress, syncWithOutline, toMermaid } from "./graph/model";
+import { diagnosticLevel, diagnosticMessage, graphMarkdown, hoverMarkdown, interruptRange, lensItems, plannedFileDescription, statusView } from "./editor/presenters";
+import { GraphEditor, nodeForWord, syncWithOutline } from "./graph/model";
 import { Heartbeat, type BeatReport } from "./heartbeat/Heartbeat";
 import { describeVerdict, reconcileInterrupts } from "./heartbeat/policy";
 import { Llm } from "./llm/agent";
@@ -392,14 +393,11 @@ export class Controller implements vscode.Disposable {
   private renderDiagnostics(key: string): void {
     const uri = vscode.Uri.file(key);
     const doc = vscode.workspace.textDocuments.find((d) => d.uri.fsPath === key);
+    const text = (line: number) => (doc && line < doc.lineCount ? doc.lineAt(line).text : "");
     const diags = this.openInterrupts(key).map((f) => {
-      const endLine = f.endLine ?? f.line;
-      const lastText = doc && endLine < doc.lineCount ? doc.lineAt(endLine).text : "";
-      const firstText = doc && f.line < doc.lineCount ? doc.lineAt(f.line).text : "";
-      const startCol = firstText.length - firstText.trimStart().length;
-      const range = new vscode.Range(f.line, startCol, endLine, Math.max(lastText.length, startCol + 1));
-      const sev = f.severity >= 3 ? vscode.DiagnosticSeverity.Error : f.severity === 2 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Information;
-      const d = new vscode.Diagnostic(range, `${f.title}: ${plain(f.message)}`, sev);
+      const r = interruptRange(f, text(f.line), text(f.endLine ?? f.line));
+      const range = new vscode.Range(r.startLine, r.startCol, r.endLine, r.endCol);
+      const d = new vscode.Diagnostic(range, diagnosticMessage(f), SEVERITY[diagnosticLevel(f.severity)]);
       d.source = "Assistive";
       d.code = f.issue;
       return d;
@@ -519,19 +517,10 @@ export class Controller implements vscode.Disposable {
     const key = this.activeDoc?.uri.fsPath;
     const open = key ? this.openInterrupts(key).length : 0;
     const busy = key ? this.busy.get(key) : undefined;
-    const graph = key ? this.store.graph(key) : undefined;
-    const p = graph?.nodes.length ? progress(graph) : undefined;
-    const count = p?.total ? ` ${p.done}/${p.total}` : "";
-    this.statusItem.text = busy
-      ? `$(sync~spin) ${busy.replace(/…$/, "")}`
-      : open
-        ? `$(type-hierarchy)${count} $(warning) ${open}`
-        : `$(type-hierarchy)${count}`;
-    const plan = p?.total
-      ? `Assistive: ${p.done} of ${p.total} pieces done${p.next ? ` · next: ${p.next.symbol ?? p.next.label}` : " · all done"}`
-      : "Assistive: implementation graph";
-    this.statusItem.tooltip = busy ?? (open ? `${open} open note${open > 1 ? "s" : ""} from the assistant\n${plan}` : plan);
-    this.statusItem.backgroundColor = open && !busy ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined;
+    const view = statusView({ busy, open, graph: key ? this.store.graph(key) : undefined });
+    this.statusItem.text = view.text;
+    this.statusItem.tooltip = view.tooltip;
+    this.statusItem.backgroundColor = view.warning ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined;
   }
 
   // ------------------------------------------------------------ streaming
@@ -561,31 +550,12 @@ export class Controller implements vscode.Disposable {
   /** Progress and the next piece above the module docstring: guidance without opening the panel. */
   async codeLenses(doc: vscode.TextDocument): Promise<vscode.CodeLens[]> {
     if (!this.supported(doc) || !this.settings().get<boolean>("codeLens", true)) return [];
-    const graph = this.store.graph(doc.uri.fsPath);
-    const p = graph?.nodes.length ? progress(graph) : undefined;
-    if (!p?.total) return [];
+    const items = lensItems(this.store.graph(doc.uri.fsPath));
+    if (!items.length) return [];
     const o = await this.outlineOf(this.handleFor(doc).file, doc.getText(), doc.languageId);
-    const range = new vscode.Range(o.moduleString?.startLine ?? 0, 0, o.moduleString?.startLine ?? 0, 0);
-    const lenses = [
-      new vscode.CodeLens(range, {
-        title: `$(type-hierarchy) Assistive: ${p.done}/${p.total} done`,
-        command: "assistive.focus",
-        tooltip: "Open the implementation graph",
-      }),
-    ];
-    if (p.next) {
-      lenses.push(
-        new vscode.CodeLens(range, {
-          title: `Next: ${p.next.signature ?? p.next.symbol ?? p.next.label}`,
-          command: "assistive.showNode",
-          arguments: [p.next.id],
-          tooltip: p.next.description,
-        }),
-      );
-    } else {
-      lenses.push(new vscode.CodeLens(range, { title: "All planned pieces are typed", command: "assistive.focus" }));
-    }
-    return lenses;
+    const line = o.moduleString?.startLine ?? 0;
+    const range = new vscode.Range(line, 0, line, 0);
+    return items.map((i) => new vscode.CodeLens(range, { title: i.title, command: i.command, arguments: i.args, tooltip: i.tooltip }));
   }
 
   /** Open the panel with a node selected (the code lens's "Next"). */
@@ -604,15 +574,7 @@ export class Controller implements vscode.Disposable {
     const h = this.handleFor(doc);
     const o = await this.outlineOf(h.file, doc.getText(), doc.languageId);
     const node = nodeForWord(graph, o, doc.getText(range), pos.line);
-    if (!node) return undefined;
-    const step = orderedNodes(graph).findIndex((n) => n.id === node.id) + 1;
-    const md = new vscode.MarkdownString();
-    md.appendMarkdown(`**Assistive plan** · ${node.status === "done" ? "✓ done" : node.status} · step ${step} of ${graph.nodes.length}\n\n`);
-    if (node.signature) md.appendCodeblock(node.signature, doc.languageId);
-    md.appendMarkdown(escapeMarkdown(node.description));
-    if (node.notes.length) md.appendMarkdown("\n\n" + node.notes.map((n) => `- ${escapeMarkdown(n)}`).join("\n"));
-    if (node.attention) md.appendMarkdown(`\n\n⚠ ${escapeMarkdown(node.attention)}`);
-    return new vscode.Hover(md, range);
+    return node ? new vscode.Hover(new vscode.MarkdownString(hoverMarkdown(graph, node, doc.languageId)), range) : undefined;
   }
 
   // ------------------------------------------------------------ actions
@@ -704,15 +666,12 @@ export class Controller implements vscode.Disposable {
       .plannedFiles()
       .filter((p) => fs.existsSync(p.file))
       .sort((a, b) => b.graph.updatedAt.localeCompare(a.graph.updatedAt))
-      .map((p) => {
-        const pr = progress(p.graph);
-        return {
-          label: `$(type-hierarchy) ${vscode.workspace.asRelativePath(p.file)}`,
-          description: pr.total ? `${pr.done}/${pr.total} done${pr.next ? ` · next: ${pr.next.symbol ?? pr.next.label}` : ""}` : "",
-          detail: p.graph.moduleString.split("\n")[0],
-          file: p.file,
-        };
-      });
+      .map((p) => ({
+        label: `$(type-hierarchy) ${vscode.workspace.asRelativePath(p.file)}`,
+        description: plannedFileDescription(p.graph),
+        detail: p.graph.moduleString.split("\n")[0],
+        file: p.file,
+      }));
     if (!items.length) {
       void vscode.window.showInformationMessage("Assistive: no file has a graph yet. Write a module docstring to draft one.");
       return;
@@ -746,8 +705,7 @@ export class Controller implements vscode.Disposable {
       void vscode.window.showInformationMessage("Assistive: this file has no graph yet.");
       return;
     }
-    const content = `# Implementation graph: ${g.file}\n\n> ${g.moduleString.split("\n").join("\n> ")}\n\n\`\`\`mermaid\n${toMermaid(g)}\n\`\`\`\n`;
-    const doc = await vscode.workspace.openTextDocument({ language: "markdown", content });
+    const doc = await vscode.workspace.openTextDocument({ language: "markdown", content: graphMarkdown(g) });
     await vscode.window.showTextDocument(doc, { preview: false, viewColumn: vscode.ViewColumn.Beside });
   }
 
@@ -892,15 +850,8 @@ function debounced(fn: () => void, ms: number): Trigger {
   return { trigger: () => d.trigger(fn), cancel: () => d.cancel() };
 }
 
-function escapeMarkdown(text: string): string {
-  return text.replace(/[\\`*_{}[\]()#+\-.!<>|]/g, "\\$&");
-}
-
-function plain(markdown: string): string {
-  return markdown
-    .replace(/```[\s\S]*?```/g, "")
-    .replace(/[`*_>#]/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+const SEVERITY = {
+  error: vscode.DiagnosticSeverity.Error,
+  warning: vscode.DiagnosticSeverity.Warning,
+  information: vscode.DiagnosticSeverity.Information,
+} as const;

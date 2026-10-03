@@ -284,12 +284,13 @@ describe("Assistive in VS Code", function () {
     await waitFor("node unflagged", () => graph()!.nodes.find((n) => n.id === "parse_line")?.status === "done");
   });
 
-  it("exports the graph as Mermaid in a new untitled document", async () => {
+  it("exports the graph as Markdown (Mermaid and a step checklist) in a new untitled document", async () => {
     await vscode.commands.executeCommand("assistive.exportGraph");
     const md = await waitFor("export", () =>
       vscode.window.activeTextEditor?.document.isUntitled ? vscode.window.activeTextEditor.document : undefined,
     );
     assert.match(md.getText(), /```mermaid\nflowchart TD\n {2}parse_line\[/);
+    assert.match(md.getText(), /\n## Steps\n\n1\. \[[ x]\] \*\*/);
     await vscode.commands.executeCommand("workbench.action.revertAndCloseActiveEditor");
   });
 

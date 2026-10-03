@@ -117,7 +117,7 @@
       },
       {
         "command": "assistive.exportGraph",
-        "title": "Export Graph as Mermaid",
+        "title": "Export Graph as Markdown",
         "category": "Assistive"
       },
       {

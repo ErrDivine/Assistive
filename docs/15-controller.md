@@ -166,11 +166,11 @@ If the interrupt is open, the controller sets its status to `resolved` or `dismi
 
 ### 15.5.3 Squiggles
 
-`renderDiagnostics(key)` makes one `vscode.Diagnostic` for each open interrupt of the file:
+`renderDiagnostics(key)` makes one `vscode.Diagnostic` for each open interrupt of the file. The values come from the presenters `interruptRange`, `diagnosticLevel` and `diagnosticMessage` (refer to [15.9](#159-presenters)):
 
 | Property | Value |
 |---|---|
-| Range | From the first non-space character of the start line to the end of the end line. The range is at least one character long. |
+| Range | From the first non-space character of the start line to the end of the end line. The range is at least one character long. It never ends before the start line. |
 | Severity | 3 → Error, 2 → Warning, 1 → Information. |
 | Message | `<title>: <message as plain text>`. The function `plain` removes code blocks, Markdown characters and link targets, and joins the lines. |
 | Source | `Assistive` |
@@ -229,6 +229,8 @@ When the store reports a change for a file, the controller:
 
 ### 15.6.5 Status bar item
 
+`updateStatusItem()` gives the busy label, the number of open interrupts and the graph to the presenter `statusView`. It sets the text, the tooltip and the background from the result.
+
 | Condition | Text | Background |
 |---|---|---|
 | A turn runs | Spinner and the busy label | Default |
@@ -250,13 +252,13 @@ The controller registers a hover provider for all `file` and `untitled` document
 1. It returns nothing if the document is not supported or has no graph.
 2. It finds the word at the position.
 3. It calls `nodeForWord(graph, outline, word, line)` (refer to [Graph model](08-graph-model.md#856-nodeforwordgraph-outline-word-line)).
-4. It makes a Markdown hover. The hover has "**Assistive plan**", the status and the step number. Then it has the signature as a code block in the language of the file. Last, it has the description, the notes and the attention reason.
+4. It makes a Markdown hover from the presenter `hoverMarkdown`. The hover has "**Assistive plan**", the status and the step number. Then it has the signature as a code block in the language of the file. Last, it has the description, the notes and the attention reason.
 
 The hover only reads data. It does not change the document (invariant I1).
 
 ### 15.6.9 Code lens
 
-The controller registers a code lens provider for all `file` and `untitled` documents. `codeLenses(doc)` returns nothing if the document is not supported, has no graph, or `assistive.codeLens` is `false`. Else it returns two lenses on the first line of the module docstring:
+The controller registers a code lens provider for all `file` and `untitled` documents. `codeLenses(doc)` returns nothing if the document is not supported, has no graph, or `assistive.codeLens` is `false`. Else it returns two lenses on the first line of the module docstring. The presenter `lensItems` gives their titles and commands:
 
 - "Assistive: done/total done", with the command `assistive.focus`;
 - "Next: signature" of the next piece, with the command `assistive.showNode` and the node ID. If all pieces are done, the second lens says so.
@@ -284,7 +286,7 @@ All assistant actions go through `run`. If the action succeeds, `run` clears the
 | `openPlannedFile()` | Shows a quick pick of the files from `GraphStore.plannedFiles()` that still exist, newest first. Each item shows the path, the progress, the next piece and the first line of the docstring. Opens the file that the programmer selects. |
 | `beatNow()` | `Heartbeat.beat` for the active file. Returns the report. |
 | `toggleHeartbeat()` | Changes the user setting `assistive.heartbeat.enabled`. Shows "Assistive heartbeat paused" or "resumed" in the status bar for 2.5 seconds. |
-| `exportGraph()` | Opens a new untitled Markdown document beside the editor. The document has the title "Implementation graph: `<file>`", the docstring as a quote, and the Mermaid text in a code fence. |
+| `exportGraph()` | Opens a new untitled Markdown document beside the editor. The presenter `graphMarkdown` makes the text (refer to [15.9](#159-presenters)). |
 | `testConnection()` | Sends one LLM request and one Jev request. Returns one line for each service. |
 | `goto(line, endLine?, rel?, key?)` | Opens the active file, or `rel` in the same workspace. Keeps the lines in the file. Puts the cursor at the start of the range. Shows the range in the center if it is not visible. |
 
@@ -308,3 +310,29 @@ All commands that need a file call `requireFile()`. If there is no supported fil
 - They flush the store.
 - They cancel the four debouncers.
 - They remove the watchers, the listeners, the diagnostic collection, the status bar item, the output channel and the panel.
+
+## 15.9 Presenters
+
+The module `editor/presenters.ts` makes the text that the editor shows. It does not import `vscode`. Thus the unit tests (`presenters.test.ts`) examine the text without VS Code. The controller changes each result into a VS Code object.
+
+| Function | Result |
+|---|---|
+| `hoverMarkdown(graph, node, language)` | The Markdown of the hover (refer to [15.6.8](#1568-editor-hover)). |
+| `lensItems(graph)` | The title, the command, the arguments and the tooltip of each code lens. The result is empty if the graph has no typed pieces. |
+| `statusView({busy, open, graph})` | The text, the tooltip and the `warning` flag of the status bar item. |
+| `interruptRange(f, firstText, lastText)` | The lines and columns of a squiggle. |
+| `diagnosticLevel(severity)` | `error` for 3, `warning` for 2, `information` for 1. |
+| `diagnosticMessage(f)` | `<title>: <message as plain text>`. |
+| `plannedFileDescription(graph)` | The progress and the next piece, for the planned-file picker. |
+| `graphMarkdown(graph)` | The Markdown export. Refer to the subsequent list. |
+| `escapeMarkdown(text)`, `plain(markdown)`, `codeBlock(code, language)` | Helpers. `codeBlock` makes the fence longer than each run of backticks in the code. |
+
+`graphMarkdown` makes a document with these parts:
+
+1. The title "Implementation graph: `<file>`".
+2. The docstring, as a quote.
+3. The progress and the next piece, if the graph has typed pieces.
+4. The Mermaid text from `toMermaid`, in a code fence.
+5. The heading "Steps" and a numbered checklist. The checklist has all nodes except the module node, in typing order. Each item has a box (`[x]` for done), the label, the kind and the signature. Under the item are the description, the notes and the attention reason.
+
+The export is raw text that the programmer reads. Thus it does not escape the Markdown characters. It joins the lines of each text and changes `<` to `&lt;`, so that the text cannot add HTML or break the list.

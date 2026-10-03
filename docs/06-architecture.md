@@ -63,6 +63,7 @@ The source code is in `extension/src/`. Most modules do not import `vscode`. Thu
 | `assistant/Assistant.ts` | The LLM turns: draft, chat, sync, heartbeat, struggle. | No | [12](12-assistant.md) |
 | `store/GraphStore.ts` | The graph, feed and undo history of each file. | No | [13](13-store-and-resources.md) |
 | `resources/links.ts` | The link check. | No | [13](13-store-and-resources.md) |
+| `editor/presenters.ts` | The text of the hover, the code lens, the status bar item, the squiggles, the planned-file picker and the Markdown export. | No | [15](15-controller.md#159-presenters) |
 | `types.ts` | The shared data types. | No | [6.7](#67-shared-types) |
 
 ### 6.2.1 Dependency direction
@@ -73,7 +74,7 @@ The dependencies go in one direction:
 2. `controller.ts` uses all other host modules.
 3. `Heartbeat` uses `Assistant`. `Assistant` uses the agent, the tools, the graph model and the store.
 4. The tools use the graph model, the code analysis and the link check.
-5. The pure modules (`code/`, `graph/`, `llm/schema.ts`, `heartbeat/policy.ts`, `types.ts`) use nothing above them.
+5. The pure modules (`code/`, `graph/`, `editor/presenters.ts`, `llm/schema.ts`, `heartbeat/policy.ts`, `types.ts`) use nothing above them.
 
 The webview script imports only `types.ts` and `graph/order.ts`. Both modules import only types, so the webview bundle stays small.
 

@@ -120,6 +120,7 @@ The unit tests use mocha. They run in plain Node.js, without VS Code and without
 | `env.test.ts` | `isPlaceholder`, `parseConfig`, `envCandidates`, `loadConfig`, `ensureEnvFile`, `ENV_TEMPLATE`. |
 | `envExample.test.ts` | `.env.example` is the same text as `ENV_TEMPLATE`. |
 | `assistant.test.ts` | The `Assistant` and the `Heartbeat` end to end with fake OpenAI and Jev servers. |
+| `presenters.test.ts` | The text of the hover, the code lens, the status bar item, the squiggles, the planned-file picker and the Markdown export. |
 | `regressions.test.ts` | Tests for bugs that the test work found. |
 
 ### 16.6.3 Run the unit tests
@@ -167,7 +168,7 @@ The tests start the fake servers and write the `.env` file with the fake URLs. T
 | shows the plan of a symbol on hover | The hover of a planned symbol shows "Assistive plan", its status and step, its signature and its description. |
 | stays quiet on a calm heartbeat | A calm Jev verdict gives `no_action` and no feed item. Jev receives the plan. |
 | interrupts on a real problem, squiggles the line, and resolves when fixed | A typo gives an interrupt, an Error squiggle with the code `typo`, and a flagged node. The correction resolves the interrupt, removes the squiggle and sets the node to `done`. |
-| exports the graph as Mermaid in a new untitled document | The export opens a `flowchart TD`. |
+| exports the graph as Markdown (Mermaid and a step checklist) in a new untitled document | The export opens a `flowchart TD` and a "Steps" checklist. |
 | creates the .env template when the configured file is missing | **Open API Configuration** creates the template, and the LLM state becomes `missing`, then `ready` again. |
 | never modified the programmer's buffer (I1) | The extension made no change to the buffer that the test did not type. |
 

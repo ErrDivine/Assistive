@@ -141,7 +141,7 @@ The Steps tab lists the same nodes in typing order: first by explicit `order`, t
   - status tracking on save;
   - a calm heartbeat;
   - interrupt, then squiggle, then node flag, then resolution after the fix;
-  - Mermaid export;
+  - Markdown export (Mermaid chart and a step checklist);
   - `.env` template creation;
   - the I1 buffer check.
 - **Not verified here:**

@@ -308,9 +308,15 @@ Assistive examines each link before it shows the link. It removes links that giv
 
 ## 4.13 Export the graph
 
-1. Run **Assistive: Export Graph as Mermaid**.
-2. Read the new untitled Markdown document. It contains the docstring and a Mermaid `flowchart TD`.
+1. Run **Assistive: Export Graph as Markdown**.
+2. Read the new untitled Markdown document. It contains these parts:
+   - the docstring, as a quote;
+   - the progress and the next piece;
+   - a Mermaid `flowchart TD`;
+   - the steps in typing order, as a checklist. Each step has its kind, its signature, its description and its notes.
 3. Save the document where you want it, or close it.
+
+> **Note:** The document is plain Markdown. You can put it in a pull request or in a design note. GitHub shows the Mermaid chart and the checklist.
 
 ## 4.14 Clear the graph
 
@@ -334,7 +340,7 @@ Assistive examines each link before it shows the link. It removes links that giv
 | Assistive: Open a Planned File… | Select a file that has a graph, with its progress, and open it. |
 | Assistive: Run a Heartbeat Now | Run one beat. |
 | Assistive: Pause / Resume Heartbeat | Turn the heartbeat off or on. |
-| Assistive: Export Graph as Mermaid | Open the graph as Mermaid text. |
+| Assistive: Export Graph as Markdown | Open the graph as Markdown: a Mermaid chart and a step checklist. |
 | Assistive: Open API Configuration (.env) | Open the `.env` file. Create it from the template if necessary. |
 | Assistive: Test LLM and Jev Connections | Send one test request to each service. |
 
