@@ -30,7 +30,8 @@ The function does these steps:
    | `assistive.clearGraph` | `clear()` |
    | `assistive.stop` | `stop()` |
    | `assistive.clearConversation` | `clearConversation()` |
-   | `assistive.openPlannedFile` | `openPlannedFile()` |
+   | `assistive.openPlannedFile` | `editNode(id, op)` | A direct edit without the LLM. `remove` removes the node and its edges. `toggleDone` changes a `step` or `external` node between `done` and `planned`. It does nothing for code nodes, because the code sets their status. The edit goes through a `GraphEditor`, and the store keeps the previous graph for **Undo**. |
+| `openPlannedFile()` |
    | `assistive.heartbeatNow` | `beatNow()` |
    | `assistive.toggleHeartbeat` | `toggleHeartbeat()` |
    | `assistive.exportGraph` | `exportGraph()` |

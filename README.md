@@ -64,6 +64,7 @@ The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration
 | Inspect a node | Click it to see its signature, description, notes and edges, plus **Go to code**, **Hint** (how to start, no code) or **Review** (once its code is done), **Copy signature** and **Ask about this**. Double-click jumps to the code. |
 | Bring the graph in line with the code | **Sync** (also runs on its own when a heartbeat finds the graph out of date) |
 | Undo a graph change | **Undo** (keeps the last 20 revisions per file) |
+| Edit the plan yourself | Node details: **Remove** a node, or **Mark done** a step or external node (no LLM; undoable) |
 | Stop a request in progress | **Stop** on the busy line above the input box |
 | Check now instead of waiting for the heartbeat | **♥ Check now** |
 | Pause or resume the heartbeat | **Pause** / **Resume** |

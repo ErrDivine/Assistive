@@ -15,7 +15,7 @@ import { TreeSitter } from "./code/treesitter";
 import { VsWorkspace } from "./code/workspace";
 import { type AssistiveConfig, ensureEnvFile, envCandidates, loadConfig } from "./config/env";
 import { Debouncer } from "./code/debounce";
-import { nodeForWord, orderedNodes, progress, toMermaid } from "./graph/model";
+import { GraphEditor, nodeForWord, orderedNodes, progress, syncWithOutline, toMermaid } from "./graph/model";
 import { Heartbeat, type BeatReport } from "./heartbeat/Heartbeat";
 import { describeVerdict, reconcileInterrupts } from "./heartbeat/policy";
 import { Llm } from "./llm/agent";
@@ -630,6 +630,27 @@ export class Controller implements vscode.Disposable {
     if (ok === "Clear") this.store.clearFeed(h.key);
   }
 
+  /**
+   * A direct edit by the programmer, without the LLM: remove a node, or mark a
+   * step or external node done / not done (code nodes follow the code). Undoable.
+   */
+  async editNode(id: string, op: "remove" | "toggleDone"): Promise<void> {
+    const h = this.handle();
+    const graph = h && this.store.graph(h.key);
+    const node = graph?.nodes.find((n) => n.id === id);
+    if (!h || !graph || !node) return;
+    const editor = new GraphEditor(graph);
+    if (op === "remove") {
+      editor.removeNodes([id], "removed by you");
+    } else if (node.kind === "step" || node.kind === "external") {
+      editor.updateNodes([{ id, set: { status: node.status === "done" ? "planned" : "done" } }]);
+    }
+    if (!editor.changed) return;
+    const g = editor.result();
+    syncWithOutline(g, await this.outlineOf(h.file, h.text(), h.language));
+    this.store.setGraph(h.key, g, graph);
+  }
+
   /** Pick one of the files that have a graph, with its progress, and open it. */
   async openPlannedFile(): Promise<void> {
     const items = this.store
@@ -762,6 +783,8 @@ export class Controller implements vscode.Disposable {
         return this.stop();
       case "pickFile":
         return this.openPlannedFile();
+      case "editNode":
+        return this.editNode(m.id, m.op);
       case "openConfig":
         return this.openConfig();
       case "goto":

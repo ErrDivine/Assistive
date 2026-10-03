@@ -173,6 +173,7 @@ export type FromPanel =
   | { type: "toggleHeartbeat" }
   | { type: "cancel" }
   | { type: "pickFile" }
+  | { type: "editNode"; id: string; op: "remove" | "toggleDone" }
   | { type: "openConfig" }
   | { type: "goto"; line: number; endLine?: number; path?: string }
   | { type: "openLink"; url: string }

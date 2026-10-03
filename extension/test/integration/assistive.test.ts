@@ -172,6 +172,23 @@ describe("Assistive in VS Code", function () {
     assert.ok(!graph()!.nodes.some((n) => n.id === "top_n"));
   });
 
+  it("lets the programmer mark a step done and remove a node without the LLM (undoable)", async () => {
+    const requests = fake.chatRequests.length;
+    const counter = () => graph()!.nodes.find((n) => n.id === "counter");
+    await c().editNode("counter", "toggleDone");
+    assert.strictEqual(counter()?.status, "done", "an external node's status is set by the programmer");
+    await c().editNode("counter", "toggleDone");
+    assert.strictEqual(counter()?.status, "planned");
+    await c().editNode("parse_line", "toggleDone");
+    assert.strictEqual(graph()!.nodes.find((n) => n.id === "parse_line")?.status, "planned", "code nodes follow the code");
+    await c().editNode("counter", "remove");
+    assert.strictEqual(counter(), undefined);
+    assert.ok(!graph()!.edges.some((e) => e.to === "counter"), "its edges went too");
+    await vscode.commands.executeCommand("assistive.undoGraph");
+    assert.ok(counter(), "undo brings it back");
+    assert.strictEqual(fake.chatRequests.length, requests, "no LLM request");
+  });
+
   it("tracks the code the programmer types", async () => {
     const code = "\nfrom collections import Counter\n\n\ndef parse_line(line: str) -> list[str]:\n    pass\n";
     expected += code;

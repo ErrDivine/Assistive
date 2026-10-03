@@ -64,6 +64,9 @@ button.ghost:hover:not(:disabled),
 button.secondary:hover:not(:disabled) {
   background: var(--hover);
 }
+button.danger:hover:not(:disabled) {
+  color: var(--attention);
+}
 button.icon {
   padding: 2px 6px;
 }

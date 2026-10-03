@@ -372,6 +372,13 @@ function renderDetails(): void {
     button("Copy signature", "secondary", () => post({ type: "copy", text: n.signature ?? n.symbol ?? n.label }), "Copy to the clipboard"),
     button("Ask about this", "secondary", () => focusInput(`About \`${name}\`: `)),
   );
+  // Edits that need no LLM. Code nodes get their status from the code; steps and externals from you.
+  if (n.kind === "step" || n.kind === "external") {
+    actions.append(
+      button(n.status === "done" ? "Mark not done" : "Mark done", "secondary", () => post({ type: "editNode", id: n.id, op: "toggleDone" })),
+    );
+  }
+  actions.append(button("Remove", "secondary danger", () => post({ type: "editNode", id: n.id, op: "remove" }), "Remove this node and its edges (Undo brings it back)"));
   // Actions right under the title, so they stay visible when the details scroll.
   box.querySelector("h3")?.after(actions);
 }

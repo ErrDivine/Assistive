@@ -69,6 +69,7 @@ VS Code calls this method when the panel opens the first time. The method does t
 | `toggleHeartbeat` | **Pause** / **Resume** | Changes `assistive.heartbeat.enabled`. |
 | `cancel` | **Stop** on the busy line | `Assistant.cancel` for the active file. |
 | `pickFile` | A click on the file name in the header | `Controller.openPlannedFile` |
+| `editNode` (`id`, `op`) | **Remove**, **Mark done** / **Mark not done** in the details | `Controller.editNode` |
 | `openConfig` | **⚙**, a yellow pill, **Open .env** | Opens the `.env` file. |
 | `goto` (`line`, `endLine?`, `path?`) | **Go to code**, double-click, **Show line**, code references | Opens the file and selects the line. |
 | `openLink` (`url`) | Resource links, links in Markdown | Opens `http` and `https` URLs in the browser. |

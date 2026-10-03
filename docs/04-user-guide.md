@@ -80,7 +80,7 @@ When you select a node, the details box shows the buttons under the title, and t
 - the reason for the flag, if the status is `attention`;
 - the edges to and from the node.
 
-The box has four buttons:
+The box has these buttons:
 
 | Button | Function |
 |---|---|
@@ -89,6 +89,8 @@ The box has four buttons:
 | **Review** (if the code is done or flagged) | Ask the LLM for a review of your code for the node: correctness, the edge cases of the plan, and a clearly better way. The LLM points to lines and does not rewrite the code. |
 | **Copy signature** | Copy the signature to the clipboard. Assistive does not paste it into your file. |
 | **Ask about this** | Put "About \`symbol\`: " into the input box. |
+| **Mark done** / **Mark not done** (only `step` and `external` nodes) | Set the status yourself. The code sets the status of the other nodes. |
+| **Remove** | Remove the node and its edges from the plan. The LLM is not used. **Undo** brings the node back. |
 
 ### 4.1.4 Feed and input box
 
