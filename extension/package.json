@@ -129,6 +129,11 @@
         "command": "assistive.testConnection",
         "title": "Test LLM and Jev Connections",
         "category": "Assistive"
+      },
+      {
+        "command": "assistive.showNode",
+        "title": "Show a Node in the Graph",
+        "category": "Assistive"
       }
     ],
     "keybindings": [
@@ -155,6 +160,11 @@
           "type": "boolean",
           "default": true,
           "description": "Draft the implementation graph automatically once a file's module docstring is written and the file has no graph yet."
+        },
+        "assistive.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show your progress and the next piece to type above the module docstring."
         },
         "assistive.heartbeat.enabled": {
           "type": "boolean",
@@ -192,6 +202,14 @@
           "description": "Languages Assistive works in."
         }
       }
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "assistive.showNode",
+          "when": "false"
+        }
+      ]
     }
   },
   "scripts": {

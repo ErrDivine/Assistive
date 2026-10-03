@@ -159,7 +159,11 @@ The tests start the fake servers and write the `.env` file with the fake URLs. T
 | drafts the graph once the module docstring is written | The auto-draft runs, the draft prompt contains the README, the dead link is dropped, and the panel receives the state. |
 | changes the graph from an instruction and summarizes | A chat message adds a node and posts a summary. |
 | undoes the last graph change | Undo removes the node. |
+| lets the programmer mark a step done and remove a node without the LLM (undoable) | Direct node edits work without an LLM request, and Undo restores a removed node. |
 | tracks the code the programmer types | A saved stub sets the node to `stubbed` with the correct line. |
+| updates statuses while the programmer types, before a save | The live status sync sets a node to `done` while the document is not saved. |
+| shows progress and the next piece in a code lens above the docstring | The code lens shows `1/3 done` and the signature of the next piece, with the `assistive.showNode` command. |
+| shows the plan of a symbol on hover | The hover of a planned symbol shows "Assistive plan", its status and step, its signature and its description. |
 | stays quiet on a calm heartbeat | A calm Jev verdict gives `no_action` and no feed item. Jev receives the plan. |
 | interrupts on a real problem, squiggles the line, and resolves when fixed | A typo gives an interrupt, an Error squiggle with the code `typo`, and a flagged node. The correction resolves the interrupt, removes the squiggle and sets the node to `done`. |
 | exports the graph as Mermaid in a new untitled document | The export opens a `flowchart TD`. |

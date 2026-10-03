@@ -18,7 +18,7 @@ VS Code activates the extension on these events (from `package.json`):
 The function does these steps:
 
 1. It makes a `Controller`.
-2. It registers the 14 commands:
+2. It registers the 15 commands:
 
    | Command ID | Controller call |
    |---|---|
@@ -30,8 +30,8 @@ The function does these steps:
    | `assistive.clearGraph` | `clear()` |
    | `assistive.stop` | `stop()` |
    | `assistive.clearConversation` | `clearConversation()` |
-   | `assistive.openPlannedFile` | `editNode(id, op)` | A direct edit without the LLM. `remove` removes the node and its edges. `toggleDone` changes a `step` or `external` node between `done` and `planned`. It does nothing for code nodes, because the code sets their status. The edit goes through a `GraphEditor`, and the store keeps the previous graph for **Undo**. |
-| `openPlannedFile()` |
+   | `assistive.openPlannedFile` | `openPlannedFile()` |
+   | `assistive.showNode` | `showNode(id)` (from the code lens; hidden in the palette) |
    | `assistive.heartbeatNow` | `beatNow()` |
    | `assistive.toggleHeartbeat` | `toggleHeartbeat()` |
    | `assistive.exportGraph` | `exportGraph()` |
@@ -250,6 +250,15 @@ The controller registers a hover provider for all `file` and `untitled` document
 
 The hover only reads data. It does not change the document (invariant I1).
 
+### 15.6.9 Code lens
+
+The controller registers a code lens provider for all `file` and `untitled` documents. `codeLenses(doc)` returns nothing if the document is not supported, has no graph, or `assistive.codeLens` is `false`. Else it returns two lenses on the first line of the module docstring:
+
+- "Assistive: done/total done", with the command `assistive.focus`;
+- "Next: signature" of the next piece, with the command `assistive.showNode` and the node ID. If all pieces are done, the second lens says so.
+
+Each store change fires `onDidChangeCodeLenses`, so the lenses follow the code. `showNode(id)` calls `PanelProvider.revealNode`, which opens the panel, waits for the webview, and sends `selectNode`. The palette hides `assistive.showNode`.
+
 ## 15.7 Actions
 
 ### 15.7.1 `run(fn)`
@@ -267,6 +276,7 @@ All assistant actions go through `run`. If the action succeeds, `run` clears the
 | `clear()` | Asks for confirmation in a modal dialog, then `GraphStore.clear`. |
 | `stop()` | `Assistant.cancel` for the active file. The **Stop** button sends the same request. |
 | `clearConversation()` | Asks for confirmation in a modal dialog, then `GraphStore.clearFeed`. |
+| `editNode(id, op)` | A direct edit without the LLM. `remove` removes the node and its edges. `toggleDone` changes a `step` or `external` node between `done` and `planned`. It does nothing for code nodes, because the code sets their status. The edit goes through a `GraphEditor`, and the store keeps the previous graph for **Undo**. |
 | `openPlannedFile()` | Shows a quick pick of the files from `GraphStore.plannedFiles()` that still exist, newest first. Each item shows the path, the progress, the next piece and the first line of the docstring. Opens the file that the programmer selects. |
 | `beatNow()` | `Heartbeat.beat` for the active file. Returns the report. |
 | `toggleHeartbeat()` | Changes the user setting `assistive.heartbeat.enabled`. Shows "Assistive heartbeat paused" or "resumed" in the status bar for 2.5 seconds. |

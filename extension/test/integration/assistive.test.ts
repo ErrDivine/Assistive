@@ -211,6 +211,18 @@ describe("Assistive in VS Code", function () {
     await waitFor("count_words done", () => graph()!.nodes.find((n) => n.id === "count_words")?.status === "done", 5000);
   });
 
+  it("shows progress and the next piece in a code lens above the docstring", async () => {
+    const lenses = await vscode.commands.executeCommand<vscode.CodeLens[]>("vscode.executeCodeLensProvider", editor.document.uri);
+    const mine = lenses.filter((l) => /Assistive|^Next:/.test(l.command?.title ?? ""));
+    assert.deepStrictEqual(
+      mine.map((l) => l.command?.title),
+      ["$(type-hierarchy) Assistive: 1/3 done", "Next: def parse_line(line: str) -> list[str]"],
+    );
+    assert.strictEqual(mine[0].range.start.line, 0);
+    assert.deepStrictEqual([mine[1].command?.command, mine[1].command?.arguments], ["assistive.showNode", ["parse_line"]]);
+    await vscode.commands.executeCommand("assistive.showNode", "parse_line"); // opens the panel; must not throw
+  });
+
   it("shows the plan of a symbol on hover", async () => {
     const hovers = await vscode.commands.executeCommand<vscode.Hover[]>("vscode.executeHoverProvider", editor.document.uri, new vscode.Position(5, 6));
     const text = hovers.flatMap((h) => h.contents.map((c) => (typeof c === "string" ? c : c.value))).join("\n");

@@ -60,7 +60,7 @@ The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration
 | Draft a graph | Write the module docstring and close it: the draft starts by itself when the file has no graph yet. Files you only open are not drafted automatically; press **Draft** for those, or **Redraft** after changing a docstring. |
 | Tell the assistant something | Type in the input box (`Enter` sends, `Shift+Enter` adds a line), or press `Ctrl+Alt+/` from the editor |
 | See what to type next | **Steps** tab: nodes in typing order with signatures; the tab shows your progress (`Steps 3/7`) and the next piece has a **next** badge (also a halo in the graph and `3/7` in the status bar) |
-| See the plan while you type | Hover a function, class or method name in the editor: its planned signature, description and notes |
+| See the plan while you type | Hover a function, class or method name in the editor: its planned signature, description and notes. Above the docstring, a code lens shows your progress and the next piece (`assistive.codeLens`) |
 | Inspect a node | Click it to see its signature, description, notes and edges, plus **Go to code**, **Hint** (how to start, no code) or **Review** (once its code is done), **Copy signature** and **Ask about this**. Double-click jumps to the code. |
 | Bring the graph in line with the code | **Sync** (also runs on its own when a heartbeat finds the graph out of date) |
 | Undo a graph change | **Undo** (keeps the last 20 revisions per file) |
@@ -76,6 +76,7 @@ The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration
 **Settings:**
 - `assistive.envFile`: path to the `.env` file.
 - `assistive.autoDraft`
+- `assistive.codeLens`: progress and the next piece above the docstring.
 - `assistive.heartbeat.enabled`
 - `assistive.notifications`: `toast` also shows a notification when the panel is hidden.
 - `assistive.languages`

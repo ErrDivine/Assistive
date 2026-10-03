@@ -69,11 +69,22 @@ export class PanelProvider implements vscode.WebviewViewProvider, vscode.Disposa
   async reveal(focusInput?: string): Promise<void> {
     await vscode.commands.executeCommand(`${PanelProvider.viewId}.focus`);
     if (focusInput !== undefined) {
-      // The view may still be loading; retry briefly until the webview is ready.
-      for (let i = 0; i < 20 && !this.ready; i++) {
-        await new Promise((r) => setTimeout(r, 100));
-      }
+      await this.whenReady();
       this.post({ type: "focusInput", text: focusInput });
+    }
+  }
+
+  /** Open the panel and select a node in it. */
+  async revealNode(id: string): Promise<void> {
+    await vscode.commands.executeCommand(`${PanelProvider.viewId}.focus`);
+    await this.whenReady();
+    this.post({ type: "selectNode", id });
+  }
+
+  /** The view may still be loading: wait up to 2 s for the webview's "ready". */
+  private async whenReady(): Promise<void> {
+    for (let i = 0; i < 20 && !this.ready; i++) {
+      await new Promise((r) => setTimeout(r, 100));
     }
   }
 

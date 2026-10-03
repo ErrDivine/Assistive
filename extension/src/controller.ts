@@ -62,6 +62,7 @@ export class Controller implements vscode.Disposable {
   private readonly autoDraft: Trigger;
   private readonly reconcile: Trigger;
   private readonly liveSync: Trigger;
+  private readonly codeLensChanged = new vscode.EventEmitter<void>();
 
   constructor(private readonly ctx: vscode.ExtensionContext) {
     this.log = vscode.window.createOutputChannel("Assistive", { log: true });
@@ -126,6 +127,11 @@ export class Controller implements vscode.Disposable {
       vscode.workspace.onDidChangeTextDocument((e) => this.onDocChange(e)),
       vscode.workspace.onDidSaveTextDocument((d) => this.onSave(d)),
       vscode.workspace.onDidOpenTextDocument((d) => this.track(d)),
+      vscode.languages.registerCodeLensProvider([{ scheme: "file" }, { scheme: "untitled" }], {
+        onDidChangeCodeLenses: this.codeLensChanged.event,
+        provideCodeLenses: (doc) => this.codeLenses(doc),
+      }),
+      this.codeLensChanged,
       vscode.languages.registerHoverProvider(
         [{ scheme: "file" }, { scheme: "untitled" }],
         { provideHover: (doc, pos) => this.hover(doc, pos) },
@@ -424,6 +430,7 @@ export class Controller implements vscode.Disposable {
   // ------------------------------------------------------------ state
 
   private onStoreChange(key: string): void {
+    this.codeLensChanged.fire();
     this.renderDiagnostics(key);
     this.maybeToast(key);
     this.updateStatusItem();
@@ -544,6 +551,43 @@ export class Controller implements vscode.Disposable {
     } else {
       this.streamTimer ??= setTimeout(flush, 80);
     }
+  }
+
+  // ------------------------------------------------------------ code lens
+
+  /** Progress and the next piece above the module docstring: guidance without opening the panel. */
+  async codeLenses(doc: vscode.TextDocument): Promise<vscode.CodeLens[]> {
+    if (!this.supported(doc) || !this.settings().get<boolean>("codeLens", true)) return [];
+    const graph = this.store.graph(doc.uri.fsPath);
+    const p = graph?.nodes.length ? progress(graph) : undefined;
+    if (!p?.total) return [];
+    const o = await this.outlineOf(this.handleFor(doc).file, doc.getText(), doc.languageId);
+    const range = new vscode.Range(o.moduleString?.startLine ?? 0, 0, o.moduleString?.startLine ?? 0, 0);
+    const lenses = [
+      new vscode.CodeLens(range, {
+        title: `$(type-hierarchy) Assistive: ${p.done}/${p.total} done`,
+        command: "assistive.focus",
+        tooltip: "Open the implementation graph",
+      }),
+    ];
+    if (p.next) {
+      lenses.push(
+        new vscode.CodeLens(range, {
+          title: `Next: ${p.next.signature ?? p.next.symbol ?? p.next.label}`,
+          command: "assistive.showNode",
+          arguments: [p.next.id],
+          tooltip: p.next.description,
+        }),
+      );
+    } else {
+      lenses.push(new vscode.CodeLens(range, { title: "All planned pieces are typed", command: "assistive.focus" }));
+    }
+    return lenses;
+  }
+
+  /** Open the panel with a node selected (the code lens's "Next"). */
+  async showNode(id: string): Promise<void> {
+    await this.panel.revealNode(id);
   }
 
   // ------------------------------------------------------------ hover

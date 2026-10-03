@@ -43,6 +43,7 @@ VS Code calls this method when the panel opens the first time. The method does t
 | `setState(state)` | Keeps the state as the last state and sends it. |
 | `post(message)` | Sends a message only if the view exists and is ready. A message before `ready` is not sent. `setState` sends the last state again on `ready`. |
 | `reveal(focusInput?)` | Runs the command `assistive.panel.focus`. With `focusInput`, it waits up to 2 seconds (20 × 100 ms) for the webview to become ready, and then sends `focusInput`. |
+| `revealNode(id)` | Runs the same command, waits for the webview in the same way, and sends `selectNode`. |
 | `dispose()` | Removes the listeners. |
 
 ## 14.3 Message protocol
@@ -54,7 +55,7 @@ VS Code calls this method when the panel opens the first time. The method does t
 | `{type: "state", state}` | Draws the full `PanelState`. |
 | `{type: "focusInput", text?}` | Puts the focus in the input box. With `text`, replaces the content of the box. |
 | `{type: "stream", text?}` | Shows the reply that the LLM writes now, as a temporary item at the end of the feed. Without `text`, removes the item. |
-| `{type: "selectNode", id}` | Selects a node. The protocol has this message, but the current host code does not send it. |
+| `{type: "selectNode", id}` | Selects a node. The host sends it for the "Next" code lens. |
 
 ### 14.3.2 Webview to host (`FromPanel`)
 

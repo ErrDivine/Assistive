@@ -354,6 +354,8 @@ Assistive removes the graph changes that the stopped request made. If a differen
 
 ## 4.18 See the plan in the editor
 
+Above the module docstring of a planned file, two links show your progress and the next piece, for example "Assistive: 2/5 done" and "Next: def count_words(lines: Iterable[str]) -> Counter[str]". Click the first link to open the panel. Click the second link to open the panel with that node selected. To remove the links, set `assistive.codeLens` to `false`.
+
 1. Put the mouse pointer on the name of a function, class or method in the editor.
 2. Read the hover. It shows "Assistive plan", the status, the step number, the planned signature, the description and the notes of the node.
 
