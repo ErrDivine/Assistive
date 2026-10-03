@@ -194,6 +194,10 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
   - an LLM that is not configured (the message has an **Open .env** button);
   - all other cases (the message has a **Draft the graph** button).
 
+### 14.5.5a All-done banner
+
+`renderDoneBanner(state, progress)` shows the element `#done-banner` under the tabs when the total of typed nodes is more than 0, all of them are done, and no task runs. It has **Review the file** and **Plan tests**. Both send a `send` message with a fixed request (`FILE_REVIEW_REQUEST`, `TESTS_REQUEST`). The banner is drawn again only when the total changes.
+
 ### 14.5.6 Feed drawing
 
 `renderFeed(feed, fileChanged)` updates the feed without a full redraw:

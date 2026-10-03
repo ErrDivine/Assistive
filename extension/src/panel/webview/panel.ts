@@ -376,6 +376,26 @@ function renderDetails(): void {
   box.querySelector("h3")?.after(actions);
 }
 
+/** When every planned piece is typed: the two natural next steps. */
+function renderDoneBanner(s: PanelState, p: { done: number; total: number } | undefined): void {
+  const banner = $("done-banner");
+  const done = !!p?.total && p.done === p.total && !s.status.busy;
+  banner.hidden = !done;
+  if (!done || banner.dataset.total === String(p!.total)) return;
+  banner.dataset.total = String(p!.total);
+  banner.innerHTML = "";
+  banner.append(
+    el("span", "", `✓ All ${p!.total} planned pieces are typed.`),
+    button("Review the file", "secondary", () => post({ type: "send", text: FILE_REVIEW_REQUEST }), "Ask for a review of the whole file against the plan"),
+    button("Plan tests", "secondary", () => post({ type: "send", text: TESTS_REQUEST }), "Ask the assistant to add test nodes to the plan"),
+  );
+}
+
+const FILE_REVIEW_REQUEST =
+  "I typed every piece of the plan. Review the whole file against the plan: correctness, the edge cases in the notes, error handling, and anything clearly better. Point to the lines; don't rewrite the code for me.";
+const TESTS_REQUEST =
+  "Plan the tests for this file: add test nodes to the graph (kind test) with the cases each one checks, and tell me where the tests should live in this project.";
+
 function hintRequest(name: string): string {
   return `Give me a hint for \`${name}\`: the steps to implement it and the APIs to use. Don't write the code for me.`;
 }
@@ -750,6 +770,7 @@ function render(s: PanelState): void {
   const p = s.graph?.nodes.length ? progress(s.graph) : undefined;
   $("tab-steps").textContent = p?.total ? `Steps ${p.done}/${p.total}` : "Steps";
   $("tab-steps").title = p?.total ? `${p.done} of ${p.total} pieces typed${p.next ? `; next: ${p.next.label}` : ""}` : "";
+  renderDoneBanner(s, p);
   renderEmpty(s);
   renderGraph(s.graph);
   if (tab === "steps") renderSteps(s.graph);

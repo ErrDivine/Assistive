@@ -68,6 +68,7 @@ The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration
 | Check now instead of waiting for the heartbeat | **♥ Check now** |
 | Pause or resume the heartbeat | **Pause** / **Resume** |
 | Handle an interrupt | **Show line**, **Explain more** (a deeper explanation with resources) or **Got it** (it is not raised again) |
+| Finish a file | When every piece is typed, the panel offers **Review the file** (against the plan) and **Plan tests** (adds test nodes) |
 | Move between planned files | Click the file name in the panel header (or **Assistive: Open a Planned File…**): every file with a graph, with its progress |
 | Export | **Assistive: Export Graph as Mermaid** |
 
