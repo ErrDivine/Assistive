@@ -2,6 +2,10 @@
 
 This document describes the side panel. The panel has two parts. The **host part** (`PanelProvider.ts`) runs in the extension host. The **webview part** (`webview/index.html`, `panel.ts`, `panel.css`) runs in a separate browser context. The two parts talk only with messages.
 
+![Responsibility hierarchy preview](images/graph-hierarchy.png)
+
+This preview uses the actual webview bundle with a local fixture.
+
 | File | Runs in | Function |
 |---|---|---|
 | `panel/PanelProvider.ts` | Extension host | Makes the webview, loads the HTML, sends the state, receives the actions. |
@@ -9,7 +13,7 @@ This document describes the side panel. The panel has two parts. The **host part
 | `panel/webview/panel.ts` | Webview | Draws the graph, the steps, the details, the feed and the input box. |
 | `panel/webview/panel.css` | Webview | The layout and the colors, from the VS Code theme. |
 
-The webview is stateless with respect to data. All data comes from the host in a `state` message. The webview keeps only view state: the selected tab and the selected node.
+The webview is stateless with respect to data. All data comes from the host in a `state` message. The webview keeps only view state: the selected tab, selected node and detail level.
 
 ## 14.1 Contribution in `package.json`
 
@@ -66,12 +70,12 @@ VS Code calls this method when the panel opens the first time. The method does t
 | `draft` | **Draft**, **redraft?**, **Draft the graph** | `Assistant.draft` |
 | `sync` | **Sync** | `Assistant.sync` |
 | `undo` | **Undo** | `GraphStore.undo` |
-| `beatNow` | **♥ Check now** | `Heartbeat.beat` |
+| `beatNow` | **Check now** | `Heartbeat.beat` |
 | `toggleHeartbeat` | **Pause** / **Resume** | Changes `assistive.heartbeat.enabled`. |
 | `cancel` | **Stop** on the busy line | `Assistant.cancel` for the active file. |
 | `pickFile` | A click on the file name in the header | `Controller.openPlannedFile` |
 | `editNode` (`id`, `op`) | **Remove**, **Mark done** / **Mark not done** in the details | `Controller.editNode` |
-| `openConfig` | **⚙**, the yellow **Jev** pill, **Open .env** | Opens the `.env` file. |
+| `openConfig` | **API configuration**, the yellow **Jev** pill, **Open .env** | Opens the `.env` file. |
 | `setup` | The yellow or red **LLM** pill, **Set up the LLM…** | `Controller.setup` (the setup wizard). |
 | `goto` (`line`, `endLine?`, `path?`) | **Go to code**, double-click, **Show line**, code references | Opens the file and selects the line. |
 | `openLink` (`url`) | Resource links, links in Markdown | Opens `http` and `https` URLs in the browser. |
@@ -147,30 +151,19 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
 ### 14.5.4 Graph drawing
 
-**Node size.** `nodeSize(text)` measures the label with a canvas at 11 px. It wraps the words at 150 px. The width is from 56 px to 172 px. The height is $14 \times \text{lines} + 14$ px.
+**Cards and icons.** `graphCard.ts` makes 216 × 108 px cards. Each card shows a kind icon, label, signature, status icon and status text. Model text is XML-escaped before it enters the image. `icons.ts` supplies local SVG paths for node kinds, statuses, toolbar actions and feed illustrations. No icon font or remote image is required.
 
-**Label.** `nodeText` puts the step number before the label, for example `2. count_words`. The step number comes from `orderedNodes`.
+**Hierarchy.** `graph/hierarchy.ts` finds each containment parent and depth. It ignores invalid legacy containment cycles and extra parents. `projectHierarchy` hides nodes below the selected level. It lifts dependencies to visible ancestors, without changing the stored graph. Overview shows roots, Structure shows depth 0–1, and All details shows the full plan.
 
-**Next node.** The next node from `progress` has the class `next`. The style gives it an underlay (a halo) in the accent color.
+**Layout.** Hierarchical graphs use fixed rows by containment depth. Dependencies never move an abstraction below its implementation. Flat graphs retain the existing dagre layout. Status and label updates do not run the layout again.
 
-**Structure key.** The key is the file, the sorted node IDs and the sorted edges. `renderGraph(graph)` compares the new key with the old key:
+**Navigation.** The native node picker lists every node with its depth and status. Selecting a hidden node reveals all details. Next selects the next typed node and centers it at readable zoom. Zoom buttons and the wheel control the viewport. Fit uses 24 px padding and a maximum zoom of 1.3. It preserves node positions. Resizes preserve a viewport that the programmer moved.
 
-- **Same key:** the script changes only the data and the classes of the elements. The layout does not run again, so the nodes do not jump when a status changes.
-- **New key:** the script removes all elements, adds the new elements, and runs the layout.
+**Selection.** A tap selects a node. A background tap clears it. A double tap sends `goto` when a code line exists. Selection dims unrelated nodes and shows labels on incident edges. The same selection and actions are available through the node picker and Steps view.
 
-**Layout.** `layout()` runs `dagre` with these options: top to bottom, node separation 24, rank separation 46, edge separation 8, no animation. Then `fit()` fits the graph into the view with a padding of 12 px. If the zoom is more than 1.3, it sets the zoom to 1.3 and centers the graph. The layout runs only on the **Graph** tab.
+**Theme.** A theme class change updates both the Cytoscape style and the SVG card colors.
 
-**Resize.** When the graph area changes size (the panel, or the details box), the script fits the graph again. It does not do this after the programmer zoomed with the mouse wheel or panned the background, until the next layout.
-
-**Cytoscape options.** Minimum zoom 0.3, maximum zoom 2.5, wheel sensitivity 0.25, no box selection.
-
-**Events.**
-
-- A tap on a node selects it.
-- A tap on the background clears the selection.
-- A double tap on a node sends `goto` if the node has a line.
-
-**Selection.** `select(id)` selects the node and dims all elements outside its closed neighborhood (the node, its edges and its neighbors). Then it draws the details.
+**Local review.** Run `npm run preview:panel` from `extension/`. Open `http://127.0.0.1:4173` to inspect the real webview bundle with a fake host and a hierarchical fixture. It sends no API requests.
 
 ### 14.5.5 Steps, details, header and empty message
 
@@ -185,7 +178,7 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
   | **Draft** / **Redraft** | The file is not supported, there is no docstring, a task runs, or the LLM is not configured. |
   | **Sync** | There is no graph, or a task runs. |
   | **Undo** | The undo history is empty, or a task runs. |
-  | **♥ Check now** | The file is not supported, or the heartbeat is `off`. |
+  | **Check now** | The file is not supported, or the heartbeat is `off`. |
 
   The docstring line shows the docstring with "…" if it is not closed. If the docstring is closed and different from the docstring of the graph, the line adds "docstring changed since the draft, **redraft?**".
 - `renderEmpty(state)` shows a message in the graph area when there is no graph. The message depends on the state:

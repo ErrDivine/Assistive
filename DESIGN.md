@@ -116,8 +116,12 @@ An interrupt whose line text changes is resolved. One whose line only moved, bec
 - `ASSISTIVE_*` process variables override the file, for CI and containers.
 
 **D10. Rendering.** The graph uses Cytoscape.js with the dagre layout, top to bottom:
-- node shapes encode the kind;
-- borders and fills encode the status, using the VS Code theme's chart colors;
+- SVG icons encode the kind and status in uniform node cards;
+- `concept` nodes group responsibilities without adding code to type; their statuses follow descendants;
+- `contains` gives each child one parent, without cycles; calls and dependencies cross branches;
+- Overview, Structure and All details reveal successive containment levels; hidden dependencies lift to visible ancestors;
+- hierarchy rows keep abstractions above implementations; flat legacy graphs retain dagre;
+- colors follow the VS Code theme;
 - the layout re-runs only when the set of nodes or edges changes.
 
 The Steps tab lists the same nodes in typing order: first by explicit `order`, then dependencies before dependents.

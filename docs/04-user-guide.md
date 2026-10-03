@@ -35,31 +35,28 @@ The graph area has two tabs:
 - **Graph** shows the nodes and edges in a top-to-bottom layout. The number before a label is the position of the node in the typing order.
 - **Steps** shows the nodes in typing order, with the status and the signature of each node. The tab label shows your progress, for example **Steps 3/7**. The next piece to type has a **next** badge.
 
-The count includes only the pieces that you type: classes, functions, methods, data types, constants and tests. It does not include `external` and `step` nodes. The next piece is the first piece in typing order that is not done. In the graph, the next node has a colored halo.
+The count includes only the pieces that you type: classes, functions, methods, data types, constants and tests. It does not include `concept`, `module`, `external` or plain `step` nodes. The next piece is the first piece in typing order that is not done. In the graph, the next node has a colored outline.
 
-The legend shows the colors of the statuses. The **⤢** button fits the graph into the area again. Drag the bottom edge of the area to change its height.
+The legend shows the colors of the statuses. The **Fit graph** button fits the graph into the area again. Drag the bottom edge of the area to change its height.
 
 **Statuses:**
 
 | Status | Look | Description |
 |---|---|---|
-| planned | Dashed border | The symbol is not in the code. |
+| planned | Grey status icon | The symbol is not in the code. |
 | stubbed | Yellow | The symbol exists, but its body is a placeholder: `pass`, `...`, `raise NotImplementedError`, an empty `{}`, or `throw new Error("not implemented")`. |
-| done | Green, thick border | The symbol has a real body. |
-| attention | Red, thicker border | An interrupt flagged a problem in this node. |
+| done | Green status icon | The symbol has a real body. |
+| attention | Red status icon | An interrupt flagged a problem in this node. |
 
-**Node shapes:**
+**Node cards:** Each card shows an SVG kind icon, its label, a signature or short description, and an SVG status icon with text. The next code piece has an accent outline.
 
-| Shape | Node kind |
-|---|---|
-| Rounded rectangle | `function`, `method`, `class` (bold), `module` (bold) |
-| Cut rectangle, dotted, grey text | `external` |
-| Barrel | `data` |
-| Ellipse | `step` |
-| Hexagon | `test` |
-| Tag | `constant` |
+**Hierarchy:** A responsibility has kind `concept`. It can contain classes and functions. A function can contain detail steps for important inputs or validation rules. A concept has no code symbol. Its status follows its descendants, and it does not increase the typing count.
 
-**Edges:** A `contains` edge is dashed and has no arrow. A `depends` edge is dotted. All other edges are solid lines with an arrow.
+**Detail levels:** **Overview** shows the roots. **Structure** adds their direct children. **All details** shows every node. Dependencies of hidden nodes connect their visible parent groups. These controls change only the view, not the plan.
+
+**Navigation:** Use the node picker to select any node with the keyboard. The view expands if that node is hidden. **Next** centers the next code piece. Use **Zoom in**, **Zoom out** and **Fit graph** to control the view. Fit does not rearrange the nodes.
+
+**Edges:** A `contains` edge is dashed with a chevron. A `depends` edge is dotted. Other edges are solid with an arrow. Selecting a node shows its relationship labels.
 
 **Mouse actions:**
 
@@ -70,6 +67,8 @@ The legend shows the colors of the statuses. The **⤢** button fits the graph i
 - Use the mouse wheel to zoom. Drag the background to move the graph.
 
 ### 4.1.3 Node details
+
+For a responsibility, **Refine responsibility** asks the LLM to develop its implementation pieces through discussion.
 
 When you select a node, the details box shows the buttons under the title, and then:
 

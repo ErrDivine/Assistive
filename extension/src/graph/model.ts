@@ -2,6 +2,7 @@
 // status sync with the code outline, and text renderings for prompts and export.
 // Pure: no `vscode` import.
 
+import { conceptStatus } from "./hierarchy";
 import {
   EDGE_KINDS,
   type EdgeKind,
@@ -168,6 +169,10 @@ export class GraphEditor {
         out.push(`error: node '${id}': kind '${raw.kind}' is not one of ${NODE_KINDS.join(", ")}.`);
         continue;
       }
+      if (raw.kind === "concept" && raw.symbol?.trim()) {
+        out.push(`error: concept '${id}' cannot have a code symbol. Put the symbol on an implementation child.`);
+        continue;
+      }
       if (!raw.description?.trim()) {
         out.push(`error: node '${id}' needs a description.`);
         continue;
@@ -207,6 +212,10 @@ export class GraphEditor {
       // Validate everything first so a rejected update changes nothing.
       if (set.kind !== undefined && !(NODE_KINDS as readonly string[]).includes(set.kind)) {
         out.push(`error: node '${node.id}': kind '${set.kind}' is not one of ${NODE_KINDS.join(", ")}.`);
+        continue;
+      }
+      if ((set.kind ?? node.kind) === "concept" && (set.symbol ?? node.symbol)?.trim()) {
+        out.push(`error: concept '${node.id}' cannot have a code symbol. Clear symbol before changing its kind.`);
         continue;
       }
       if (set.status !== undefined && !(STATUSES as string[]).includes(set.status)) {
@@ -326,6 +335,21 @@ export class GraphEditor {
           out.push(`ok: ${from.id} -${e.kind}-> ${to.id} already exists.`);
         }
         continue;
+      }
+      if (e.kind === "contains") {
+        if (this.g.edges.some((x) => x.kind === "contains" && x.to === to.id)) {
+          out.push(`error: '${to.id}' already has a containment parent. Disconnect it before moving this node.`);
+          continue;
+        }
+        const descendants = new Set([to.id]);
+        for (let previous = -1; previous !== descendants.size;) {
+          previous = descendants.size;
+          for (const x of this.g.edges) if (x.kind === "contains" && descendants.has(x.from)) descendants.add(x.to);
+        }
+        if (descendants.has(from.id)) {
+          out.push(`error: containment ${from.id}→${to.id} would create a cycle. Use depends for a dependency.`);
+          continue;
+        }
       }
       if (this.g.edges.length >= MAX_EDGES) {
         out.push(`error: the graph already has ${MAX_EDGES} edges.`);
@@ -449,6 +473,10 @@ export function findSymbol(node: GraphNode, symbols: OutlineSymbol[]): OutlineSy
 export function syncWithOutline(graph: FileGraph, outline: FileOutline): boolean {
   let changed = false;
   for (const node of graph.nodes) {
+    if (node.kind === "concept") {
+      if (node.line !== undefined) { node.line = undefined; changed = true; }
+      continue;
+    }
     if (!SYMBOL_KINDS.has(node.kind) && !node.symbol) {
       continue;
     }
@@ -463,6 +491,11 @@ export function syncWithOutline(graph: FileGraph, outline: FileOutline): boolean
       node.status = status;
       changed = true;
     }
+  }
+  for (const node of graph.nodes) {
+    if (node.kind !== "concept" || node.attention) continue;
+    const status = conceptStatus(graph, node.id);
+    if (node.status !== status) { node.status = status; changed = true; }
   }
   return changed;
 }

@@ -267,7 +267,7 @@ The function does these steps:
 
 ### 8.7.1 Progress
 
-`typedNodes(graph)` returns the nodes that the programmer types, in typing order. These are the nodes of kind `class`, `function`, `method`, `data`, `constant` or `test`, and other nodes with a symbol. Nodes of kind `external` and `module` are never included.
+`typedNodes(graph)` returns the nodes that the programmer types, in typing order. These are the nodes of kind `class`, `function`, `method`, `data`, `constant` or `test`, and other nodes with a symbol. Nodes of kind `concept`, `external` and `module` are never included.
 
 `progress(graph)` returns `{done, total, next}`:
 
@@ -278,3 +278,11 @@ The function does these steps:
 The panel shows the progress on the **Steps** tab and marks the next node. The status bar shows `done/total`.
 
 The module imports only types. Thus the webview bundle can import it without the rest of the host code.
+
+## 8.9 Responsibility hierarchy
+
+A `concept` node represents a responsibility. It has no implementation symbol. Its status reflects its contained descendants. It does not add a piece to the typing count.
+
+A `contains` edge gives the child one parent. `connect` rejects a second parent or a containment cycle. Disconnect the old edge before moving a child. Other edge kinds can cross branches and form dependency cycles.
+
+The view supports saved graphs from before this change. Invalid legacy containment edges do not prevent rendering. View projections never change the stored graph, feed or undo history.

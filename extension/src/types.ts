@@ -11,6 +11,7 @@ export const NODE_KINDS = [
   "test",
   "external",
   "step",
+  "concept",
 ] as const;
 export type NodeKind = (typeof NODE_KINDS)[number];
 

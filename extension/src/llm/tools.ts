@@ -76,7 +76,7 @@ const int = (description: string, extra: Partial<JsonSchema> = {}): JsonSchema =
 // ---------------------------------------------------------------- shared schemas
 
 const NODE_KIND_HELP =
-  "module: the file itself; class; function; method (symbol 'Class.method'); data: a dataclass/record/typed dict/interface; " +
+  "concept: a responsibility, workflow stage or design abstraction (no code symbol); module: the file itself; class; function; method (symbol 'Class.method'); data: a dataclass/record/typed dict/interface; " +
   "constant; test: a test function; external: a library, service or other project module this file relies on (not typed here); " +
   "step: a unit of work that is not a named symbol (e.g. 'validate input inside main').";
 
@@ -115,7 +115,7 @@ const edgeSchema: JsonSchema = {
     from: str("Source node id."),
     to: str("Target node id."),
     kind: str(
-      "calls: from invokes to; uses: reads a constant/type/external API; contains: class contains method, module contains symbol; " +
+      "calls: from invokes to; uses: reads a constant/type/external API; contains: parent contains child (concept contains implementation, class contains method, function contains a detail step); " +
         "creates: constructs an instance; reads / writes: data flow to or from storage/state; returns: from produces a value of to; " +
         "depends: must exist first (ordering only).",
       { enum: EDGE_KINDS },

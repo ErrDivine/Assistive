@@ -9,3 +9,7 @@ extension/.vscode-test/
 .env
 .env.*
 !.env.example
+
+# Local browser review artifacts
+.playwright-cli/
+output/

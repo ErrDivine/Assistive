@@ -43,7 +43,7 @@ const CODE_KINDS = new Set<string>(["class", "function", "method", "data", "cons
 
 /** Nodes the programmer types (not externals, plain steps or the module itself). */
 export function typedNodes(graph: FileGraph): GraphNode[] {
-  return orderedNodes(graph).filter((n) => n.kind !== "external" && n.kind !== "module" && (CODE_KINDS.has(n.kind) || !!n.symbol));
+  return orderedNodes(graph).filter((n) => n.kind !== "concept" && n.kind !== "external" && n.kind !== "module" && (CODE_KINDS.has(n.kind) || !!n.symbol));
 }
 
 /** How far the programmer is: done / total typed nodes, and the next node to type (or fix) in typing order. */

@@ -128,7 +128,12 @@ button.link:hover {
 .pill.warn::before,
 .pill.bad::before,
 .pill.off::before {
-  content: "●";
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
   margin-right: 3px;
 }
 .pill.ok::before {
@@ -620,3 +625,20 @@ pre,
   outline: 1px solid var(--accent);
   outline-offset: -1px;
 }
+
+/* Shared, theme-colored SVG icons. Decorative artwork never carries a label. */
+.svg-icon { width: 16px; height: 16px; flex-shrink: 0; vertical-align: -3px; }
+.empty .empty-illustration { width: 48px; height: 48px; margin-bottom: 4px; color: var(--muted); }
+button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#graph-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px; border-top: 1px solid var(--border); }
+#graph-controls select { min-width: 0; max-width: 100%; color: var(--vscode-dropdown-foreground, var(--vscode-foreground)); background: var(--vscode-dropdown-background, var(--card)); border: 1px solid var(--vscode-dropdown-border, var(--border)); border-radius: var(--radius); padding: 4px; font: inherit; }
+#node-picker { flex: 1 1 130px; }
+#graph-depth { flex: 0 1 100px; }
+#graph-summary { font-size: 11px; font-variant-numeric: tabular-nums; margin-left: auto; }
+.viewport-controls { display: flex; gap: 3px; }
+.steps-mode .viewport-controls, .steps-mode #graph-depth { display: none; }
+#graph-wrap { height: 46vh; min-height: 180px; background: var(--vscode-editor-background); }
+#details h3 .svg-icon { color: var(--muted); }
+.pill .svg-icon { width: 12px; height: 12px; vertical-align: -2px; }
+#file { text-align: left; padding-left: 0; border: 0; }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

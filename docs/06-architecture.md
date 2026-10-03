@@ -250,7 +250,7 @@ The file `src/types.ts` defines the types that the host and the webview share. I
 
 | Type | Definition |
 |---|---|
-| `NODE_KINDS` | `module`, `class`, `function`, `method`, `data`, `constant`, `test`, `external`, `step` |
+| `NODE_KINDS` | `module`, `class`, `function`, `method`, `data`, `constant`, `test`, `external`, `step`, `concept` |
 | `EDGE_KINDS` | `calls`, `uses`, `contains`, `creates`, `reads`, `writes`, `returns`, `depends` |
 | `NodeStatus` | `planned`, `stubbed`, `done`, `attention` |
 

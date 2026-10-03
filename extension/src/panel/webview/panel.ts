@@ -6,13 +6,16 @@ import cytoscape from "cytoscape";
 import dagre from "cytoscape-dagre";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
-import { orderedNodes, progress } from "../../graph/order";
+import { icon, type IconName } from "./icons";
+import { hierarchy, hierarchyPositions, projectHierarchy } from "../../graph/hierarchy";
+import { CARD_WIDTH, CARD_HEIGHT, graphCard } from "./graphCard";
+import { orderedNodes, progress, typedNodes } from "../../graph/order";
 import type { FeedItem, FileGraph, FromPanel, GraphNode, PanelState, Resource, ToPanel } from "../../types";
 
 declare function acquireVsCodeApi(): {
   postMessage(msg: FromPanel): void;
-  getState(): { tab?: "graph" | "steps"; selected?: string } | undefined;
-  setState(s: { tab?: "graph" | "steps"; selected?: string }): void;
+  getState(): { tab?: "graph" | "steps"; selected?: string; depth?: number } | undefined;
+  setState(s: { tab?: "graph" | "steps"; selected?: string; depth?: number }): void;
 };
 
 cytoscape.use(dagre);
@@ -25,11 +28,12 @@ let state: PanelState | undefined;
 const saved = vscode.getState() ?? {};
 let tab: "graph" | "steps" = saved.tab ?? "graph";
 let selected: string | undefined = saved.selected;
+let graphDepth = saved.depth ?? 0;
 let structureKey = "";
 let lastFile: string | undefined;
 
 function persist(): void {
-  vscode.setState({ tab, selected });
+  vscode.setState({ tab, selected, depth: graphDepth });
 }
 
 // ---------------------------------------------------------------- utilities
@@ -72,6 +76,10 @@ function button(label: string, cls: string, onClick: () => void, title?: string)
   return b;
 }
 
+for (const e of document.querySelectorAll<HTMLElement>("[data-icon]")) {
+  e.innerHTML = icon(e.dataset.icon as IconName);
+}
+
 // ---------------------------------------------------------------- theme colors
 
 function cssVar(name: string, fallback: string): string {
@@ -104,38 +112,16 @@ function graphStyle(): cytoscape.StylesheetJson {
         shape: "round-rectangle",
         "background-color": p.node,
         "background-opacity": 1,
-        "border-width": 1.5,
-        "border-color": p.planned,
-        label: "data(text)",
-        color: p.fg,
-        "font-size": 11,
-        "font-family": p.font,
-        "text-valign": "center",
-        "text-halign": "center",
-        "text-wrap": "wrap",
-        "text-max-width": "150px",
-        width: "data(w)",
-        height: "data(h)",
+        label: "",
+        width: CARD_WIDTH,
+        height: CARD_HEIGHT,
+        "border-width": 0,
+        "background-image": "data(card)",
+        "background-fit": "contain",
+        "background-image-containment": "inside",
       },
     },
-    { selector: "node.planned", style: { "border-style": "dashed" } },
-    { selector: "node.stubbed", style: { "border-color": p.stubbed, "background-color": p.stubbed, "background-opacity": 0.16 } },
-    { selector: "node.done", style: { "border-color": p.done, "background-color": p.done, "background-opacity": 0.18, "border-width": 2 } },
-    {
-      selector: "node.attention",
-      style: { "border-color": p.attention, "background-color": p.attention, "background-opacity": 0.2, "border-width": 3 },
-    },
-    { selector: "node.kind-external", style: { shape: "cut-rectangle", "border-style": "dotted", color: p.muted } },
-    { selector: "node.kind-data", style: { shape: "barrel" } },
-    { selector: "node.kind-step", style: { shape: "ellipse" } },
-    { selector: "node.kind-test", style: { shape: "hexagon" } },
-    { selector: "node.kind-constant", style: { shape: "round-tag" } },
-    { selector: "node.kind-class, node.kind-module", style: { "font-weight": "bold" } },
-    { selector: "node:selected", style: { "overlay-color": p.accent, "overlay-opacity": 0.18, "overlay-padding": 4 } },
-    {
-      selector: "node.next",
-      style: { "underlay-color": p.accent, "underlay-opacity": 0.35, "underlay-padding": 5, "underlay-shape": "round-rectangle" },
-    },
+    { selector: "node:selected", style: { "overlay-color": p.accent, "overlay-opacity": 0.12, "overlay-padding": 4 } },
     {
       selector: "edge",
       style: {
@@ -145,7 +131,7 @@ function graphStyle(): cytoscape.StylesheetJson {
         "target-arrow-shape": "triangle",
         "arrow-scale": 0.8,
         "curve-style": "bezier",
-        label: "data(text)",
+        label: "",
         "font-size": 9,
         "font-family": p.font,
         color: p.muted,
@@ -155,41 +141,14 @@ function graphStyle(): cytoscape.StylesheetJson {
         "text-background-padding": "1px",
       },
     },
-    { selector: "edge.kind-contains", style: { "line-style": "dashed", "target-arrow-shape": "none" } },
+    { selector: "edge.kind-contains", style: { "line-style": "dashed", "target-arrow-shape": "chevron", width: 1.6 } },
     { selector: "edge.kind-depends", style: { "line-style": "dotted" } },
-    { selector: "edge.dim, node.dim", style: { opacity: 0.25 } },
+    { selector: "edge.focused", style: { label: "data(text)", width: 2, "line-color": p.accent, "target-arrow-color": p.accent } },
+    { selector: "edge.dim, node.dim", style: { opacity: 0.3 } },
   ];
 }
 
 // ---------------------------------------------------------------- graph view
-
-const measure = document.createElement("canvas").getContext("2d")!;
-
-function nodeText(n: GraphNode, order: Map<string, number>): string {
-  const i = order.get(n.id);
-  return `${i !== undefined ? `${i}. ` : ""}${n.label}`;
-}
-
-function nodeSize(text: string): { w: number; h: number } {
-  measure.font = `11px ${palette().font}`;
-  const words = text.split(/\s+/);
-  const maxW = 150;
-  let lines = 1;
-  let line = 0;
-  let widest = 0;
-  for (const w of words) {
-    const ww = measure.measureText(w + " ").width;
-    if (line + ww > maxW && line > 0) {
-      lines++;
-      widest = Math.max(widest, line);
-      line = ww;
-    } else {
-      line += ww;
-    }
-  }
-  widest = Math.max(widest, line);
-  return { w: Math.max(56, Math.min(maxW, widest) + 22), h: 14 * lines + 14 };
-}
 
 const cy = cytoscape({
   container: $("cy"),
@@ -211,7 +170,7 @@ cy.on("dbltap", "node", (ev) => {
 });
 
 function stepNumbers(graph: FileGraph): Map<string, number> {
-  return new Map(orderedNodes(graph).map((n, i) => [n.id, i + 1]));
+  return new Map(typedNodes(graph).map((n, i) => [n.id, i + 1]));
 }
 
 function renderGraph(graph: FileGraph | undefined): void {
@@ -220,17 +179,12 @@ function renderGraph(graph: FileGraph | undefined): void {
     structureKey = "";
     return;
   }
-  const order = stepNumbers(graph);
-  const next = progress(graph).next?.id;
-  const key =
-    graph.file +
-    "|" +
-    graph.nodes.map((n) => n.id).sort().join(",") +
-    "|" +
-    graph.edges.map((e) => `${e.from}>${e.to}:${e.kind}`).sort().join(",");
+  graph = projectHierarchy(graph, graphDepth);
+  const order = stepNumbers(state?.graph ?? graph);
+  const next = progress(state?.graph ?? graph).next?.id;
+  const key = JSON.stringify([graph.file, graph.nodes.map((n) => n.id).sort(), graph.edges.map((e) => [e.from, e.to, e.kind]).sort()]);
   const nodeData = (n: GraphNode) => {
-    const text = nodeText(n, order);
-    return { id: n.id, text, ...nodeSize(text) };
+    return { id: n.id, card: graphCard(n, order.get(n.id), n.id === next, palette()) };
   };
   const classesOf = (n: GraphNode) => `${n.status} kind-${n.kind}${n.id === next ? " next" : ""}`;
   if (key === structureKey) {
@@ -242,6 +196,7 @@ function renderGraph(graph: FileGraph | undefined): void {
     for (const e of graph.edges) {
       cy.getElementById(`${e.from}>${e.to}:${e.kind}`).data("text", e.label ? `${e.kind}: ${e.label}` : e.kind);
     }
+    highlightSelection();
     return;
   }
   structureKey = key;
@@ -255,9 +210,7 @@ function renderGraph(graph: FileGraph | undefined): void {
     })),
   ]);
   layout();
-  if (selected && cy.getElementById(selected).nonempty()) {
-    cy.getElementById(selected).select();
-  }
+  highlightSelection();
 }
 
 /** The programmer zoomed or panned since the last layout: resizes then keep their view. */
@@ -265,7 +218,7 @@ let userViewport = false;
 
 /** Fit the whole graph into the view (at most 1.3× zoom). */
 function fit(): void {
-  cy.fit(undefined, 12);
+  cy.fit(undefined, 24);
   if (cy.zoom() > 1.3) {
     cy.zoom(1.3);
     cy.center();
@@ -276,19 +229,22 @@ function layout(): void {
   if (tab !== "graph" || !cy.nodes().length) {
     return;
   }
-  userViewport = false;
   cy.resize();
-  cy.layout({
+  const graph = state?.graph && projectHierarchy(state.graph, graphDepth);
+  if (graph && state?.graph?.edges.some((e) => e.kind === "contains")) {
+    const positions = hierarchyPositions(graph);
+    cy.layout({ name: "preset", positions: Object.fromEntries(positions), fit: false, animate: false }).run();
+  } else cy.layout({
     name: "dagre",
     rankDir: "TB",
-    nodeSep: 24,
-    rankSep: 46,
+    nodeSep: 28,
+    rankSep: 56,
     edgeSep: 8,
     padding: 12,
     fit: false,
     animate: false,
   } as cytoscape.LayoutOptions).run();
-  fit();
+  if (!userViewport) fit();
 }
 
 function renderSteps(graph: FileGraph | undefined): void {
@@ -300,7 +256,7 @@ function renderSteps(graph: FileGraph | undefined): void {
     const li = el(
       "li",
       [n.id === selected ? "selected" : "", n.id === next ? "next" : ""].filter(Boolean).join(" "),
-      `<span class="label">${esc(n.label)}</span><span class="status ${n.status}">${n.status === "done" ? "✓ done" : n.status}</span>` +
+      `<span class="label">${esc(n.label)}</span><span class="status ${n.status}">${icon(n.status)} ${n.status}</span>` +
         (n.id === next ? `<span class="badge" title="The next piece to type, in typing order">next</span>` : "") +
         (n.signature ? `<span class="sig">${esc(n.signature)}</span>` : ""),
     );
@@ -327,20 +283,60 @@ function renderSteps(graph: FileGraph | undefined): void {
 }
 
 function select(id: string | undefined): void {
+  if (id && state?.graph) {
+    const depth = hierarchy(state.graph).depth.get(id) ?? 0;
+    if (depth > graphDepth) {
+      graphDepth = 100;
+      $<HTMLSelectElement>("graph-depth").value = graphDepth === 0 ? "0" : graphDepth === 1 ? "1" : "100";
+      renderGraph(state.graph);
+    }
+  }
   selected = id;
   persist();
+  highlightSelection();
+  $<HTMLSelectElement>("node-picker").value = id ?? "";
+  renderDetails();
+  if (tab === "steps") renderSteps(state?.graph);
+}
+
+function highlightSelection(): void {
   cy.nodes().unselect();
-  cy.elements().removeClass("dim");
-  if (id) {
-    const ele = cy.getElementById(id);
+  cy.elements().removeClass("dim focused");
+  if (selected) {
+    const ele = cy.getElementById(selected);
     if (ele.nonempty()) {
       ele.select();
       const hood = ele.closedNeighborhood();
+      hood.edges().addClass("focused");
       cy.elements().not(hood).addClass("dim");
     }
   }
-  renderDetails();
-  if (tab === "steps") renderSteps(state?.graph);
+
+}
+
+function renderGraphNavigation(graph: FileGraph | undefined): void {
+  const picker = $<HTMLSelectElement>("node-picker");
+  const signature = JSON.stringify([graph?.nodes.map((n) => [n.id, n.label, n.status, n.order]), graph?.edges.filter((e) => e.kind === "contains")]);
+  if (picker.dataset.signature !== signature) {
+    picker.dataset.signature = signature;
+    picker.replaceChildren(new Option("Inspect a node…", ""));
+    if (graph) {
+      const h = hierarchy(graph);
+      const nodes = orderedNodes(graph);
+      const append = (n: GraphNode) => {
+        picker.add(new Option(`${"— ".repeat(h.depth.get(n.id) ?? 0)}${n.label} — ${n.status}`, n.id));
+        for (const child of nodes) if (h.parent.get(child.id) === n.id) append(child);
+      };
+      for (const n of nodes) if (!h.parent.has(n.id)) append(n);
+    }
+  }
+  picker.value = selected ?? "";
+  $("graph-controls").hidden = !graph?.nodes.length;
+  const p = graph ? progress(graph) : undefined;
+  $("graph-summary").textContent = p?.total ? `${p.done}/${p.total} typed` : "";
+  const next = $<HTMLButtonElement>("btn-next");
+  next.disabled = !p?.next;
+  next.title = p?.next ? `Focus next step: ${p.next.label}` : "All pieces are typed";
 }
 
 function renderDetails(): void {
@@ -356,14 +352,17 @@ function renderDetails(): void {
   const inc = graph.edges.filter((e) => e.to === n.id).map((e) => `<b>${esc(e.from)}</b> ${e.kind} it`);
   box.hidden = false;
   box.innerHTML =
-    `<h3>${esc(n.label)} <span class="chip">${n.kind}</span><span class="chip status-${n.status}">${n.status}</span>` +
+    `<h3>${icon(n.kind)} ${esc(n.label)} <span class="chip">${n.kind}</span><span class="chip status-${n.status}">${n.status}</span>` +
     `${n.line !== undefined ? `<span class="chip">L${n.line + 1}</span>` : ""}</h3>` +
     (n.signature ? `<code class="signature">${esc(n.signature)}</code>` : "") +
     `<p>${esc(n.description)}</p>` +
     (n.notes.length ? `<ul>${n.notes.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "") +
-    (n.attention ? `<p class="attention">⚠ ${esc(n.attention)}</p>` : "") +
+    (n.attention ? `<p class="attention">${icon("attention")} ${esc(n.attention)}</p>` : "") +
     (out.length || inc.length ? `<p class="muted">${[...out, ...inc].join(" · ")}</p>` : "");
   const actions = el("div", "actions");
+  if (n.kind === "concept") {
+    actions.append(button("Refine responsibility", "secondary", () => post({ type: "send", text: `Refine the responsibility \`${n.id}\` into concrete implementation pieces and useful detail steps. Reuse existing nodes and keep their ids; connect them with contains, and preserve cross-branch dependencies. Discuss the design with me, without writing the code.` })));
+  }
   const go = button(n.line !== undefined ? "Go to code" : "Not typed yet", "secondary", () => n.line !== undefined && post({ type: "goto", line: n.line }));
   go.disabled = n.line === undefined;
   const name = n.symbol ?? n.id;
@@ -397,7 +396,7 @@ function renderDoneBanner(s: PanelState, p: { done: number; total: number } | un
   banner.dataset.total = String(p!.total);
   banner.innerHTML = "";
   banner.append(
-    el("span", "", `✓ All ${p!.total} planned pieces are typed.`),
+    el("span", "", `${icon("done")} All ${p!.total} planned pieces are typed.`),
     button("Review the file", "secondary", () => post({ type: "send", text: FILE_REVIEW_REQUEST }), "Ask for a review of the whole file against the plan"),
     button("Plan tests", "secondary", () => post({ type: "send", text: TESTS_REQUEST }), "Ask the assistant to add test nodes to the plan"),
   );
@@ -419,8 +418,8 @@ function reviewRequest(name: string): string {
 // ---------------------------------------------------------------- header
 
 function pill(text: string, cls: string, title: string, onClick?: () => void): HTMLElement {
-  const p = el("span", `pill ${cls}${onClick ? " clickable" : ""}`);
-  p.textContent = text;
+  const p = el(onClick ? "button" : "span", `pill ${cls}${onClick ? " clickable" : ""}`);
+  p.innerHTML = text;
   p.title = title;
   if (onClick) p.addEventListener("click", onClick);
   return p;
@@ -451,7 +450,7 @@ function renderHeader(s: PanelState): void {
       st.jev === "missing" ? cfg : undefined,
     ),
     pill(
-      st.heartbeat === "on" ? `♥ ${st.heartbeatSeconds}s` : "♥ paused",
+      `${icon("heartbeat")} ${st.heartbeat === "on" ? `${st.heartbeatSeconds}s` : "paused"}`,
       st.heartbeat === "on" ? "ok" : "off",
       `Heartbeat ${st.heartbeat}${st.lastBeat ? ` · last ${time(st.lastBeat)}` : ""}${st.lastVerdict ? `\n${st.lastVerdict}` : ""}`,
     ),
@@ -502,7 +501,8 @@ function renderEmpty(s: PanelState): void {
   $("cy").style.visibility = hasGraph && tab === "graph" ? "visible" : "hidden";
   $("steps").hidden = !hasGraph || tab !== "steps";
   if (hasGraph) return;
-  box.innerHTML = "";
+  box.innerHTML = icon("graph");
+  box.firstElementChild?.classList.add("empty-illustration");
   if (!s.file) {
     box.append(el("div", "", "Open a Python, TypeScript, JavaScript, Go, Rust or Java file to plan it here."));
   } else if (s.unsaved) {
@@ -532,16 +532,10 @@ function renderEmpty(s: PanelState): void {
 
 const rendered = new Map<string, { sig: string; node: HTMLElement }>();
 
-const ISSUE_ICON: Record<string, string> = {
-  typo: "✎",
-  syntax: "⛔",
-  logic_error: "⚠",
-  api_misuse: "⚙",
-  better_implementation: "💡",
-  missing_edge_case: "◇",
-  deviates_from_graph: "⤳",
-  security: "🔒",
-  other: "•",
+const ISSUE_ICON: Record<string, IconName> = {
+  typo: "edit", syntax: "stop", logic_error: "attention", api_misuse: "settings",
+  better_implementation: "lightbulb", missing_edge_case: "test",
+  deviates_from_graph: "graph", security: "lock", other: "attention",
 };
 
 function resourceList(items: Resource[]): HTMLElement {
@@ -600,7 +594,7 @@ function renderItem(f: FeedItem): HTMLElement {
       box.classList.add(`sev-${f.severity}`, f.status);
       box.append(
         meta(
-          `${ISSUE_ICON[f.issue] ?? "•"} ${f.issue.replace(/_/g, " ")} · line ${f.line + 1}${f.status !== "open" ? ` · ${f.status}` : ""}`,
+          `${icon(ISSUE_ICON[f.issue] ?? "attention")} ${f.issue.replace(/_/g, " ")} · line ${f.line + 1}${f.status !== "open" ? ` · ${f.status}` : ""}`,
         ),
       );
       box.append(el("div", "title", esc(f.title)));
@@ -617,7 +611,7 @@ function renderItem(f: FeedItem): HTMLElement {
       break;
     }
     case "resources":
-      box.append(meta(`📚 Learn: ${esc(f.topic)}`));
+      box.append(meta(`${icon("book")} Learn: ${esc(f.topic)}`));
       box.append(resourceList(f.items));
       break;
     case "question": {
@@ -637,7 +631,7 @@ function renderItem(f: FeedItem): HTMLElement {
       const link = button(`${f.path}:${f.line + 1}${f.endLine !== undefined ? `-${f.endLine + 1}` : ""}`, "link", () =>
         post({ type: "goto", path: f.path, line: f.line, endLine: f.endLine }),
       );
-      box.append(el("span", "", "↪ "), link, el("span", "", ` — ${esc(f.note)}`));
+      box.append(el("span", "", icon("arrow")), link, el("span", "", ` — ${esc(f.note)}`));
       break;
     }
     case "system":
@@ -748,7 +742,31 @@ $("btn-pause").addEventListener("click", () => post({ type: "toggleHeartbeat" })
 $("btn-config").addEventListener("click", () => post({ type: "openConfig" }));
 $("btn-stop").addEventListener("click", () => post({ type: "cancel" }));
 $("file").addEventListener("click", () => post({ type: "pickFile" }));
-$("btn-fit").addEventListener("click", () => layout());
+$<HTMLSelectElement>("graph-depth").value = graphDepth === 0 ? "0" : graphDepth === 1 ? "1" : "100";
+$("graph-depth").addEventListener("change", () => {
+  graphDepth = Number($<HTMLSelectElement>("graph-depth").value);
+  userViewport = false;
+  selected = undefined;
+  persist();
+  renderGraph(state?.graph);
+  renderGraphNavigation(state?.graph);
+  renderDetails();
+});
+$("btn-fit").addEventListener("click", () => { userViewport = false; cy.resize(); fit(); });
+function zoomBy(factor: number): void {
+  userViewport = true;
+  cy.zoom({ level: Math.max(cy.minZoom(), Math.min(cy.maxZoom(), cy.zoom() * factor)), renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+}
+$("btn-zoom-in").addEventListener("click", () => zoomBy(1.25));
+$("btn-zoom-out").addEventListener("click", () => zoomBy(0.8));
+$("node-picker").addEventListener("change", () => {
+  select($<HTMLSelectElement>("node-picker").value || undefined);
+  if (selected) { userViewport = true; cy.zoom(1); cy.center(cy.getElementById(selected)); }
+});
+$("btn-next").addEventListener("click", () => {
+  select(state?.graph ? progress(state.graph).next?.id : undefined);
+  if (selected) { userViewport = true; cy.zoom(1); cy.center(cy.getElementById(selected)); }
+});
 $("docstring").addEventListener("click", (ev) => {
   if ((ev.target as HTMLElement).tagName !== "BUTTON") $("docstring").classList.toggle("expanded");
 });
@@ -757,6 +775,9 @@ function setTab(t: "graph" | "steps"): void {
   tab = t;
   persist();
   $("tab-graph").classList.toggle("active", t === "graph");
+  $("tab-graph").setAttribute("aria-pressed", String(t === "graph"));
+  $("tab-steps").setAttribute("aria-pressed", String(t === "steps"));
+  $("graph-controls").classList.toggle("steps-mode", t === "steps");
   $("tab-steps").classList.toggle("active", t === "steps");
   if (state) renderEmpty(state);
   if (t === "steps") renderSteps(state?.graph);
@@ -786,7 +807,7 @@ cy.on("tapstart", (ev) => {
 });
 
 // Re-color when the VS Code theme changes.
-new MutationObserver(() => cy.style(graphStyle())).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+new MutationObserver(() => { cy.style(graphStyle()); renderGraph(state?.graph); }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
 
 // ---------------------------------------------------------------- state
 
@@ -795,6 +816,7 @@ function render(s: PanelState): void {
   lastFile = s.file;
   state = s;
   if (fileChanged) {
+    userViewport = false;
     selected = s.graph?.nodes.some((n) => n.id === selected) ? selected : undefined;
     renderStream(undefined); // a reply streaming for the other file does not belong here
   }
@@ -803,8 +825,14 @@ function render(s: PanelState): void {
   $("tab-steps").textContent = p?.total ? `Steps ${p.done}/${p.total}` : "Steps";
   $("tab-steps").title = p?.total ? `${p.done} of ${p.total} pieces typed${p.next ? `; next: ${p.next.label}` : ""}` : "";
   renderDoneBanner(s, p);
+  if (selected && s.graph && (hierarchy(s.graph).depth.get(selected) ?? 0) > graphDepth) {
+    graphDepth = 100;
+    $<HTMLSelectElement>("graph-depth").value = "100";
+    persist();
+  }
   renderEmpty(s);
   renderGraph(s.graph);
+  renderGraphNavigation(s.graph);
   if (tab === "steps") renderSteps(s.graph);
   if (selected && !s.graph?.nodes.some((n) => n.id === selected)) selected = undefined;
   renderDetails();

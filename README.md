@@ -8,7 +8,11 @@ An **implementation graph** that you and an LLM build together, in a VS Code sid
 4. **A heartbeat watches, calmly.** While you type, a heartbeat runs at a relaxed interval (45 s by default). [Jev](https://typesafe.ai), TypeSafe AI's System One model, triages each beat in about 100 ms with calibrated probabilities. It looks for a typo, a logic error, API misuse, a missed edge case, a clearly better approach, a security problem, or drift from the plan. Only when Jev's answers cross the thresholds does the LLM take a closer look and decide whether to interrupt you. An interrupt shows in the panel, squiggles the line, and flags the graph node. It resolves itself once you change that line.
 5. **Learn what you're missing.** When the assistant notices that you lack a concept, it recommends a few resources. They are mostly official docs, and every link is checked before it appears in the panel.
 
-![Graph drafted from the module docstring](docs/images/panel-draft.png)
+| Responsibility overview | Full hierarchy |
+|---|---|
+| ![Responsibility overview](docs/images/graph-overview.png) | ![Hierarchy with implementation and input details](docs/images/graph-hierarchy.png) |
+
+These panel previews use the current webview and a local fixture. Run `npm run preview:panel` from `extension/` to explore it.
 
 | Heartbeat interrupt | Steps and node details |
 |---|---|
@@ -50,6 +54,8 @@ To finish setting up:
 1. Restart the editor, then run **Assistive: Test LLM and Jev Connections** from the Command Palette.
 2. Open a Python, TypeScript, JavaScript, Go, Rust or Java file and write its docstring (or package comment, `//!` module doc, or leading `/** */` comment).
 
+The plan can have several levels: responsibilities, classes and functions, then important input or validation details. The assistant refines these levels as you discuss the design and type the code. Containment expresses the hierarchy; calls and dependencies connect its branches.
+
 The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration** opens it.
 
 ## Using it
@@ -59,7 +65,8 @@ The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration
 | Open the panel | Activity bar → Assistive, or `Ctrl+Alt+G` |
 | Draft a graph | Write the module docstring and close it: the draft starts by itself when the file has no graph yet. Files you only open are not drafted automatically; press **Draft** for those, or **Redraft** after changing a docstring. |
 | Tell the assistant something | Type in the input box (`Enter` sends, `Shift+Enter` adds a line), or press `Ctrl+Alt+/` from the editor |
-| See what to type next | **Steps** tab: nodes in typing order with signatures; the tab shows your progress (`Steps 3/7`) and the next piece has a **next** badge (also a halo in the graph and `3/7` in the status bar) |
+| Explore the hierarchy | **Overview** shows responsibilities; **Structure** adds their implementation nodes; **All details** shows the full plan. The node picker reaches every node by keyboard. **Next** focuses the next piece; the zoom and fit buttons control the view. |
+| See what to type next | **Steps** tab: nodes in typing order with signatures; the tab shows your progress (`Steps 3/7`) and the next piece has a **next** badge (also an outlined card in the graph and `3/7` in the status bar) |
 | See the plan while you type | Hover a function, class or method name in the editor: its planned signature, description and notes. Above the docstring, a code lens shows your progress and the next piece (`assistive.codeLens`) |
 | Inspect a node | Click it to see its signature, description, notes and edges, plus **Go to code**, **Hint** (how to start, no code) or **Review** (once its code is done), **Copy signature** and **Ask about this**. Double-click jumps to the code. |
 | Bring the graph in line with the code | **Sync** (also runs on its own when a heartbeat finds the graph out of date) |

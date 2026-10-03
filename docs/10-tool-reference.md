@@ -236,7 +236,7 @@ Each graph tool calls one `GraphEditor` method. It returns one line for each ite
 ```text
 ok: added 'parse_line'.
 ok: added 'cache_get' (id normalized from 'Cache.get').
-error: node 'main': kind 'func' is not one of module, class, function, method, data, constant, test, external, step.
+error: node 'main': kind 'func' is not one of module, class, function, method, data, constant, test, external, step, concept.
 Graph now has 6 nodes and 4 edges.
 ```
 
@@ -262,6 +262,7 @@ The tool description explains each node kind to the model:
 
 | Kind | Description for the model |
 |---|---|
+| `concept` | A responsibility or design abstraction. It has no code symbol. Its status follows its descendants. |
 | `module` | The file itself. |
 | `class` | A class. |
 | `function` | A function. |

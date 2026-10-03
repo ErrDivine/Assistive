@@ -243,6 +243,7 @@
     "test:unit": "node esbuild.mjs --tests && mocha --timeout 10000 'out/test/unit/**/*.test.js'",
     "test:integration": "node esbuild.mjs --tests && node out/test/runIntegration.js",
     "test": "npm run test:unit",
+    "preview:panel": "node scripts/preview-panel.mjs",
     "install-local": "node scripts/install-local.mjs"
   },
   "dependencies": {

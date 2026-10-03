@@ -40,6 +40,7 @@ Run these scripts in the `extension/` folder.
 | `test:unit` | `node esbuild.mjs --tests && mocha --timeout 10000 'out/test/unit/**/*.test.js'` | Builds and runs the unit tests. |
 | `test:integration` | `node esbuild.mjs --tests && node out/test/runIntegration.js` | Builds and runs the tests inside VS Code. |
 | `test` | `npm run test:unit` | The default test. |
+| `preview:panel` | `node scripts/preview-panel.mjs` | Shows the real webview with a local fixture at `http://127.0.0.1:4173`. |
 | `install-local` | `node scripts/install-local.mjs` | Builds a production bundle and installs it (refer to [Installation](02-installation.md#222-what-the-install-script-does)). |
 
 ## 16.3 Build (`esbuild.mjs`)
@@ -109,6 +110,7 @@ The unit tests use mocha. They run in plain Node.js, without VS Code and without
 | `changes.test.ts` | `renderDiff`, `changedLineCount`, `EditTracker` (with `move`). |
 | `context.test.ts` | `isSecretPath`, `normalizeRel`, `numberLines`, `fileTree`, `resolveImport`, `projectSummary`. |
 | `debounce.test.ts` | `Debouncer` with the fake clock. |
+| `hierarchy.test.ts` | Containment levels, dependency projections, layout rows, concept status, invalid containment, and safe SVG artwork. |
 | `model.test.ts` | `slugify`, every `GraphEditor` method, summaries, `findSymbol`, `syncWithOutline`, `unplannedSymbols`, `orderedNodes`, `compactGraph`, `graphForJev`, `toMermaid`. |
 | `schema.test.ts` | The schema validator and its corrections. |
 | `agent.test.ts` | The tool-call loop against the fake server: tool calls, malformed arguments, the round budget, the temperature retry, the error messages. |
