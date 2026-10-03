@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src {{cspSource}} data:; style-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; script-src 'nonce-{{nonce}}';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{{styleUri}}" />
+    <title>Implementation Graph</title>
+  </head>
+  <body>
+    <header id="top">
+      <div class="row">
+        <button id="file" class="file ghost" title="Open a planned file">No file</button>
+        <span id="pills" class="pills"></span>
+      </div>
+      <div class="row toolbar">
+        <button id="btn-draft" title="Draft the graph from the module docstring">Draft</button>
+        <button id="btn-sync" class="secondary" title="Update the graph from the code you typed">Sync</button>
+        <button id="btn-undo" class="secondary" title="Undo the last graph change">Undo</button>
+        <span class="spacer"></span>
+        <button id="btn-beat" class="ghost" title="Run a heartbeat check now"><span data-icon="heartbeat"></span> Check now</button>
+        <button id="btn-pause" class="ghost" title="Pause or resume the heartbeat">Pause</button>
+        <button id="btn-config" class="ghost icon" title="Open the API configuration (.env)" aria-label="Open API configuration"><span data-icon="settings"></span></button>
+      </div>
+      <div id="docstring" class="docstring"></div>
+    </header>
+
+    <section id="graph-section">
+      <nav class="tabs">
+        <button id="tab-graph" class="tab active" aria-pressed="true">Graph</button>
+        <button id="tab-steps" class="tab" aria-pressed="false">Steps</button>
+        <span class="spacer"></span>
+        <span id="legend" class="legend">
+          <i class="dot planned"></i>planned <i class="dot stubbed"></i>stub <i class="dot done"></i>done <i class="dot attention"></i>attention
+        </span>
+
+      </nav>
+      <div id="graph-controls" hidden>
+        <select id="graph-depth" aria-label="Graph detail level" title="Choose how much of the hierarchy to show">
+          <option value="0">Overview</option><option value="1" selected>Structure</option><option value="100">All details</option>
+        </select>
+        <select id="node-picker" aria-label="Inspect a graph node"><option value="">Inspect a node…</option></select>
+        <button id="btn-next" class="ghost" title="Focus the next step">Next <span data-icon="arrow"></span></button>
+        <span id="graph-summary" class="muted"></span>
+        <div class="viewport-controls">
+          <button id="btn-zoom-out" class="ghost icon" aria-label="Zoom out" title="Zoom out"><span data-icon="minus"></span></button>
+          <button id="btn-zoom-in" class="ghost icon" aria-label="Zoom in" title="Zoom in"><span data-icon="plus"></span></button>
+          <button id="btn-fit" class="ghost icon" aria-label="Fit graph" title="Fit graph without rearranging nodes"><span data-icon="fit"></span></button>
+        </div>
+      </div>
+      <div id="done-banner" hidden></div>
+      <div id="graph-wrap">
+        <div id="cy" role="img" aria-label="Implementation graph. Use the node picker or Steps view to inspect nodes with the keyboard."></div>
+        <ol id="steps" hidden></ol>
+        <div id="graph-empty" class="empty" hidden></div>
+      </div>
+      <div id="details" hidden></div>
+    </section>
+
+    <section id="feed" aria-live="polite"></section>
+
+    <footer id="compose">
+      <div id="busy" hidden>
+        <span class="spinner"></span><span id="busy-text"></span><span class="spacer"></span>
+        <button id="btn-stop" class="link" title="Stop the current request; the graph stays as it was">Stop</button>
+      </div>
+      <div class="input-row">
+        <textarea aria-label="Message to the assistant" id="input" rows="2" placeholder="Tell the assistant what to change, or ask…" title="Enter sends; Shift+Enter adds a line"></textarea>
+        <button id="btn-send" title="Send (Enter)">Send</button>
+      </div>
+    </footer>
+
+    <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+  </body>
+</html>

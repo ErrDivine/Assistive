@@ -1,0 +1,272 @@
+{
+  "name": "assistive",
+  "displayName": "Assistive",
+  "description": "An implementation graph you and an LLM build together from the module docstring, kept in sync with the code you type; a heartbeat with the Jev System One model interrupts only when it matters.",
+  "version": "0.2.0",
+  "publisher": "errdivine",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ErrDivine/Assistive"
+  },
+  "engines": {
+    "vscode": "^1.101.0",
+    "node": ">=22"
+  },
+  "categories": [
+    "Programming Languages",
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "implementation graph",
+    "pair programming",
+    "heartbeat",
+    "jev",
+    "llm",
+    "python",
+    "go",
+    "rust",
+    "java"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:typescript",
+    "onLanguage:javascript",
+    "onLanguage:go",
+    "onLanguage:rust",
+    "onLanguage:java",
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "assistive",
+          "title": "Assistive",
+          "icon": "media/graph.svg"
+        }
+      ]
+    },
+    "views": {
+      "assistive": [
+        {
+          "type": "webview",
+          "id": "assistive.panel",
+          "name": "Implementation Graph"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "assistive.focus",
+        "title": "Focus the Graph Panel",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.ask",
+        "title": "Tell the Assistant…",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.draftGraph",
+        "title": "Draft Graph from Module Docstring",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.syncGraph",
+        "title": "Sync Graph with Code",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.undoGraph",
+        "title": "Undo Last Graph Change",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.clearGraph",
+        "title": "Clear Graph for This File",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.openPlannedFile",
+        "title": "Open a Planned File…",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.clearConversation",
+        "title": "Clear Conversation for This File",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.stop",
+        "title": "Stop the Current Request",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.heartbeatNow",
+        "title": "Run a Heartbeat Now",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.toggleHeartbeat",
+        "title": "Pause / Resume Heartbeat",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.exportGraph",
+        "title": "Export Graph as Markdown",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.setup",
+        "title": "Set Up the LLM…",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.openConfig",
+        "title": "Open API Configuration (.env)",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.testConnection",
+        "title": "Test LLM and Jev Connections",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.showNode",
+        "title": "Show a Node in the Graph",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.explainNote",
+        "title": "Explain an Interrupt",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.dismissNote",
+        "title": "Dismiss an Interrupt",
+        "category": "Assistive"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "assistive.focus",
+        "key": "ctrl+alt+g"
+      },
+      {
+        "command": "assistive.ask",
+        "key": "ctrl+alt+/",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Assistive",
+      "properties": {
+        "assistive.envFile": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the .env file with API settings. Empty: <repository>/.env next to the extension, then ~/.assistive/.env. Only user (machine) settings can set it: a workspace cannot redirect your API configuration.",
+          "scope": "machine"
+        },
+        "assistive.autoDraft": {
+          "type": "boolean",
+          "default": true,
+          "description": "Draft the implementation graph automatically once a file's module docstring is written and the file has no graph yet."
+        },
+        "assistive.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show your progress and the next piece to type above the module docstring."
+        },
+        "assistive.heartbeat.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Monitor your coding with periodic heartbeats (interval and thresholds are set in the .env file)."
+        },
+        "assistive.notifications": {
+          "type": "string",
+          "enum": [
+            "panel",
+            "toast"
+          ],
+          "default": "toast",
+          "enumDescriptions": [
+            "Only show interrupts in the panel and as a squiggle",
+            "Also show a small notification when the panel is hidden"
+          ],
+          "description": "How interrupts reach you."
+        },
+        "assistive.languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "python",
+            "typescript",
+            "typescriptreact",
+            "javascript",
+            "javascriptreact",
+            "go",
+            "rust",
+            "java"
+          ],
+          "description": "Languages Assistive works in."
+        }
+      }
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "assistive.showNode",
+          "when": "false"
+        },
+        {
+          "command": "assistive.explainNote",
+          "when": "false"
+        },
+        {
+          "command": "assistive.dismissNote",
+          "when": "false"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc -p . --noEmit && tsc -p tsconfig.webview.json --noEmit",
+    "lint": "eslint src test",
+    "test:unit": "node esbuild.mjs --tests && mocha --timeout 10000 'out/test/unit/**/*.test.js'",
+    "test:integration": "node esbuild.mjs --tests && node out/test/runIntegration.js",
+    "test": "npm run test:unit",
+    "preview:panel": "node scripts/preview-panel.mjs",
+    "install-local": "node scripts/install-local.mjs"
+  },
+  "dependencies": {
+    "@vscode/tree-sitter-wasm": "0.3.1",
+    "cytoscape": "3.34.3",
+    "cytoscape-dagre": "4.0.1",
+    "diff": "8.0.2",
+    "dompurify": "3.4.16",
+    "dotenv": "18.0.5",
+    "marked": "18.0.14",
+    "openai": "7.27.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@types/cytoscape": "3.31.0",
+    "@types/mocha": "10.0.10",
+    "@types/node": "22.20.5",
+    "@types/vscode": "1.101.0",
+    "@vscode/test-electron": "3.1.0",
+    "esbuild": "0.28.2",
+    "eslint": "9.39.1",
+    "mocha": "12.0.3",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.0"
+  }
+}

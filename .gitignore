@@ -1,0 +1,15 @@
+# Node / extension build
+node_modules/
+extension/dist/
+extension/out/
+extension/.vscode-test/
+*.vsix
+
+# API keys live here; .env.example is the committed template.
+.env
+.env.*
+!.env.example
+
+# Local browser review artifacts
+.playwright-cli/
+output/
