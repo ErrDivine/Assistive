@@ -29,7 +29,7 @@ This folder contains the full documentation for Assistive. Assistive is a VS Cod
 7. [Code analysis](07-code-analysis.md): the tree-sitter parser, the outline, the module docstring, the record of edits and workspace access (`src/code/`).
 8. [Graph model](08-graph-model.md): nodes, edges, the validated graph editor, status sync and the typing order (`src/graph/`).
 9. [LLM agent](09-llm-agent.md): the tool-call loop, the schema validator and the prompts (`src/llm/agent.ts`, `schema.ts`, `prompts.ts`).
-10. [Tool reference](10-tool-reference.md): each of the 18 tools that the LLM can use (`src/llm/tools.ts`).
+10. [Tool reference](10-tool-reference.md): each of the 19 tools that the LLM can use (`src/llm/tools.ts`).
 11. [Jev and the heartbeat](11-jev-and-heartbeat.md): the Jev client, the triage questions, the decision rules and the heartbeat runner (`src/llm/jev.ts`, `src/heartbeat/`).
 12. [Assistant turns](12-assistant.md): draft, chat, sync, heartbeat and struggle turns (`src/assistant/Assistant.ts`).
 13. [Store and resources](13-store-and-resources.md): the graph store, the undo history and the link check (`src/store/`, `src/resources/`).

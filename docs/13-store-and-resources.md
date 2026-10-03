@@ -51,7 +51,7 @@ The constructor receives a folder and a save delay (default 400 ms). The control
 
 | Change | Snapshot |
 |---|---|
-| The final graph of an LLM turn that changed the graph | Yes: the graph before the turn |
+| The final graph of an LLM turn that changed the graph | Yes: the graph before the turn, or an empty graph if there was none |
 | A live preview during a turn | No |
 | A rollback after a failed turn | No |
 | A status change from the code (`localSync`) | No |

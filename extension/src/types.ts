@@ -73,6 +73,8 @@ export interface GraphChangeSummary {
   removed: string[];
   edgesAdded: number;
   edgesRemoved: number;
+  /** Why nodes were removed, by id (from remove_nodes). */
+  removalReasons?: Record<string, string>;
 }
 
 export type ResourceType = "docs" | "tutorial" | "article" | "video" | "book" | "reference" | "course";
@@ -161,6 +163,7 @@ export type FromPanel =
   | { type: "undo" }
   | { type: "beatNow" }
   | { type: "toggleHeartbeat" }
+  | { type: "cancel" }
   | { type: "openConfig" }
   | { type: "goto"; line: number; endLine?: number; path?: string }
   | { type: "openLink"; url: string }

@@ -85,6 +85,11 @@
         "category": "Assistive"
       },
       {
+        "command": "assistive.stop",
+        "title": "Stop the Current Request",
+        "category": "Assistive"
+      },
+      {
         "command": "assistive.heartbeatNow",
         "title": "Run a Heartbeat Now",
         "category": "Assistive"

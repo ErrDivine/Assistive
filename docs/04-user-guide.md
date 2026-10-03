@@ -99,7 +99,7 @@ The feed shows the conversation and the events for the current file. The newest 
 | Code reference | A link to lines in a file, with a note. |
 | System note | An information, warning or error message from Assistive. |
 
-The input box is at the bottom. Push `Enter` to send. Push `Shift+Enter` to start a new line. A line with a spinner above the input box shows the current task, for example "Drafting the graph…".
+The input box is at the bottom. Push `Enter` to send. Push `Shift+Enter` to start a new line. A line with a spinner above the input box shows the current task, for example "Drafting the graph…". The **Stop** button on that line stops the task.
 
 ### 4.1.5 Status bar item
 
@@ -172,7 +172,7 @@ For a redraft, the LLM keeps the IDs of the nodes that still fit. It changes or 
 4. Watch the graph. The changes show while the LLM works.
 5. Read the reply in the feed.
 
-> **Note:** A new message, draft or sync stops the LLM turn that is in progress for the same file. Your request has priority. A heartbeat never stops a turn. If a turn is in progress, the heartbeat does not escalate.
+> **Note:** If the LLM works on a different request for the same file, your message waits. It shows in the feed at once and runs when the first request is done. A heartbeat check in progress stops for your message. To stop the current request, refer to [4.17](#417-stop-a-request).
 
 ## 4.5 Ask a question
 
@@ -217,7 +217,7 @@ The heartbeat also starts a sync automatically if it finds that the graph is out
 
 1. Click **Undo**, or run **Assistive: Undo Last Graph Change**.
 
-Assistive keeps the last 20 revisions of each graph. Each graph change by the LLM adds one revision. A clear also adds one revision. Status changes from the code and interrupt flags do not add a revision. The first draft of a file has no previous revision, so **Undo** is not available after it.
+Assistive keeps the last 20 revisions of each graph. Each graph change by the LLM adds one revision. A clear also adds one revision. Status changes from the code and interrupt flags do not add a revision. **Undo** after the first draft of a file gives an empty graph. Click **Draft** to draft again.
 
 ## 4.10 Use the heartbeat
 
@@ -295,6 +295,7 @@ Assistive examines each link before it shows the link. It removes links that giv
 | Assistive: Sync Graph with Code | Make the graph agree with the code. |
 | Assistive: Undo Last Graph Change | Restore the previous revision. |
 | Assistive: Clear Graph for This File | Remove the graph. |
+| Assistive: Stop the Current Request | Stop the LLM request in progress. |
 | Assistive: Run a Heartbeat Now | Run one beat. |
 | Assistive: Pause / Resume Heartbeat | Turn the heartbeat off or on. |
 | Assistive: Export Graph as Mermaid | Open the graph as Mermaid text. |
@@ -305,3 +306,12 @@ Assistive examines each link before it shows the link. It removes links that giv
 
 - If you open a file in a language that Assistive does not support, the panel continues to show the last supported file. Thus you can read documentation or a configuration file and keep the plan in view.
 - If no supported file was open before, the panel tells you to open a Python, TypeScript or JavaScript file.
+
+## 4.17 Stop a request
+
+Use this procedure if the LLM works on a request that you do not want, or if it takes too long.
+
+1. Click **Stop** on the line with the spinner, above the input box. You can also run **Assistive: Stop the Current Request**.
+2. Read the note "Stopped. The graph is as it was before." in the feed.
+
+Assistive removes the graph changes that the stopped request made. If a different request waits, that request starts now.

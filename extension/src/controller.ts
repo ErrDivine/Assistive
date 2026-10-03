@@ -542,6 +542,12 @@ export class Controller implements vscode.Disposable {
     if (ok === "Clear") this.store.clear(h.key);
   }
 
+  /** Stop the LLM request in progress for the active file (the panel's Stop button). */
+  stop(): void {
+    const h = this.handle();
+    if (h) this.assistant.cancel(h.key);
+  }
+
   async beatNow(): Promise<BeatReport | undefined> {
     const h = this.requireFile();
     return h ? this.heartbeat.beat(h) : undefined;
@@ -639,6 +645,8 @@ export class Controller implements vscode.Disposable {
         return;
       case "toggleHeartbeat":
         return this.toggleHeartbeat();
+      case "cancel":
+        return this.stop();
       case "openConfig":
         return this.openConfig();
       case "goto":

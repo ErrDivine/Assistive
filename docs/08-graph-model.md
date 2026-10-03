@@ -50,9 +50,11 @@ This function makes a node ID from any text:
 4. It removes `_` at the start and at the end.
 5. It cuts the result at 48 characters. It removes a `_` at the new end.
 
-### 8.3.3 Edit distance
+### 8.3.3 Edit distance and hints
 
-The private function `editDistance(a, b)` computes the Levenshtein distance. This is the minimum number of single-character insertions, deletions and substitutions that change `a` into `b`. The editor uses it for the "Did you mean" hints.
+`editDistance(a, b)` computes the Levenshtein distance. This is the minimum number of single-character insertions, deletions and substitutions that change `a` into `b`.
+
+`closest(wanted, candidates)` returns the candidate with the smallest distance, if that distance is not more than $\max(2, \lfloor n/3 \rfloor)$, where $n$ is the length of `wanted`. The graph editor and the `read_symbol` tool use it for the "Did you mean" hints.
 
 ## 8.4 `class GraphEditor`
 
@@ -105,6 +107,8 @@ A node that the same batch added counts as added, not as updated.
 ### 8.4.4 `removeNodes(ids)`
 
 For each ID, the method removes the node and all its edges. It returns `ok: removed 'id' and N edge(s).` If the same editor added the node before, the add and the remove cancel out in the summary.
+
+The optional second parameter `reason` comes from the `remove_nodes` tool. The summary keeps it in `removalReasons`, by node ID (maximum 200 characters).
 
 ### 8.4.5 `connect(edges)`
 

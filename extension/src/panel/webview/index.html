@@ -49,7 +49,10 @@
     <section id="feed" aria-live="polite"></section>
 
     <footer id="compose">
-      <div id="busy" hidden><span class="spinner"></span><span id="busy-text"></span></div>
+      <div id="busy" hidden>
+        <span class="spinner"></span><span id="busy-text"></span><span class="spacer"></span>
+        <button id="btn-stop" class="link" title="Stop the current request; the graph stays as it was">Stop</button>
+      </div>
       <div class="input-row">
         <textarea id="input" rows="2" placeholder="Tell the assistant what to change, or ask…" title="Enter sends; Shift+Enter adds a line"></textarea>
         <button id="btn-send" title="Send (Enter)">Send</button>

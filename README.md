@@ -63,6 +63,7 @@ The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration
 | Inspect a node | Click it to see its signature, description, notes and edges, plus **Go to code**, **Copy signature** and **Ask about this**. Double-click jumps to the code. |
 | Bring the graph in line with the code | **Sync** (also runs on its own when a heartbeat finds the graph out of date) |
 | Undo a graph change | **Undo** (keeps the last 20 revisions per file) |
+| Stop a request in progress | **Stop** on the busy line above the input box |
 | Check now instead of waiting for the heartbeat | **♥ Check now** |
 | Pause or resume the heartbeat | **Pause** / **Resume** |
 | Handle an interrupt | **Show line**, **Explain more** (a deeper explanation with resources) or **Got it** (it is not raised again) |
@@ -128,12 +129,12 @@ Variables in the process environment (`ASSISTIVE_*`) override the file.
 
 | Family | Tools |
 |---|---|
-| Look (read-only) | `get_file_outline`, `read_file` (live buffer, numbered lines, secrets refused), `search_code`, `list_files`, `get_diagnostics`, `get_project_context`, `get_graph`, `get_recent_edits` |
+| Look (read-only) | `get_file_outline`, `read_file` (live buffer, numbered lines, secrets refused), `read_symbol` (one symbol by name), `search_code`, `list_files`, `get_diagnostics`, `get_project_context`, `get_graph`, `get_recent_edits` |
 | Graph (batch edits) | `add_nodes`, `update_nodes`, `remove_nodes`, `connect`, `disconnect` |
 | Talk | `recommend_resources` (links are checked), `ask_programmer` (clickable options), `point_to_code` |
 | Heartbeat only | `interrupt_programmer` (once per beat), `stand_down` |
 
-Each kind of turn gets only the tools it needs. Drafting cannot point to code that does not exist yet; a heartbeat can interrupt but not restructure the plan.
+Each kind of turn gets only the tools it needs. Drafting cannot point to code that does not exist yet; a heartbeat can interrupt but not restructure the plan; offering resources to a stuck programmer can do only that. Requests for the same file queue: a message sent during a draft runs after it, and a heartbeat check gives way to anything you ask.
 
 **The heartbeat.** A beat runs when all of these hold:
 - you typed since the last beat;

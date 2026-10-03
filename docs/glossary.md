@@ -63,7 +63,7 @@ This glossary gives the terms of these documents. A **technical name** is a name
 | Sync | A turn in which the LLM makes the graph agree with the code. |
 | System One | Fast, low-cost thought. Here, Jev. |
 | System Two | Slow, careful thought. Here, the LLM. |
-| Tool | A function that the LLM can call. There are 18 tools. |
+| Tool | A function that the LLM can call. There are 19 tools. |
 | Tool round | One request to the LLM and the tool calls in its reply. |
 | Tree-sitter | A parser library. Assistive uses its WASM build to read Python, TypeScript and JavaScript. |
 | Triage | The first, fast part of a beat. Jev (or the LLM) answers five questions about the latest change. |

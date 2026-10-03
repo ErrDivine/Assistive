@@ -33,6 +33,8 @@ export class FakeServers {
   readonly jevRequests: { body: JevRequest; auth?: string }[] = [];
   readonly linkRequests: { method: string; url: string }[] = [];
   chat: Responder = () => ({ content: "OK" });
+  /** Delay before each chat reply, to test turns that overlap. */
+  chatDelayMs = 0;
   jev: (req: JevRequest) => { status?: number; body: unknown } = (req) => ({ body: jevAnswers(req, {}) });
   private server?: http.Server;
   private callId = 0;
@@ -54,6 +56,7 @@ export class FakeServers {
   }
 
   reset(): void {
+    this.chatDelayMs = 0;
     this.chatRequests.length = 0;
     this.jevRequests.length = 0;
     this.linkRequests.length = 0;
@@ -72,6 +75,12 @@ export class FakeServers {
       if (req.method === "POST" && url.endsWith("/chat/completions")) {
         const body = JSON.parse(raw) as ChatRequest;
         this.chatRequests.push(body);
+        if (this.chatDelayMs) {
+          await new Promise((r) => setTimeout(r, this.chatDelayMs));
+          if (res.destroyed || !res.socket || res.socket.destroyed) {
+            return; // the client aborted
+          }
+        }
         const reply = this.chat(body, this.chatRequests.length - 1);
         if ("status" in reply) {
           json(reply.status, { error: { message: reply.error, type: "invalid_request_error" } });

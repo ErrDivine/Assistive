@@ -7,7 +7,8 @@ import { emptyGraph, GraphEditor } from "../../src/graph/model";
 import type { AgentTool, ToolContext } from "../../src/llm/agent";
 import { check } from "../../src/llm/schema";
 import { type ToolEnv, toolsFor } from "../../src/llm/tools";
-import type { AgentMode, NewFeedItem, Resource } from "../../src/types";
+import type { FeedItem, NewFeedItem, Resource } from "../../src/types";
+import type { ToolMode } from "../../src/llm/tools";
 import { MemoryWorkspace } from "../support/memoryWorkspace";
 
 const ts = new TreeSitter(path.resolve(__dirname, "../../../node_modules/@vscode/tree-sitter-wasm/wasm"));
@@ -25,7 +26,7 @@ def top(counts):
     pass
 `;
 
-function setup(mode: AgentMode, live = APP) {
+function setup(mode: ToolMode, live = APP, feed: FeedItem[] = []) {
   const ws = new MemoryWorkspace({
     "app/main.py": APP,
     "app/util.py": '"""Helpers."""\ndef tokenize(text: str) -> list[str]:\n    return text.split()\n',
@@ -48,7 +49,18 @@ function setup(mode: AgentMode, live = APP) {
       kept: items.filter((r) => !r.url.includes("missing")).map((r) => ({ ...r, verified: "ok" as const })),
       dropped: items.filter((r) => r.url.includes("missing")).map((r) => ({ url: r.url, reason: "HTTP 404" })),
     }),
-    emit: (i) => emitted.push(i),
+    emit: (i) => {
+      // Like the Assistant: an open interrupt on the same line text is not repeated.
+      if (
+        i.kind === "interrupt" &&
+        feed.some((f) => f.kind === "interrupt" && f.status !== "resolved" && f.issue === i.issue && f.lineText?.trim() === i.lineText?.trim())
+      ) {
+        return false;
+      }
+      emitted.push(i);
+      return true;
+    },
+    feed: () => feed,
   };
   const tools = new Map(toolsFor(mode, env).map((t) => [t.name, t]));
   const ctx: ToolContext = {};
@@ -64,8 +76,8 @@ function setup(mode: AgentMode, live = APP) {
 
 describe("tool sets", () => {
   it("give each mode the right tools", () => {
-    const names = (m: AgentMode) => toolsFor(m, setup(m).env).map((t) => t.name);
-    const look = ["get_file_outline", "read_file", "search_code", "list_files", "get_diagnostics"];
+    const names = (m: ToolMode) => toolsFor(m, setup(m).env).map((t) => t.name);
+    const look = ["get_file_outline", "read_file", "read_symbol", "search_code", "list_files", "get_diagnostics"];
     const edit = ["add_nodes", "update_nodes", "remove_nodes", "connect", "disconnect"];
     assert.deepStrictEqual(names("draft"), [...look, "get_graph", ...edit, "recommend_resources", "ask_programmer"]);
     assert.deepStrictEqual(names("chat"), [
@@ -89,10 +101,12 @@ describe("tool sets", () => {
       "interrupt_programmer",
       "stand_down",
     ]);
+    // A struggle turn only offers resources: no interrupts, no graph changes.
+    assert.deepStrictEqual(names("struggling"), [...look, "get_project_context", "get_graph", "get_recent_edits", "recommend_resources"]);
   });
 
   it("have descriptions and object schemas that forbid unknown fields", () => {
-    for (const mode of ["draft", "chat", "sync", "heartbeat"] as AgentMode[]) {
+    for (const mode of ["draft", "chat", "sync", "heartbeat", "struggling"] as ToolMode[]) {
       for (const t of toolsFor(mode, setup(mode).env)) {
         assert.ok(t.description.length > 40, `${t.name} is described`);
         assert.strictEqual(t.parameters.type, "object");
@@ -124,6 +138,21 @@ describe("look tools", () => {
     const big = await call("read_file", { path: "big.py" });
     assert.match(big, /lines 1-400 of 900/);
     assert.match(big, /call again with start_line=401/);
+  });
+
+  it("read_symbol returns one symbol's code by name, with hints when the name is wrong", async () => {
+    const { call, ws } = setup("chat");
+    assert.strictEqual(
+      await call("read_symbol", { symbol: "count" }),
+      "app/main.py: function count, lines 5-7:\n5| def count(text: str) -> dict[str, int]:\n6|     words = tokenize(text)\n7|     return {w: words.count(w) for w in words}",
+    );
+    assert.match(await call("read_symbol", { symbol: "def top(counts)" }), /function top, lines 10-11 \(stub\):\n10\| def top\(counts\):\n11\| {5}pass/);
+    assert.match(await call("read_symbol", { symbol: "cuont" }), /^error: no symbol 'cuont' in app\/main.py. Did you mean 'count'\? Symbols: count, top\./);
+    assert.match(await call("read_symbol", { symbol: "tokenize", path: "app/util.py" }), /function tokenize, lines 2-3/);
+    ws.files["two.py"] = "class A:\n    def get(self):\n        return 1\n\nclass B:\n    def get(self):\n        return 2\n";
+    assert.match(await call("read_symbol", { symbol: "get", path: "two.py" }), /^error: 'get' is ambiguous in two.py: A.get, B.get/);
+    assert.match(await call("read_symbol", { symbol: "B.get", path: "two.py" }), /method B.get, lines 6-7:\n6\| {5}def get\(self\):\n7\| {9}return 2/);
+    assert.match(await call("read_symbol", { symbol: "x", path: "app/.env" }), /secrets or credentials/);
   });
 
   it("refuses secrets and paths outside the workspace", async () => {
@@ -208,6 +237,26 @@ describe("talk tools", () => {
     assert.match(all, /^error: none of the links could be used/);
   });
 
+  it("recommend_resources does not repeat links that are already in the panel", async () => {
+    const counter = "https://docs.python.org/3/library/collections.html#collections.Counter";
+    const feed: FeedItem[] = [
+      { id: "r1", ts: "", kind: "resources", topic: "Counter", items: [{ title: "Counter", url: counter, type: "docs", why: "API", verified: "ok" }] },
+    ];
+    const { call, emitted } = setup("chat", APP, feed);
+    const same = await call("recommend_resources", { topic: "Counter", resources: [{ title: "Counter", url: counter, type: "docs", why: "API" }] });
+    assert.match(same, /already has these links in the panel; nothing new was shown/);
+    assert.strictEqual(emitted.length, 0);
+    const mixed = await call("recommend_resources", {
+      topic: "Counting",
+      resources: [
+        { title: "Counter", url: counter, type: "docs", why: "API" },
+        { title: "HOWTO", url: "https://docs.python.org/3/howto/sorting.html", type: "tutorial", why: "Sorting" },
+      ],
+    });
+    assert.match(mixed, /ok: showed 1 resource\(s\) on 'Counting'\. Already in the panel \(not shown again\): https:\/\/docs.python.org/);
+    assert.deepStrictEqual((emitted[0] as Extract<NewFeedItem, { kind: "resources" }>).items.map((r) => r.title), ["HOWTO"]);
+  });
+
   it("ask_programmer and point_to_code emit feed items with 0-based lines", async () => {
     const { call, emitted } = setup("chat");
     await call("ask_programmer", { question: "Case-sensitive?", options: ["yes", "no", " "] });
@@ -228,6 +277,30 @@ describe("talk tools", () => {
     assert.strictEqual(item.status, "open");
     assert.strictEqual(ctx.stop?.reason, "interrupted: Quadratic count");
     assert.match(await setup("heartbeat").call("interrupt_programmer", { ...args, line: 99 }), /past the end of the file/);
+  });
+
+  it("interrupt_programmer refuses to repeat a problem that is already reported on the same line", async () => {
+    const feed: FeedItem[] = [
+      {
+        id: "i1",
+        ts: "",
+        kind: "interrupt",
+        title: "Quadratic count",
+        message: "m",
+        line: 6,
+        issue: "better_implementation",
+        severity: 2,
+        status: "dismissed",
+        lineText: "    return {w: words.count(w) for w in words}",
+      },
+    ];
+    const { call, emitted, ctx } = setup("heartbeat", APP, feed);
+    const args = { title: "Still quadratic", message: "Use a Counter.", line: 7, issue: "better_implementation", severity: 2 };
+    assert.match(await call("interrupt_programmer", args), /^error: this better implementation on line 7 was already reported .* stand_down, or report a different problem/);
+    assert.strictEqual(emitted.length, 0);
+    assert.strictEqual(ctx.stop, undefined, "the turn continues so the model can stand down");
+    // A different problem is still allowed in the same heartbeat.
+    assert.strictEqual(await call("interrupt_programmer", { ...args, issue: "logic_error" }), "ok: the programmer was interrupted.");
   });
 
   it("stand_down ends the heartbeat", async () => {

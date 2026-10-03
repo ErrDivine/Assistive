@@ -482,7 +482,12 @@ function renderItem(f: FeedItem): HTMLElement {
           c.edgesAdded ? `+${c.edgesAdded} edge${c.edgesAdded > 1 ? "s" : ""}` : "",
           c.edgesRemoved ? `−${c.edgesRemoved} edge${c.edgesRemoved > 1 ? "s" : ""}` : "",
         ].filter(Boolean);
-        if (parts.length) box.append(el("div", "changes", `Graph: ${parts.join(", ")}`));
+        if (parts.length) {
+          const line = el("div", "changes", `Graph: ${parts.join(", ")}`);
+          const why = Object.entries(c.removalReasons ?? {}).map(([id, r]) => `${id} removed: ${r}`);
+          if (why.length) line.title = why.join("\n");
+          box.append(line);
+        }
       }
       break;
     }
@@ -636,6 +641,7 @@ $("btn-undo").addEventListener("click", () => post({ type: "undo" }));
 $("btn-beat").addEventListener("click", () => post({ type: "beatNow" }));
 $("btn-pause").addEventListener("click", () => post({ type: "toggleHeartbeat" }));
 $("btn-config").addEventListener("click", () => post({ type: "openConfig" }));
+$("btn-stop").addEventListener("click", () => post({ type: "cancel" }));
 $("btn-fit").addEventListener("click", () => layout());
 $("docstring").addEventListener("click", (ev) => {
   if ((ev.target as HTMLElement).tagName !== "BUTTON") $("docstring").classList.toggle("expanded");

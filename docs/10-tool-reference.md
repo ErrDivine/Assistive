@@ -1,6 +1,6 @@
 # 10. Tool reference (`src/llm/tools.ts`)
 
-This document describes each tool that the LLM can use. There are 18 tools in four families. For each tool, the document gives the purpose, the modes, the parameters, the result and the errors.
+This document describes each tool that the LLM can use. There are 19 tools in four families. For each tool, the document gives the purpose, the modes, the parameters, the result and the errors.
 
 ## 10.1 Design rules
 
@@ -17,34 +17,36 @@ The tools follow decision D3 in `DESIGN.md`:
 
 ## 10.2 Tool sets for each mode
 
-`toolsFor(mode, env)` returns the tools of a mode. A struggle turn uses the `heartbeat` tool set.
+`toolsFor(mode, env)` returns the tools of a mode. The modes are `draft`, `chat`, `sync`, `heartbeat` and `struggling` (the struggle turn).
 
-| Tool | Family | draft | chat | sync | heartbeat |
-|---|---|:-:|:-:|:-:|:-:|
-| `get_file_outline` | Look | ✓ | ✓ | ✓ | ✓ |
-| `read_file` | Look | ✓ | ✓ | ✓ | ✓ |
-| `search_code` | Look | ✓ | ✓ | ✓ | ✓ |
-| `list_files` | Look | ✓ | ✓ | ✓ | ✓ |
-| `get_diagnostics` | Look | ✓ | ✓ | ✓ | ✓ |
-| `get_project_context` | Look | | ✓ | ✓ | ✓ |
-| `get_graph` | Look | ✓ | ✓ | ✓ | ✓ |
-| `get_recent_edits` | Look | | ✓ | ✓ | ✓ |
-| `add_nodes` | Graph | ✓ | ✓ | ✓ | |
-| `update_nodes` | Graph | ✓ | ✓ | ✓ | ✓ |
-| `remove_nodes` | Graph | ✓ | ✓ | ✓ | |
-| `connect` | Graph | ✓ | ✓ | ✓ | |
-| `disconnect` | Graph | ✓ | ✓ | ✓ | |
-| `recommend_resources` | Talk | ✓ | ✓ | | ✓ |
-| `ask_programmer` | Talk | ✓ | ✓ | | |
-| `point_to_code` | Talk | | ✓ | | |
-| `interrupt_programmer` | Heartbeat | | | | ✓ |
-| `stand_down` | Heartbeat | | | | ✓ |
+| Tool | Family | draft | chat | sync | heartbeat | struggling |
+|---|---|:-:|:-:|:-:|:-:|:-:|
+| `get_file_outline` | Look | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `read_file` | Look | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `read_symbol` | Look | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `search_code` | Look | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `list_files` | Look | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `get_diagnostics` | Look | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `get_project_context` | Look | | ✓ | ✓ | ✓ | ✓ |
+| `get_graph` | Look | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `get_recent_edits` | Look | | ✓ | ✓ | ✓ | ✓ |
+| `add_nodes` | Graph | ✓ | ✓ | ✓ | | |
+| `update_nodes` | Graph | ✓ | ✓ | ✓ | ✓ | |
+| `remove_nodes` | Graph | ✓ | ✓ | ✓ | | |
+| `connect` | Graph | ✓ | ✓ | ✓ | | |
+| `disconnect` | Graph | ✓ | ✓ | ✓ | | |
+| `recommend_resources` | Talk | ✓ | ✓ | | ✓ | ✓ |
+| `ask_programmer` | Talk | ✓ | ✓ | | | |
+| `point_to_code` | Talk | | ✓ | | | |
+| `interrupt_programmer` | Heartbeat | | | | ✓ | |
+| `stand_down` | Heartbeat | | | | ✓ | |
 
 The reasons for the differences are:
 
 - A draft receives the project context in its first message. Thus it does not need `get_project_context`. It has no edits to examine, and no code to point to.
 - A sync only changes the graph. It does not talk to the programmer.
 - A heartbeat can interrupt and flag nodes, but it cannot change the structure of the plan.
+- A struggle turn can only look and recommend resources. It cannot interrupt and it cannot change the graph.
 
 ## 10.3 The tool environment (`ToolEnv`)
 
@@ -60,7 +62,8 @@ The Assistant gives each tool an environment. The tools use only this environmen
 | `editor` | The `GraphEditor` of this turn. |
 | `edits` | The `EditTracker`. |
 | `checkLinks(items)` | The link check. |
-| `emit(item)` | Adds an item to the feed of the panel. |
+| `emit(item)` | Adds an item to the feed of the panel. Returns `false` if the item was not added because it is a duplicate. |
+| `feed()` | The feed of the file. The tools use it so that they do not repeat what the programmer saw. |
 
 ### 10.3.1 Path rules of the look tools
 
@@ -119,7 +122,35 @@ wc.py lines 1-400 of 512:
 
 **Errors:** `error: no file 'x'. Use list_files to find the right path.` and the path errors.
 
-### 10.4.3 `search_code`
+### 10.4.3 `read_symbol`
+
+**Purpose:** Read the code of one class, function, method or constant by its name, with 1-based line numbers. This is more precise than `read_file` when the model knows what it wants to see.
+
+| Parameter | Type | Required | Rules | Meaning |
+|---|---|:-:|---|---|
+| `symbol` | string | ✓ | Not empty | The name as the outline shows it, for example `parse_args` or `Cache.get`. A keyword at the start (`def`, `class`, `function`) and a parameter list are ignored. |
+| `path` | string | | | A workspace-relative path. Omit it for the current file. |
+
+The tool finds the symbol by its exact dotted name first. If there is no exact match, it accepts a short name that only one symbol has. It returns a maximum of 400 lines.
+
+**Result:**
+
+```text
+app/main.py: function count, lines 5-7:
+5| def count(text: str) -> dict[str, int]:
+6|     words = tokenize(text)
+7|     return {w: words.count(w) for w in words}
+```
+
+A stub has "(stub)" after the line range.
+
+**Errors:**
+
+- `error: 'get' is ambiguous in two.py: A.get, B.get. Use the dotted name.`
+- `error: no symbol 'cuont' in app/main.py. Did you mean 'count'? Symbols: count, top.`
+- The path errors and `error: no file 'x'. …`.
+
+### 10.4.4 `search_code`
 
 **Purpose:** Search the text of the workspace for a word, an identifier or a regular expression. The search is case-sensitive.
 
@@ -134,7 +165,7 @@ wc.py lines 1-400 of 512:
 
 **Errors:** `error: invalid regex: …`. If nothing matches, the result is `No matches for 'x'.` (this is not an error).
 
-### 10.4.4 `list_files`
+### 10.4.5 `list_files`
 
 **Purpose:** List the files of the workspace. Vendor, virtual environment and build folders are excluded.
 
@@ -145,7 +176,7 @@ wc.py lines 1-400 of 512:
 
 **Result:** One path on each line. If there are more files, the last line is `(more files; use a narrower glob)`. The tool hides secret files. If nothing matches, the result is `No files match x.`
 
-### 10.4.5 `get_diagnostics`
+### 10.4.6 `get_diagnostics`
 
 **Purpose:** Show the errors and warnings that the language tools of the editor report (type checker, linter).
 
@@ -155,7 +186,7 @@ wc.py lines 1-400 of 512:
 
 **Result:** A maximum of 60 lines in the form `path:line severity (source): message`, with 1-based lines. Errors come first. The squiggles of Assistive itself are not included. If there are none, the result is `No diagnostics for x.`
 
-### 10.4.6 `get_project_context`
+### 10.4.7 `get_project_context`
 
 **Purpose:** Show the project around the current file. The result has these parts:
 
@@ -171,7 +202,7 @@ The model must call it one time, when it needs to know the libraries and convent
 
 **Result:** The output of `projectSummary`. Refer to [Code analysis](07-code-analysis.md#758-projectsummaryws-file-current-outlineof).
 
-### 10.4.7 `get_graph`
+### 10.4.8 `get_graph`
 
 **Purpose:** Show the current graph of the file: each node with its ID, kind, status, line, symbol, signature, description and notes, in typing order, and each edge.
 
@@ -179,7 +210,7 @@ The model must call it one time, when it needs to know the libraries and convent
 
 **Result:** `Graph for wc.py (revision 3):` and the output of `compactGraph`. The graph is the copy that this turn changes, so it includes the edits that the model made in the same turn.
 
-### 10.4.8 `get_recent_edits`
+### 10.4.9 `get_recent_edits`
 
 **Purpose:** Show what the programmer changed in the current file, as a diff with new-file line numbers.
 
@@ -254,7 +285,7 @@ The tool description explains each node kind to the model:
 | `ids` | string[] | ✓ | 1 to 30 items | The IDs to remove. |
 | `reason` | string | ✓ | Not empty | Why, in a few words. |
 
-> **Note:** The schema makes `reason` necessary, so the model must think about the removal. The current code does not store the reason.
+The change summary keeps the reason of each removed node. In the panel, the line "Graph: −1 removed" shows the reasons in its tooltip.
 
 ### 10.5.4 `connect`
 
@@ -308,10 +339,11 @@ The tool description explains each edge kind to the model:
 
 **Procedure in the code:**
 
-1. The tool calls `checkLinks` (refer to [Store and resources](13-store-and-resources.md#132-link-check-resourceslinksts)).
-2. If no link is usable, the result is `error: none of the links could be used: <url> (<reason>), …. Recommend other pages you are sure exist.` The panel shows nothing.
-3. If not, the tool adds a `resources` item to the feed with the links that it kept.
-4. The result is `ok: showed 2 resource(s) on 'topic'. Dropped: <url> (HTTP 404).`
+1. The tool removes the links that the feed of the file already shows. If no link is left, the result is `ok: the programmer already has these links in the panel; nothing new was shown. …`.
+2. The tool calls `checkLinks` (refer to [Store and resources](13-store-and-resources.md#132-link-check-resourceslinksts)).
+3. If no link is usable, the result is `error: none of the links could be used: <url> (<reason>), …. Recommend other pages you are sure exist.` The panel shows nothing.
+4. If not, the tool adds a `resources` item to the feed with the links that it kept.
+5. The result is `ok: showed 2 resource(s) on 'topic'. Dropped: <url> (HTTP 404).` If the tool removed links in step 1, the result also names them.
 
 ### 10.6.2 `ask_programmer`
 
@@ -366,10 +398,9 @@ When the programmer clicks an answer, the controller sends a chat message `Answe
    - the severity, rounded and kept between 1 and 3;
    - the status `open`;
    - `lineText`, the text of the line now. The controller uses it to find out when the programmer changes the line.
-4. The tool sets `ctx.stop`, so the loop ends after this round.
-5. The result is `ok: the programmer was interrupted.`
-
-> **Note:** The Assistant does not add an interrupt if an interrupt that is not resolved has the same issue kind and the same line text. Refer to [Assistant turns](12-assistant.md#126-feed-output-and-duplicate-interrupts).
+4. The Assistant does not add a duplicate item. Then the result is `error: this <issue> on line N was already reported and the line has not changed; it is not shown again. Call stand_down, or report a different problem.` The turn continues, and the model can report a different problem. Refer to [Assistant turns](12-assistant.md#126-feed-output-and-duplicate-interrupts).
+5. If not, the tool sets `ctx.stop`, so the loop ends after this round.
+6. The result is `ok: the programmer was interrupted.`
 
 ### 10.7.2 `stand_down`
 

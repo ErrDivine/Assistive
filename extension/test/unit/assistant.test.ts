@@ -124,7 +124,9 @@ describe("Assistant + Heartbeat with fake OpenAI and Jev servers", () => {
     assert.deepStrictEqual(summary.changes?.added, ["parse_line", "count_words", "main", "counter"]);
     assert.strictEqual(summary.mode, "draft");
     assert.deepStrictEqual(t.busy.slice(-1), [undefined], "busy cleared");
-    assert.strictEqual(t.store.canUndo("/ws/wc.py"), false, "nothing to undo on a first draft");
+    // A first draft can be undone: back to an empty graph.
+    assert.strictEqual(t.store.canUndo("/ws/wc.py"), true);
+    assert.deepStrictEqual(t.store.undo("/ws/wc.py")?.nodes, []);
   });
 
   it("asks for a docstring instead of drafting without one", async () => {
@@ -263,6 +265,73 @@ describe("Assistant + Heartbeat with fake OpenAI and Jev servers", () => {
     t.type(DOC + "x = 1\n", 1);
     await t.heartbeat.tick();
     assert.strictEqual(fake.jevRequests.length, 0, "the programmer is still typing");
+  });
+
+  it("queues a message sent during a draft instead of throwing the draft away", async () => {
+    const t = harness(fake);
+    fake.chatDelayMs = 60;
+    const draft = t.assistant.draft(t.h);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(t.assistant.isBusy("/ws/wc.py"));
+    const chat = t.assistant.chat(t.h, "Add a helper that returns the top N words.");
+    // The message shows at once, before its turn starts.
+    assert.strictEqual(feedOf(t.store, "user").length, 1);
+    await Promise.all([draft, chat]);
+    const ids = t.store.graph("/ws/wc.py")!.nodes.map((n) => n.id);
+    assert.deepStrictEqual(ids, ["parse_line", "count_words", "main", "counter", "top_n"], "both turns applied, in order");
+    const modes = (feedOf(t.store, "assistant") as Extract<FeedItem, { kind: "assistant" }>[]).map((f) => f.mode);
+    assert.deepStrictEqual(modes, ["draft", "chat"]);
+    // The chat turn saw the drafted graph.
+    const chatReq = fake.chatRequests.find((r) => /Task: the programmer wrote/.test(systemPrompt(r)))!;
+    assert.match(chatReq.messages.at(-1)!.content ?? "", /## Graph\nnodes \(4\)/);
+    assert.ok(!t.assistant.isBusy("/ws/wc.py"));
+  });
+
+  it("the programmer's message cancels a heartbeat turn in progress", async () => {
+    const t = harness(fake);
+    await t.assistant.draft(t.h);
+    t.type(DOC + "\ndef parse_line(line: str) -> list[str]:\n    return [w.lowr() for w in line.split()]\n", 3);
+    fake.jev = (req) => ({ body: jevAnswers(req, { interrupt: 0.92, issue: "typo", severity: 3 }) });
+    fake.chatDelayMs = 80;
+    const beat = t.heartbeat.beat();
+    await new Promise((r) => setTimeout(r, 40));
+    const chat = t.assistant.chat(t.h, "Add a helper that returns the top N words.");
+    const [report] = await Promise.all([beat, chat]);
+    assert.strictEqual(report?.outcome, "no_action", "the escalation was cancelled");
+    assert.strictEqual(feedOf(t.store, "interrupt").length, 0);
+    assert.ok(t.store.graph("/ws/wc.py")!.nodes.some((n) => n.id === "top_n"));
+    assert.ok(t.logs.some((l) => l === "heartbeat: cancelled"));
+    assert.strictEqual(feedOf(t.store, "system").length, 0, "a preempted heartbeat leaves no note");
+  });
+
+  it("Stop cancels a turn, rolls back its live preview and says so", async () => {
+    const t = harness(fake);
+    fake.chatDelayMs = 60;
+    const draft = t.assistant.draft(t.h);
+    // Wait until the first tool round has been applied as a live preview.
+    for (let i = 0; i < 50 && !t.store.graph("/ws/wc.py")?.nodes.length; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    assert.ok(t.store.graph("/ws/wc.py")?.nodes.length, "the preview is visible");
+    t.assistant.cancel("/ws/wc.py");
+    await draft;
+    assert.strictEqual(t.store.graph("/ws/wc.py"), undefined, "the preview was rolled back");
+    assert.match((feedOf(t.store, "system").at(-1) as { text: string }).text, /^Stopped\./);
+    assert.ok(!t.assistant.isBusy("/ws/wc.py"));
+  });
+
+  it("a struggle turn can only recommend resources", async () => {
+    const t = harness(fake);
+    t.type(DOC + "x = 1\n", 1);
+    fake.jev = (req) => ({ body: jevAnswers(req, { interrupt: 0.05, issue: "none", severity: 0, struggling: 0.9 }) });
+    fake.chat = () => ({ content: "No help needed." });
+    const r = await t.heartbeat.beat();
+    assert.ok(r?.actions.some((a) => /may be stuck/.test(a)));
+    const req = fake.chatRequests[0];
+    const tools = (req.tools ?? []).map((x) => x.function.name);
+    assert.ok(tools.includes("recommend_resources"));
+    assert.ok(!tools.includes("interrupt_programmer") && !tools.includes("update_nodes"));
+    assert.strictEqual(t.store.get("/ws/wc.py").feed.length, 0, "'No help needed' posts nothing");
   });
 
   it("scopeCode marks the cursor inside the enclosing symbol", async () => {

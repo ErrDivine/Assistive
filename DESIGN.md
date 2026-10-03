@@ -33,7 +33,7 @@ When a concept is the obstacle, the panel offers a few checked learning resource
 | `llm/tools.ts`, `llm/schema.ts` | The tools: JSON Schemas, validation, a per-mode tool set |
 | `llm/jev.ts` | Jev client: `POST {base}/systemone` with `{model, state, questions}`. Answers are normalized to `noul` / `choice` / `score`. |
 | `llm/prompts.ts` | The persona (senior engineer, never writes the implementation) and per-mode instructions |
-| `assistant/Assistant.ts` | Draft, chat, sync, heartbeat escalation and struggling turns. Shows graph edits live; rolls back on failure; one turn per file at a time. |
+| `assistant/Assistant.ts` | Draft, chat, sync, heartbeat escalation and struggling turns. Shows graph edits live; rolls back on failure or Stop; one turn per file at a time, with programmer requests queued and heartbeat turns giving way. |
 | `heartbeat/policy.ts`, `heartbeat/Heartbeat.ts` | Jev questions, verdicts, decisions, timing, interrupt reconciliation, and the runner |
 | `store/GraphStore.ts` | Per-file graph, feed (last 200 items) and undo history (last 20 revisions), stored as JSON in workspace storage |
 | `panel/` | Webview built with cytoscape + dagre (graph), a steps list, node details, a markdown feed (marked + DOMPurify) and the input box |
@@ -64,6 +64,7 @@ When a concept is the obstacle, the panel offers a few checked learning resource
   | chat | everything except the heartbeat tools |
   | sync | look and graph edits |
   | heartbeat | look, `update_nodes`, resources, `interrupt_programmer`, `stand_down` |
+  | struggling | look, resources |
 
 **D4. The draft gets the context up front.** The first message already contains:
 - the docstring;

@@ -19,7 +19,7 @@ import {
 import { describeVerdict, type TriageVerdict } from "../heartbeat/policy";
 import type { AgentResult, AgentStep, Llm } from "../llm/agent";
 import { contextBlock, instructionsFor, SYSTEM } from "../llm/prompts";
-import { cursorDescription, toolsFor } from "../llm/tools";
+import { cursorDescription, type ToolMode, toolsFor } from "../llm/tools";
 import type { LinkCheck } from "../resources/links";
 import type { GraphStore } from "../store/GraphStore";
 import type { AgentMode, FeedItem, FileGraph, NewFeedItem, Resource } from "../types";
@@ -74,19 +74,62 @@ function stepLabel(step: AgentStep): string | undefined {
 }
 
 export class Assistant {
-  private readonly running = new Map<string, { mode: AgentMode | "struggling"; abort: AbortController }>();
+  private readonly running = new Map<string, { mode: ToolMode; abort: AbortController; silent: boolean }>();
+  /** Per-file queue: the tail settles when the last queued turn is done. */
+  private readonly locks = new Map<string, Promise<void>>();
+  /** Programmer requests waiting for the file (heartbeat turns do not start meanwhile). */
+  private readonly waiting = new Map<string, number>();
 
   constructor(private readonly deps: AssistantDeps) {}
 
+  /** A turn runs or is queued for the file. */
   isBusy(file: string): boolean {
-    return this.running.has(file);
+    return this.locks.has(file) || this.running.has(file);
   }
 
-  /** Cancel a running turn (e.g. a heartbeat when the programmer sends a message). */
-  cancel(file: string, onlyMode?: AgentMode | "struggling"): void {
+  /**
+   * Stop the turn in progress for a file. With `onlyMode`, only a turn of that
+   * mode. "user" (the Stop button) leaves a note; "preempted" is silent.
+   */
+  cancel(file: string, onlyMode?: ToolMode, reason: "user" | "preempted" = "user"): void {
     const r = this.running.get(file);
     if (r && (!onlyMode || r.mode === onlyMode)) {
-      r.abort.abort();
+      r.abort.abort(reason);
+    }
+  }
+
+  /**
+   * Run `fn` alone for this file. The programmer's requests queue behind each
+   * other (a draft is never thrown away by a message sent meanwhile), while a
+   * heartbeat turn in progress is cancelled: the programmer comes first.
+   * Heartbeat turns (`silent`) only start when nothing else runs or waits.
+   */
+  private async exclusive<T>(file: string, fn: () => Promise<T>, silent = false): Promise<T> {
+    if (!silent) {
+      const r = this.running.get(file);
+      if (r?.silent) {
+        r.abort.abort("preempted");
+      }
+      this.waiting.set(file, (this.waiting.get(file) ?? 0) + 1);
+    }
+    const prev = this.locks.get(file);
+    let release!: () => void;
+    const mine = new Promise<void>((resolve) => (release = resolve));
+    const tail = (prev ?? Promise.resolve()).then(() => mine);
+    this.locks.set(file, tail);
+    try {
+      await prev;
+      if (!silent) {
+        const n = (this.waiting.get(file) ?? 1) - 1;
+        if (n > 0) this.waiting.set(file, n);
+        else this.waiting.delete(file);
+      }
+      return await fn();
+    } finally {
+      release();
+      if (this.locks.get(file) === tail) {
+        this.locks.delete(file);
+      }
     }
   }
 
@@ -107,6 +150,10 @@ export class Assistant {
   // ------------------------------------------------------------ turns
 
   async draft(h: FileHandle): Promise<void> {
+    return this.exclusive(h.key, () => this.draftNow(h));
+  }
+
+  private async draftNow(h: FileHandle): Promise<void> {
     const text = h.text();
     const outline = await this.deps.outlineOf(h.file, text, h.language);
     const doc = outline.moduleString?.text.trim();
@@ -140,8 +187,12 @@ export class Assistant {
   }
 
   async chat(h: FileHandle, message: string): Promise<void> {
-    this.cancel(h.key, "heartbeat");
-    this.deps.store.addFeed(h.key, { kind: "user", text: message });
+    // The message shows at once; the turn waits for a draft or chat in progress.
+    const item = this.deps.store.addFeed(h.key, { kind: "user", text: message });
+    return this.exclusive(h.key, () => this.chatNow(h, message, item.id));
+  }
+
+  private async chatNow(h: FileHandle, message: string, messageId: string): Promise<void> {
     const text = h.text();
     const outline = await this.deps.outlineOf(h.file, text, h.language);
     const graph = this.deps.store.graph(h.key);
@@ -158,13 +209,17 @@ export class Assistant {
     await this.turn(h, "chat", content, {
       busy: "Thinking…",
       base: graph ?? emptyGraph(h.file, h.language, outline.moduleString?.text ?? ""),
-      history: this.history(h.key, 1),
+      history: this.history(h.key, messageId),
     });
   }
 
   async sync(h: FileHandle, why = "requested"): Promise<void> {
+    return this.exclusive(h.key, () => this.syncNow(h, why));
+  }
+
+  private async syncNow(h: FileHandle, why: string): Promise<void> {
     const graph = this.deps.store.graph(h.key);
-    if (!graph) {
+    if (!graph?.nodes.length) {
       this.note(h.key, "info", "There is no graph to sync yet. Draft one first.");
       return;
     }
@@ -188,6 +243,10 @@ export class Assistant {
     if (this.isBusy(h.key)) {
       return "no_action";
     }
+    return this.exclusive(h.key, () => this.heartbeatNow(h, verdict, recentDiff), true);
+  }
+
+  private async heartbeatNow(h: FileHandle, verdict: TriageVerdict, recentDiff: string): Promise<HeartbeatOutcome> {
     const text = h.text();
     const lines = text.split(/\r?\n/);
     const outline = await this.deps.outlineOf(h.file, text, h.language);
@@ -260,6 +319,10 @@ export class Assistant {
     if (this.isBusy(h.key)) {
       return;
     }
+    return this.exclusive(h.key, () => this.strugglingNow(h, verdict, recentDiff), true);
+  }
+
+  private async strugglingNow(h: FileHandle, verdict: TriageVerdict, recentDiff: string): Promise<void> {
     const text = h.text();
     const outline = await this.deps.outlineOf(h.file, text, h.language);
     const content = contextBlock([
@@ -300,7 +363,7 @@ export class Assistant {
       /** Heartbeat turns post nothing unless a tool shows something. */
       silent?: boolean;
       quietIfUnchanged?: boolean;
-      mode?: AgentMode | "struggling";
+      mode?: ToolMode;
       after?: () => void;
     },
   ): Promise<AgentResult | undefined> {
@@ -311,15 +374,11 @@ export class Assistant {
       }
       return undefined;
     }
-    if (this.running.has(h.key)) {
-      if (opts.silent) {
-        return undefined;
-      }
-      this.cancel(h.key);
-      await new Promise((r) => setTimeout(r, 50));
+    if (opts.silent && this.waiting.has(h.key)) {
+      return undefined; // the programmer asked for something meanwhile
     }
     const abort = new AbortController();
-    this.running.set(h.key, { mode: opts.mode ?? mode, abort });
+    this.running.set(h.key, { mode: opts.mode ?? mode, abort, silent: !!opts.silent });
     this.deps.setBusy(h.key, opts.busy);
 
     const store = this.deps.store;
@@ -341,10 +400,13 @@ export class Assistant {
       edits: this.deps.edits,
       checkLinks: (items: Resource[]) => this.deps.checkLinks(items),
       emit: (item: NewFeedItem) => {
-        if (this.emit(h.key, item)) {
+        const ok = this.emit(h.key, item);
+        if (ok) {
           shown++;
         }
+        return ok;
       },
+      feed: () => store.get(h.key).feed,
     };
     let finished = false;
     const publish = async () => {
@@ -363,7 +425,7 @@ export class Assistant {
       ];
       const result = await llm.run({
         messages,
-        tools: toolsFor(mode, env),
+        tools: toolsFor(opts.mode ?? mode, env),
         signal: abort.signal,
         onStep: (step) => {
           const label = stepLabel(step);
@@ -385,7 +447,8 @@ export class Assistant {
         outline = undefined;
         const g = editor.result();
         syncWithOutline(g, await outlineNow());
-        store.setGraph(h.key, g, before ?? false);
+        // A first graph can be undone too: back to an empty graph.
+        store.setGraph(h.key, g, before ?? emptyGraph(h.file, h.language, g.moduleString));
       }
       opts.after?.();
       const text = result.text.trim();
@@ -419,6 +482,9 @@ export class Assistant {
       }
       if (abort.signal.aborted) {
         this.deps.log(`${mode}: cancelled`);
+        if (abort.signal.reason === "user" && !opts.silent) {
+          this.note(h.key, "info", "Stopped. The graph is as it was before.");
+        }
         return undefined;
       }
       const msg = (err as Error).message ?? String(err);
@@ -455,11 +521,12 @@ export class Assistant {
     return true;
   }
 
-  /** Earlier user/assistant exchanges as chat messages (excluding the newest `skip` items). */
-  private history(file: string, skip: number): ChatCompletionMessageParam[] {
+  /** Earlier user/assistant exchanges as chat messages, up to (not including) the current message. */
+  private history(file: string, currentId: string): ChatCompletionMessageParam[] {
     const feed = this.deps.store.get(file).feed;
+    const at = feed.findIndex((f) => f.id === currentId);
     const items = feed
-      .slice(0, Math.max(0, feed.length - skip))
+      .slice(0, at < 0 ? feed.length : at)
       .filter((f) => f.kind === "user" || (f.kind === "assistant" && f.mode === "chat"))
       .slice(-HISTORY_TURNS);
     return items.map((f) =>

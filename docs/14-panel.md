@@ -66,6 +66,7 @@ VS Code calls this method when the panel opens the first time. The method does t
 | `undo` | **Undo** | `GraphStore.undo` |
 | `beatNow` | **♥ Check now** | `Heartbeat.beat` |
 | `toggleHeartbeat` | **Pause** / **Resume** | Changes `assistive.heartbeat.enabled`. |
+| `cancel` | **Stop** on the busy line | `Assistant.cancel` for the active file. |
 | `openConfig` | **⚙**, a yellow pill, **Open .env** | Opens the `.env` file. |
 | `goto` (`line`, `endLine?`, `path?`) | **Go to code**, double-click, **Show line**, code references | Opens the file and selects the line. |
 | `openLink` (`url`) | Resource links, links in Markdown | Opens `http` and `https` URLs in the browser. |
@@ -83,7 +84,7 @@ The page has four areas:
 1. `header#top`: the file name, the pills, the toolbar and the docstring line.
 2. `section#graph-section`: the tabs, the legend and the fit button. It also has the graph container `#cy`, the steps list `#steps`, the empty message `#graph-empty` and the details box `#details`.
 3. `section#feed`: the feed. It has `aria-live="polite"`, so a screen reader announces new items.
-4. `footer#compose`: the busy line with a spinner, and the input box with the **Send** button.
+4. `footer#compose`: the busy line with a spinner and a **Stop** button, and the input box with the **Send** button.
 
 The Content Security Policy of the page is:
 
@@ -195,7 +196,7 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 4. For each item, it compares the JSON text of the item with the JSON text of the last draw. It draws only new and changed items, at the correct position.
 5. It scrolls to the bottom in two cases: the file changed, or it added an item while the view was less than 60 px from the bottom.
 
-`renderItem(item)` draws one item by its `kind`. An interrupt has a CSS class for its severity (`sev-1` to `sev-3`) and its status. It has an icon for its issue kind, for example ✎ for `typo` and 🔒 for `security`. Its buttons show only while it is open.
+`renderItem(item)` draws one item by its `kind`. An assistant reply with graph changes has a line such as "Graph: +2 nodes, −1 removed". If nodes were removed with a reason, the tooltip of that line shows the reasons. An interrupt has a CSS class for its severity (`sev-1` to `sev-3`) and its status. It has an icon for its issue kind, for example ✎ for `typo` and 🔒 for `security`. Its buttons show only while it is open.
 
 ### 14.5.7 Input box
 

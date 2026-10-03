@@ -8,11 +8,12 @@
 import { type Baseline, type EditTracker } from "../code/changes";
 import { isSecretPath, normalizeRel, numberLines, projectSummary, type WorkspaceAccess } from "../code/context";
 import { type FileOutline, formatOutline, symbolAt } from "../code/outline";
-import { compactGraph, type EdgeInput, type GraphEditor, type NodeInput, type NodeUpdate } from "../graph/model";
+import { closest, compactGraph, type EdgeInput, type GraphEditor, type NodeInput, type NodeUpdate } from "../graph/model";
 import type { LinkCheck } from "../resources/links";
 import {
   type AgentMode,
   EDGE_KINDS,
+  type FeedItem,
   type IssueKind,
   type NewFeedItem,
   NODE_KINDS,
@@ -33,11 +34,16 @@ export interface ToolEnv {
   editor: GraphEditor;
   edits: EditTracker;
   checkLinks(items: Resource[]): Promise<LinkCheck>;
-  /** Show something to the programmer in the panel feed. */
-  emit(item: NewFeedItem): void;
+  /** Show something to the programmer in the panel feed; false when it was not shown (a duplicate). */
+  emit(item: NewFeedItem): boolean;
+  /** The file's feed so far (to avoid repeating what the programmer has already seen). */
+  feed(): readonly FeedItem[];
 }
 
 const MAX_READ_LINES = 400;
+
+/** The tool sets: one per kind of turn ("struggling" offers resources only). */
+export type ToolMode = AgentMode | "struggling";
 
 export const ISSUE_KINDS: IssueKind[] = [
   "typo",
@@ -176,6 +182,49 @@ function lookTools(env: ToolEnv): Tool[] {
         const end = Math.min(end_line ?? start + MAX_READ_LINES - 1, start + MAX_READ_LINES - 1, total);
         const more = end < total ? `\n(${total - end} more lines; call again with start_line=${end + 1})` : "";
         return `${r.rel} lines ${start}-${end} of ${total}:\n${numberLines(text, start, end)}${more}`;
+      },
+    }),
+    tool<{ symbol: string; path?: string }>({
+      name: "read_symbol",
+      description:
+        "Read the code of one class, function, method or constant by name, with 1-based line numbers. Use the dotted name for " +
+        "members ('Cache.get'). More precise than read_file when you know what you want to see. Defaults to the current file.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["symbol"],
+        properties: {
+          symbol: str("The name as the outline shows it: 'parse_args' or 'Cache.get'.", { minLength: 1 }),
+          path: str("Workspace-relative path; omit for the current file."),
+        },
+      },
+      async run({ symbol, path }) {
+        const r = resolve(path);
+        if (r.error) return r.error;
+        const text = await textOf(r.rel!);
+        if (text === undefined) return `error: no file '${r.rel}'. Use list_files to find the right path.`;
+        const o = await env.outlineOf(r.rel!, text);
+        const wanted = symbol
+          .trim()
+          .replace(/^(async\s+)?(def|class|function)\s+/, "")
+          .replace(/\(.*$/, "");
+        const last = wanted.split(".").pop()!;
+        const byName = o.symbols.filter((s) => s.name === last);
+        const sym = o.symbols.find((s) => s.qualname === wanted) ?? (byName.length === 1 ? byName[0] : undefined);
+        if (!sym) {
+          if (byName.length > 1) {
+            return `error: '${symbol}' is ambiguous in ${r.rel}: ${byName.map((s) => s.qualname).join(", ")}. Use the dotted name.`;
+          }
+          const names = o.symbols.map((s) => s.qualname);
+          const hint = closest(wanted, names);
+          return (
+            `error: no symbol '${symbol}' in ${r.rel}.${hint ? ` Did you mean '${hint}'?` : ""}` +
+            (names.length ? ` Symbols: ${names.slice(0, 40).join(", ")}.` : " The file has no symbols yet.")
+          );
+        }
+        const end = Math.min(sym.endLine, sym.line + MAX_READ_LINES - 1);
+        const more = end < sym.endLine ? `\n(${sym.endLine - end} more lines; use read_file with start_line=${end + 2})` : "";
+        return `${r.rel}: ${sym.kind} ${sym.qualname}, lines ${sym.line + 1}-${sym.endLine + 1}${sym.isStub ? " (stub)" : ""}:\n${numberLines(text, sym.line + 1, end + 1)}${more}`;
       },
     }),
     tool<{ query: string; is_regex?: boolean; glob?: string; max_results?: number }>({
@@ -387,8 +436,8 @@ function graphEditTools(env: ToolEnv): Tool[] {
           reason: str("Why, in a few words (shown in the change log).", { minLength: 1 }),
         },
       },
-      run({ ids }) {
-        return tally(env.editor.removeNodes(ids));
+      run({ ids, reason }) {
+        return tally(env.editor.removeNodes(ids, reason));
       },
     }),
     tool<{ edges: EdgeInput[] }>({
@@ -466,13 +515,21 @@ function talkTools(env: ToolEnv): { resources: Tool; ask: Tool; point: Tool } {
       },
     },
     async run({ topic, resources: items }) {
-      const { kept, dropped } = await env.checkLinks(items);
+      // Links already in the panel are not shown again.
+      const shown = new Set(env.feed().flatMap((f) => (f.kind === "resources" ? f.items.map((r) => r.url.trim()) : [])));
+      const repeated = items.filter((r) => shown.has(r.url.trim()));
+      const fresh = items.filter((r) => !shown.has(r.url.trim()));
+      const again = repeated.length ? ` Already in the panel (not shown again): ${repeated.map((r) => r.url).join(", ")}.` : "";
+      if (!fresh.length) {
+        return `ok: the programmer already has these links in the panel; nothing new was shown. Refer to them in your reply if useful.`;
+      }
+      const { kept, dropped } = await env.checkLinks(fresh);
       const why = dropped.map((d) => `${d.url} (${d.reason})`).join(", ");
       if (!kept.length) {
-        return `error: none of the links could be used: ${why}. Recommend other pages you are sure exist.`;
+        return `error: none of the links could be used: ${why}. Recommend other pages you are sure exist.${again}`;
       }
       env.emit({ kind: "resources", topic, items: kept });
-      return `ok: showed ${kept.length} resource(s) on '${topic}'.${dropped.length ? ` Dropped: ${why}.` : ""}`;
+      return `ok: showed ${kept.length} resource(s) on '${topic}'.${dropped.length ? ` Dropped: ${why}.` : ""}${again}`;
     },
   });
 
@@ -550,8 +607,7 @@ function heartbeatTools(env: ToolEnv): Tool[] {
         if (a.line > lines.length) {
           return `error: line ${a.line} is past the end of the file (${lines.length} lines).`;
         }
-        interrupted = true;
-        env.emit({
+        const shown = env.emit({
           kind: "interrupt",
           title: a.title,
           message: a.message,
@@ -562,6 +618,13 @@ function heartbeatTools(env: ToolEnv): Tool[] {
           status: "open",
           lineText: lines[a.line - 1],
         });
+        if (!shown) {
+          return (
+            `error: this ${a.issue.replace(/_/g, " ")} on line ${a.line} was already reported and the line has not changed; ` +
+            "it is not shown again. Call stand_down, or report a different problem."
+          );
+        }
+        interrupted = true;
         ctx.stop = { reason: `interrupted: ${a.title}` };
         return "ok: the programmer was interrupted.";
       },
@@ -587,7 +650,7 @@ function heartbeatTools(env: ToolEnv): Tool[] {
 // ---------------------------------------------------------------- per mode
 
 /** The tool set each kind of turn may use. */
-export function toolsFor(mode: AgentMode, env: ToolEnv): Tool[] {
+export function toolsFor(mode: ToolMode, env: ToolEnv): Tool[] {
   const look = lookTools(env);
   const [getGraph, recentEdits] = graphReadTools(env);
   const edit = graphEditTools(env);
@@ -603,6 +666,9 @@ export function toolsFor(mode: AgentMode, env: ToolEnv): Tool[] {
       return [...look, project, getGraph, recentEdits, ...edit];
     case "heartbeat":
       return [...look, project, getGraph, recentEdits, edit.find((t) => t.name === "update_nodes")!, talk.resources, ...heartbeatTools(env)];
+    case "struggling":
+      // Offering resources only: no interrupts and no graph changes.
+      return [...look, project, getGraph, recentEdits, talk.resources];
   }
 }
 

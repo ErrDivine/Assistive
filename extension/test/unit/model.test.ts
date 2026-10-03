@@ -1,6 +1,7 @@
 import * as assert from "node:assert";
 import type { FileOutline, OutlineSymbol } from "../../src/code/outline";
 import {
+  closest,
   cloneGraph,
   compactGraph,
   describeSummary,
@@ -570,6 +571,38 @@ describe("GraphEditor.updateNodes", () => {
 });
 
 // ---------------------------------------------------------------- removeNodes
+
+describe("GraphEditor.removeNodes reasons", () => {
+  it("keeps the reason of each removed node in the summary", () => {
+    const ed = new GraphEditor(emptyGraph("a.py", "python", ""));
+    ed.addNodes([
+      { id: "a", kind: "function", description: "A." },
+      { id: "b", kind: "function", description: "B." },
+    ]);
+    const base = ed.result();
+    const ed2 = new GraphEditor(base);
+    ed2.removeNodes(["a"], "merged into b");
+    ed2.removeNodes(["b"]);
+    assert.deepStrictEqual(ed2.summary().removalReasons, { a: "merged into b" });
+    const ed3 = new GraphEditor(base);
+    ed3.removeNodes(["a"]);
+    assert.strictEqual(ed3.summary().removalReasons, undefined, "no reasons, no field");
+  });
+
+  it("drops the reason of a node that was added and removed in the same batch", () => {
+    const ed = new GraphEditor(emptyGraph("a.py", "python", ""));
+    ed.addNodes([{ id: "tmp", kind: "step", description: "Temp." }]);
+    ed.removeNodes(["tmp"], "not needed");
+    assert.strictEqual(ed.summary().removalReasons, undefined);
+  });
+});
+
+describe("closest", () => {
+  it("suggests the nearest candidate within a small distance", () => {
+    assert.strictEqual(closest("fetch_isues", ["parse", "fetch_issues"]), "fetch_issues");
+    assert.strictEqual(closest("zzz", ["parse", "fetch_issues"]), undefined);
+  });
+});
 
 describe("GraphEditor.removeNodes", () => {
   const base = () =>

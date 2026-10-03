@@ -48,7 +48,7 @@ The workflow has five steps:
 | Status | The state of a node: `planned` (no code yet), `stubbed` (the body is a placeholder), `done` (the body has real code) or `attention` (the heartbeat found a problem). The code sets the status, not the LLM. |
 | Module docstring | The text at the top of the file that tells what the file does. The draft starts from this text. The code calls it the "module string". |
 | LLM | A large language model with an OpenAI-compatible Chat Completions API and tool calls. It drafts and changes the graph, answers questions and writes interrupts. |
-| Tool | A function that the LLM can call. There are 18 tools. They read the project, edit the graph, or show something to the programmer. Refer to the [Tool reference](10-tool-reference.md). |
+| Tool | A function that the LLM can call. There are 19 tools. They read the project, edit the graph, or show something to the programmer. Refer to the [Tool reference](10-tool-reference.md). |
 | Jev | The System One model of TypeSafe AI. It answers typed questions with calibrated probabilities in less than one second. Assistive uses it as a fast, low-cost first check. |
 | Heartbeat | A periodic check of the latest change. One check is a **beat**. |
 | Triage | The first part of a beat. Jev (or the LLM in fallback mode) answers five questions about the latest change. |

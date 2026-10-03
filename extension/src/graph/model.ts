@@ -79,7 +79,7 @@ export function slugify(raw: string): string {
     .replace(/_+$/, "");
 }
 
-function editDistance(a: string, b: string): number {
+export function editDistance(a: string, b: string): number {
   const dp = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
     let prev = dp[0];
@@ -91,6 +91,14 @@ function editDistance(a: string, b: string): number {
     }
   }
   return dp[b.length];
+}
+
+/** The candidate nearest to `wanted` within a small edit distance, for "Did you mean" hints. */
+export function closest(wanted: string, candidates: readonly string[]): string | undefined {
+  return candidates
+    .map((x) => ({ x, d: editDistance(x, wanted) }))
+    .filter((c) => c.d <= Math.max(2, Math.floor(wanted.length / 3)))
+    .sort((a, b) => a.d - b.d)[0]?.x;
 }
 
 function clip(s: string | undefined, max = MAX_TEXT): string {
@@ -118,6 +126,7 @@ export class GraphEditor {
   private readonly added = new Set<string>();
   private readonly updated = new Set<string>();
   private readonly removed = new Set<string>();
+  private readonly removalReasons: Record<string, string> = {};
   private edgesAdded = 0;
   private edgesRemoved = 0;
   private edgesRelabeled = 0;
@@ -137,11 +146,8 @@ export class GraphEditor {
   /** "unknown node id 'x'. Did you mean 'y'? Existing ids: …" */
   unknownId(id: string): string {
     const ids = this.g.nodes.map((n) => n.id);
-    const close = ids
-      .map((x) => ({ x, d: editDistance(x, id) }))
-      .filter((c) => c.d <= Math.max(2, Math.floor(id.length / 3)))
-      .sort((a, b) => a.d - b.d)[0];
-    const hint = close ? ` Did you mean '${close.x}'?` : "";
+    const close = closest(id, ids);
+    const hint = close ? ` Did you mean '${close}'?` : "";
     const list = ids.length ? ` Existing ids: ${ids.join(", ")}.` : " The graph has no nodes yet.";
     return `unknown node id '${id}'.${hint}${list}`;
   }
@@ -265,7 +271,8 @@ export class GraphEditor {
     return out;
   }
 
-  removeNodes(ids: string[]): string[] {
+  /** `reason` is kept in the change summary (shown with the change in the feed). */
+  removeNodes(ids: string[], reason?: string): string[] {
     const out: string[] = [];
     for (const raw of ids) {
       const node = this.node(raw) ?? this.node(slugify(raw));
@@ -283,6 +290,9 @@ export class GraphEditor {
       } else {
         this.updated.delete(node.id);
         this.removed.add(node.id);
+        if (reason?.trim()) {
+          this.removalReasons[node.id] = clip(reason, 200);
+        }
       }
       out.push(`ok: removed '${node.id}'${dropped ? ` and ${dropped} edge(s)` : ""}.`);
     }
@@ -356,13 +366,18 @@ export class GraphEditor {
   }
 
   summary(): GraphChangeSummary {
-    return {
+    const s: GraphChangeSummary = {
       added: [...this.added],
       updated: [...this.updated],
       removed: [...this.removed],
       edgesAdded: this.edgesAdded,
       edgesRemoved: this.edgesRemoved,
     };
+    const reasons = Object.entries(this.removalReasons).filter(([id]) => this.removed.has(id));
+    if (reasons.length) {
+      s.removalReasons = Object.fromEntries(reasons);
+    }
+    return s;
   }
 
   /** The edited graph with a bumped revision (unchanged graphs keep theirs). */

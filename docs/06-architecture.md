@@ -15,7 +15,7 @@ flowchart TB
             CTRL --> HB["heartbeat/Heartbeat.ts<br/>beats"]
             HB --> ASSIST
             ASSIST --> AGENT["llm/agent.ts<br/>tool-call loop"]
-            AGENT --> TOOLS["llm/tools.ts<br/>18 tools"]
+            AGENT --> TOOLS["llm/tools.ts<br/>19 tools"]
             TOOLS --> GRAPH["graph/model.ts<br/>GraphEditor"]
             TOOLS --> CODE["code/*<br/>outline, edits, workspace"]
             HB --> JEVC["llm/jev.ts<br/>Jev client"]
@@ -54,7 +54,7 @@ The source code is in `extension/src/`. Most modules do not import `vscode`. Thu
 | `llm/schema.ts` | A small JSON Schema validator. | No | [9](09-llm-agent.md) |
 | `llm/agent.ts` | The OpenAI tool-call loop. | No | [9](09-llm-agent.md) |
 | `llm/prompts.ts` | The system prompt and the instructions for each mode. | No | [9](09-llm-agent.md) |
-| `llm/tools.ts` | The 18 tools and the tool set of each mode. | No | [10](10-tool-reference.md) |
+| `llm/tools.ts` | The 19 tools and the tool set of each mode. | No | [10](10-tool-reference.md) |
 | `llm/jev.ts` | The Jev client. | No | [11](11-jev-and-heartbeat.md) |
 | `heartbeat/policy.ts` | The Jev questions, the verdicts and the decision rules. | No | [11](11-jev-and-heartbeat.md) |
 | `heartbeat/Heartbeat.ts` | The heartbeat runner. | No | [11](11-jev-and-heartbeat.md) |
@@ -106,7 +106,7 @@ sequenceDiagram
     C->>C: watch the .env locations
     C->>C: track the open documents
     C->>H: start() (tick every 3 s)
-    E->>VS: register 11 commands
+    E->>VS: register 12 commands
     E-->>VS: return { controller }
 ```
 
@@ -217,9 +217,10 @@ The extension host has one JavaScript thread. Assistive uses `async` functions a
 
 | Mechanism | Value | Location |
 |---|---|---|
-| One LLM turn per file at a time | `Assistant.running` map | `assistant/Assistant.ts` |
-| A new user turn cancels the turn in progress | `AbortController` | `assistant/Assistant.ts` |
-| A heartbeat turn never cancels a turn | `silent` turns return when the file is busy | `assistant/Assistant.ts` |
+| One LLM turn per file at a time | A queue for each file (`Assistant.exclusive`) | `assistant/Assistant.ts` |
+| Programmer requests wait for each other | The queue | `assistant/Assistant.ts` |
+| A programmer request cancels a heartbeat turn | `AbortController` with the reason `preempted` | `assistant/Assistant.ts` |
+| A heartbeat turn never cancels or delays a request | `silent` turns start only when the file is free | `assistant/Assistant.ts` |
 | One beat at a time | `Heartbeat.beating` flag | `heartbeat/Heartbeat.ts` |
 | Heartbeat tick | 3 s | `heartbeat/Heartbeat.ts` |
 | Pause before a beat | 2 s | `heartbeat/policy.ts` |
@@ -265,7 +266,7 @@ The file `src/types.ts` defines the types that the host and the webview share. I
 
 **`FileGraph`:** `file` (workspace-relative, with forward slashes), `language`, `moduleString`, `nodes`, `edges`, `revision` and `updatedAt` (ISO time).
 
-**`GraphChangeSummary`:** `added`, `updated` and `removed` (lists of IDs), `edgesAdded` and `edgesRemoved` (numbers).
+**`GraphChangeSummary`:** `added`, `updated` and `removed` (lists of IDs), `edgesAdded` and `edgesRemoved` (numbers), and the optional `removalReasons` (a reason for each removed ID).
 
 ### 6.7.2 Resource and issue types
 

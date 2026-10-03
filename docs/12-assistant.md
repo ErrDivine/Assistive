@@ -21,12 +21,24 @@ This document describes the `Assistant` class. The Assistant runs each **turn**:
 
 ### 12.1.2 One turn at a time for each file
 
-The Assistant keeps a map `running` from the file key to the mode and an `AbortController`.
+The Assistant runs a maximum of one turn for each file at a time. It uses three maps:
 
-- `isBusy(file)` returns `true` if a turn runs for the file.
-- `cancel(file, onlyMode?)` aborts the turn of the file. With `onlyMode`, it aborts the turn only if the turn has this mode.
-- A **silent** turn (heartbeat and struggle) does not start if a turn runs for the file.
-- A turn that is not silent (draft, chat, sync) cancels the turn that runs, waits 50 ms, and then starts.
+- `running`: the turn in progress, with its mode, its `AbortController` and a `silent` flag.
+- `locks`: a queue for each file. The private method `exclusive(file, fn, silent)` runs `fn` only after the turns before it are done.
+- `waiting`: the number of programmer requests that wait for the file.
+
+The rules are:
+
+1. A programmer request (draft, chat, sync, explain) waits in the queue for the request before it. Thus a message that you send during a draft does not cancel the draft. The message runs after the draft and sees the new graph.
+2. A programmer request cancels a heartbeat or struggle turn in progress (the abort reason is `preempted`). The programmer comes first.
+3. A **silent** turn (heartbeat and struggle) starts only if no turn runs and no request waits. If a request starts to wait before the silent turn calls the LLM, the silent turn stops.
+
+The public members are:
+
+| Member | Function |
+|---|---|
+| `isBusy(file)` | `true` if a turn runs or waits for the file. |
+| `cancel(file, onlyMode?, reason = "user")` | Aborts the turn in progress. With `onlyMode`, only a turn of that mode. The **Stop** button uses the reason `user`. |
 
 ### 12.1.3 The private method `turn(handle, mode, content, options)`
 
@@ -60,7 +72,7 @@ sequenceDiagram
 ```
 
 1. If the LLM is not configured, it returns. For a turn that is not silent, it first adds a warning note to the feed.
-2. It handles a turn in progress (refer to [12.1.2](#1212-one-turn-at-a-time-for-each-file)).
+2. If the turn is silent and a programmer request waits, it returns (refer to [12.1.2](#1212-one-turn-at-a-time-for-each-file)).
 3. It records the turn in `running` and sets the busy label, for example "Drafting the graph…".
 4. It keeps the graph that is in the store before the turn (`before`).
 5. It makes a `GraphEditor` on a copy of the base graph. For a draft, it also sets the module string of the graph.
@@ -76,7 +88,7 @@ sequenceDiagram
    - It writes failed tool calls to the log.
    - If a graph tool (`add_nodes`, `update_nodes`, `remove_nodes`, `connect`, `disconnect`) changed the graph, it publishes a **live preview**. The preview is `editor.result()` with `syncWithOutline`. The store saves it without an undo snapshot. Thus the programmer sees the graph grow while the LLM works.
 9. When the loop ends, it sets `finished`. A preview that arrives late does not overwrite the final graph.
-10. If the graph changed, it computes the final graph and syncs it with a fresh outline. It saves the graph with `before` as the undo snapshot. Thus one turn makes one undo step, also after many previews.
+10. If the graph changed, it computes the final graph and syncs it with a fresh outline. It saves the graph with `before` as the undo snapshot. If the file had no graph before the turn, the snapshot is an empty graph. Thus one turn makes one undo step, also after many previews, and also a first draft can be undone.
 11. It runs the `after` hook. For a draft, the hook sets the `graph_created` baseline of the `EditTracker`.
 12. It adds the summary to the feed, by the post rules (refer to [12.1.5](#1215-post-rules)).
 13. It writes the rounds, the tool calls and the tokens to the log.
@@ -85,7 +97,7 @@ sequenceDiagram
 **Failure.** If the loop throws:
 
 - The method restores the graph before the turn, if previews changed it (a rollback).
-- If the turn was cancelled, it writes "cancelled" to the log and returns `undefined`.
+- If the turn was cancelled, it writes "cancelled" to the log and returns `undefined`. If the programmer stopped a turn that is not silent, it adds the note "Stopped. The graph is as it was before.".
 - If not, it writes the error to the log and throws the error again. For a turn that is not silent, it also adds an error note to the feed. The controller marks the LLM pill red.
 
 ### 12.1.4 Busy labels
@@ -129,10 +141,10 @@ The context gives the model all the facts that it needs, so a draft usually take
 
 `chat(handle, message)` acts on a message from the programmer.
 
-1. It cancels a heartbeat turn that runs for the file.
-2. It adds the message to the feed as a `user` item.
+1. It adds the message to the feed as a `user` item at once. Thus the programmer sees it also while an earlier turn runs.
+2. It waits in the queue of the file. This cancels a heartbeat turn in progress.
 3. It builds the context: File, Module docstring, Cursor (for example "line 7, inside def parse_line(…)"), Outline, Graph (or "(no graph yet: add nodes if the message asks for a plan)"), Diagnostics, Message from the programmer.
-4. It adds the history: up to 8 earlier `user` items and `assistant` items of mode `chat`. It does not include the message that it just added.
+4. It adds the history: up to 8 earlier `user` items and `assistant` items of mode `chat`. It stops before the current message. Thus a message that waits in the queue is not in the history of an earlier message.
 5. It runs the turn in `chat` mode with the busy label "Thinking…".
 
 ## 12.4 Sync
@@ -154,7 +166,7 @@ The context gives the model all the facts that it needs, so a draft usually take
 
 `heartbeat(handle, verdict, recentDiff)` lets the LLM decide if it interrupts. It returns `interrupted`, `stood_down` or `no_action`.
 
-1. If a turn runs for the file, it returns `no_action`.
+1. If a turn runs or waits for the file, it returns `no_action`.
 2. It builds the context:
    - File;
    - Monitor verdict (the `describeVerdict` line);
@@ -181,15 +193,15 @@ The tools call `emit(item)`. The private method `emit(file, item)` adds the item
 - has the same issue kind;
 - has the same trimmed line text.
 
-If a duplicate exists, the method does not add the interrupt. Thus a dismissed problem on an unchanged line never comes back (invariant I3).
+If a duplicate exists, the method does not add the interrupt and returns `false`. The tool then tells the model that the problem was already reported. Thus a dismissed problem on an unchanged line never comes back (invariant I3).
 
 ## 12.7 Struggle
 
 `struggling(handle, verdict, recentDiff)` offers resources when the heartbeat thinks that the programmer is stuck.
 
-1. If a turn runs for the file, it returns.
+1. If a turn runs or waits for the file, it returns.
 2. It builds the context: File, Monitor verdict, Code around the cursor, Recent edits.
-3. It runs a silent turn with the `heartbeat` tool set and the `struggling` instructions. The busy label is "Looking for helpful resources…".
+3. It runs a silent turn with the `struggling` tool set and instructions. This tool set has the look tools and `recommend_resources` only: a struggle turn cannot interrupt or change the graph. The busy label is "Looking for helpful resources…".
 
 The LLM calls `recommend_resources` and writes one sentence, or replies "No help needed.". The second reply posts nothing.
 
