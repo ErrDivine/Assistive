@@ -72,6 +72,7 @@ The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration
 | Finish a file | When every piece is typed, the panel offers **Review the file** (against the plan) and **Plan tests** (adds test nodes) |
 | Move between planned files | Click the file name in the panel header (or **Assistive: Open a Planned File…**): every file with a graph, with its progress |
 | Export | **Assistive: Export Graph as Markdown** |
+| Rename or move a file | Do it as usual: the graph follows a rename in VS Code. After a rename elsewhere (`git mv`, a terminal), the plan is found by its docstring when you open the file |
 
 **Settings:**
 - `assistive.envFile`: path to the `.env` file.

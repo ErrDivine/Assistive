@@ -100,6 +100,15 @@ Run **Assistive: Test LLM and Jev Connections**. The result tells you if each se
 
 The panel shows the active editor if its language is supported. If the active file is not supported, the panel keeps the last supported file. Click in the editor of the file that you want.
 
+### 5.2.9 The graph is gone after a rename
+
+| Possible cause | Corrective action |
+|---|---|
+| You renamed the file outside VS Code, and you also changed the docstring. | Put the old docstring back and open the file again. Or rename the file back to its old path. |
+| Two plans with the same docstring lost their files. Assistive does not know which plan is correct. | Rename the file back to its old path, then rename it in VS Code. |
+| The new path had a graph from an earlier file. Assistive never replaces a graph. | Clear the graph. Then run **Developer: Reload Window** and open the file again. |
+| You opened the new file while the old file still existed. Assistive looks for a lost plan only one time for each path in a session. | Run **Developer: Reload Window** and open the file again. |
+
 ## 5.3 Error messages
 
 ### 5.3.1 LLM messages

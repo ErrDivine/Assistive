@@ -136,4 +136,13 @@ export class EditTracker {
   forget(file: string): void {
     this.files.delete(file);
   }
+
+  /** The file was renamed: keep its baselines under the new name. */
+  move(from: string, to: string): void {
+    const t = this.files.get(from);
+    if (t && from !== to) {
+      this.files.set(to, t);
+      this.files.delete(from);
+    }
+  }
 }

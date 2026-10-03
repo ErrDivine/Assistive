@@ -112,7 +112,7 @@ Then it tracks the open documents, sets the active editor, starts the heartbeat 
 
 - If there is no editor (the focus moved to the panel or to a different view), the panel keeps the last file.
 - If the new document is not supported and the last document is still open, the panel keeps the last document. Thus the programmer can read documentation and keep the plan in view. An untitled buffer in a supported language is an exception: the panel shows it, with the request to save it.
-- In all other cases, the new document becomes the active document. The controller tracks it and refreshes the panel.
+- In all other cases, the new document becomes the active document. The controller tracks it and refreshes the panel. Then it calls `adoptOrphan` (refer to [15.3.6](#1536-renamed-files)).
 
 ### 15.3.4 Outline cache
 
@@ -121,6 +121,27 @@ Then it tracks the open documents, sets the active editor, starts the heartbeat 
 ### 15.3.5 Document tracking
 
 `track(doc)` calls `edits.open(key, text)` for each supported document. This sets the two baselines of the `EditTracker` the first time.
+
+### 15.3.6 Renamed files
+
+The store keeps graphs by absolute path. Thus the controller moves the records when a file moves.
+
+**Renames in VS Code.** `onRename(event)` receives `workspace.onDidRenameFiles`. For each renamed file or folder with the `file` scheme, it does these steps:
+
+1. It finds the keys at or in the old path, from the saved graphs and from memory.
+2. It calls `assistant.settle` for each key and waits.
+3. It calls `store.moveTree(old, new, relOf)`. `relOf` is `relPath`, the workspace-relative path with forward slashes.
+4. For each move, it calls `edits.move` and writes "graph moved" to the log.
+
+**Renames outside VS Code.** `git mv`, a terminal or a branch switch do not cause a rename event. `adoptOrphan(doc)` runs when a supported document becomes active. It does these steps:
+
+1. It stops if the file has a graph with nodes. It also stops if it examined the path before in this session (the set `orphanChecked`).
+2. It reads the module docstring. It stops if the docstring is not closed or is shorter than 15 characters.
+3. It calls `store.findOrphan(docstring, language, fs.existsSync)`. It stops if there is no single plan.
+4. It calls `assistant.settle` for the old key. Then it calls `store.move` and `edits.move`.
+5. It adds the system note "Moved the plan of `<old path>` here: that file no longer exists, and its docstring is the same as this file's."
+
+If a rename event and `adoptOrphan` both try to move a record, the second `move` finds no record and does nothing.
 
 ## 15.4 Edits and auto-draft
 

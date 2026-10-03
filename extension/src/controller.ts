@@ -52,6 +52,8 @@ export class Controller implements vscode.Disposable {
   /** First line edited per file since the last auto-draft check. */
   private readonly headEdits = new Map<string, number>();
   private readonly toasted = new Set<string>();
+  /** Files already searched for an orphaned plan this session. */
+  private readonly orphanChecked = new Set<string>();
   private readonly errors: { llm?: string; jev?: string } = {};
   private config!: AssistiveConfig;
   private llmClient?: Llm;
@@ -128,6 +130,7 @@ export class Controller implements vscode.Disposable {
       vscode.workspace.onDidChangeTextDocument((e) => this.onDocChange(e)),
       vscode.workspace.onDidSaveTextDocument((d) => this.onSave(d)),
       vscode.workspace.onDidOpenTextDocument((d) => this.track(d)),
+      vscode.workspace.onDidRenameFiles((e) => void this.onRename(e)),
       vscode.languages.registerCodeLensProvider([{ scheme: "file" }, { scheme: "untitled" }], {
         onDidChangeCodeLenses: this.codeLensChanged.event,
         provideCodeLenses: (doc) => this.codeLenses(doc),
@@ -238,13 +241,16 @@ export class Controller implements vscode.Disposable {
     return ws;
   }
 
+  /** The workspace-relative path of a file, with forward slashes. */
+  private relPath(uri: vscode.Uri): string {
+    return path.relative(this.wsFor(uri).root, uri.fsPath).split(path.sep).join("/") || path.basename(uri.fsPath);
+  }
+
   handleFor(doc: vscode.TextDocument): FileHandle {
-    const ws = this.wsFor(doc.uri);
-    const file = path.relative(ws.root, doc.uri.fsPath).split(path.sep).join("/") || path.basename(doc.uri.fsPath);
     return {
       key: doc.uri.fsPath,
-      file,
-      ws,
+      file: this.relPath(doc.uri),
+      ws: this.wsFor(doc.uri),
       language: doc.languageId,
       text: () => doc.getText(),
       cursorLine: () => vscode.window.visibleTextEditors.find((e) => e.document === doc)?.selection.active.line,
@@ -295,6 +301,32 @@ export class Controller implements vscode.Disposable {
     this.activeDoc = doc;
     this.track(doc);
     this.refresh.trigger();
+    void this.adoptOrphan(doc);
+  }
+
+  /**
+   * A file renamed outside VS Code (git mv, a terminal, a branch switch) has
+   * no graph under its new path. If exactly one saved plan has the same
+   * language and module docstring and its file is gone, move it here.
+   */
+  private async adoptOrphan(doc: vscode.TextDocument): Promise<void> {
+    const key = doc.uri.fsPath;
+    if (!this.supported(doc) || this.orphanChecked.has(key) || this.store.graph(key)?.nodes.length) return;
+    this.orphanChecked.add(key);
+    const h = this.handleFor(doc);
+    const ms = (await this.outlineOf(h.file, h.text(), h.language)).moduleString;
+    if (!ms?.closed || ms.text.length < MIN_DOCSTRING_CHARS) return;
+    const orphan = this.store.findOrphan(ms.text, h.language, (f) => fs.existsSync(f));
+    if (!orphan) return;
+    await this.assistant.settle(orphan.file);
+    if (!this.store.move(orphan.file, key, h.file)) return; // a rename event moved it first, or this file has a plan now
+    this.edits.move(orphan.file, key);
+    this.log.info(`graph adopted: ${orphan.file} -> ${key}`);
+    this.store.addFeed(key, {
+      kind: "system",
+      level: "info",
+      text: `Moved the plan of ${orphan.graph.file} here: that file no longer exists, and its docstring is the same as this file's.`,
+    });
   }
 
   private onDocChange(e: vscode.TextDocumentChangeEvent): void {
@@ -316,6 +348,22 @@ export class Controller implements vscode.Disposable {
       this.liveSync.trigger();
     }
     this.reconcile.trigger();
+  }
+
+  /** A file or folder was renamed or moved in VS Code: its graphs follow it. */
+  private async onRename(e: vscode.FileRenameEvent): Promise<void> {
+    for (const { oldUri, newUri } of e.files) {
+      if (oldUri.scheme !== "file" || newUri.scheme !== "file") continue;
+      const from = oldUri.fsPath;
+      const inside = (f: string) => f === from || f.startsWith(from + path.sep);
+      const keys = [...new Set([...this.store.plannedFiles().map((p) => p.file), ...this.store.files()])].filter(inside);
+      await Promise.all(keys.map((k) => this.assistant.settle(k)));
+      for (const m of this.store.moveTree(from, newUri.fsPath, (f) => this.relPath(vscode.Uri.file(f)))) {
+        this.edits.move(m.from, m.to);
+        this.log.info(`graph moved: ${m.from} -> ${m.to}`);
+      }
+    }
+    this.refresh.trigger();
   }
 
   private onSave(doc: vscode.TextDocument): void {

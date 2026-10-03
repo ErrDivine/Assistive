@@ -39,6 +39,7 @@ The public members are:
 |---|---|
 | `isBusy(file)` | `true` if a turn runs or waits for the file. |
 | `cancel(file, onlyMode?, reason = "user")` | Aborts the turn in progress. With `onlyMode`, only a turn of that mode. The **Stop** button uses the reason `user`. |
+| `settle(file)` | Prepares a file for a rename. It aborts the turn in progress with the reason `preempted`, so no note is added. The turns in the queue for the file do not start: `exclusive` returns at once while the file is in the set `settling`. `settle` returns when the queue is empty. Thus the rollback of a live preview goes to the old key before the record moves. |
 
 ### 12.1.3 The private method `turn(handle, mode, content, options)`
 

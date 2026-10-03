@@ -339,6 +339,7 @@ For each file, it also keeps these values:
 | `meaningfulChange(file, text)` | `false` if `text` and the `last_heartbeat` baseline are the same after the method trims each line and removes blank lines. An automatic beat then does not call Jev. |
 | `stats(file)` | Returns `lastEditAt`, `editsSinceBeat` and the sorted touched lines. |
 | `forget(file)` | Removes the record of the file. |
+| `move(from, to)` | Keeps the baselines and the stats of a renamed file under its new key. It replaces the record that VS Code made when it opened the new path. |
 
 The constructor accepts a `now` function. The tests give a fake clock.
 

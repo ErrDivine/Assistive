@@ -82,6 +82,8 @@ export class Assistant {
   private readonly locks = new Map<string, Promise<void>>();
   /** Programmer requests waiting for the file (heartbeat turns do not start meanwhile). */
   private readonly waiting = new Map<string, number>();
+  /** Files being settled: queued turns for them are skipped. */
+  private readonly settling = new Set<string>();
 
   constructor(private readonly deps: AssistantDeps) {}
 
@@ -102,12 +104,27 @@ export class Assistant {
   }
 
   /**
+   * Stop the turn in progress and skip the queued ones for a file, silently,
+   * and wait until they are done (before the file's record moves to a new
+   * path). Rolled-back previews land on the old key before this returns.
+   */
+  async settle(file: string): Promise<void> {
+    this.settling.add(file);
+    try {
+      this.running.get(file)?.abort.abort("preempted");
+      await this.locks.get(file);
+    } finally {
+      this.settling.delete(file);
+    }
+  }
+
+  /**
    * Run `fn` alone for this file. The programmer's requests queue behind each
    * other (a draft is never thrown away by a message sent meanwhile), while a
    * heartbeat turn in progress is cancelled: the programmer comes first.
    * Heartbeat turns (`silent`) only start when nothing else runs or waits.
    */
-  private async exclusive<T>(file: string, fn: () => Promise<T>, silent = false): Promise<T> {
+  private async exclusive<T>(file: string, fn: () => Promise<T>, silent = false, skipped?: T): Promise<T> {
     if (!silent) {
       const r = this.running.get(file);
       if (r?.silent) {
@@ -126,6 +143,9 @@ export class Assistant {
         const n = (this.waiting.get(file) ?? 1) - 1;
         if (n > 0) this.waiting.set(file, n);
         else this.waiting.delete(file);
+      }
+      if (this.settling.has(file)) {
+        return skipped as T;
       }
       return await fn();
     } finally {
@@ -254,7 +274,7 @@ export class Assistant {
     if (this.isBusy(h.key)) {
       return "no_action";
     }
-    return this.exclusive(h.key, () => this.heartbeatNow(h, verdict, recentDiff), true);
+    return this.exclusive(h.key, () => this.heartbeatNow(h, verdict, recentDiff), true, "no_action");
   }
 
   private async heartbeatNow(h: FileHandle, verdict: TriageVerdict, recentDiff: string): Promise<HeartbeatOutcome> {

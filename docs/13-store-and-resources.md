@@ -45,6 +45,9 @@ The constructor receives a folder and a save delay (default 400 ms). The control
 | `clear(file)` | Sets the graph to `undefined`, with the old graph as the snapshot. Thus **Undo** restores a cleared graph. |
 | `clearFeed(file)` | Removes all feed items except the open interrupts. The chat history of the LLM comes from the feed, so the LLM forgets the earlier messages. |
 | `plannedFiles()` | Each file with a graph that has nodes, from the saved JSON files and the records in memory. A record in memory wins over its file. A damaged file is skipped. |
+| `findOrphan(moduleString, language, exists)` | Finds the plan of a file that was renamed outside VS Code. The plan is a saved graph with nodes. It has the same language and the same module docstring (without the spaces at the ends). Its file does not exist (`exists` returns `false`). The method returns `undefined` if no plan or more than one plan agrees. |
+| `move(from, to, rel)` | Moves a record to a new key after a rename. The graph and each graph in the history receive the new relative path `rel`. The old key receives an empty record, and its JSON file is deleted. The store calls the listeners for both keys and saves the new record. The method returns `false` and moves nothing in two conditions: the old record has no graph and no feed, or the new key already has a graph with nodes. |
+| `moveTree(from, to, relOf)` | Moves the record of a file, or the records of all files in a folder, from the saved files and from memory. A file is in the folder only if its path starts with the folder path and a path separator, so `src` does not include `srcx`. `relOf(newKey)` gives each relative path. Returns the moves that occurred. |
 | `files()` | The keys of the records in memory. |
 | `changed(file)` | Calls the listeners and schedules a save. |
 | `flush()` | Writes all scheduled saves now. |

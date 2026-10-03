@@ -408,3 +408,12 @@ When each planned piece is **done**, a green line shows under the tabs: "✓ All
 
 The line goes away while the LLM works, and when a new piece is added to the plan.
 
+## 4.23 Rename or move a file
+
+The graph of a file stays with the file:
+
+- **Rename or move in VS Code.** Use the Explorer, a refactoring, or a different extension that renames through VS Code. You can also rename a folder. The graph, the conversation and the undo history go to the new path at once.
+- **Rename outside VS Code.** For example, use `git mv`, a terminal or a branch switch. VS Code does not tell Assistive about these changes. When you open the file at its new path, Assistive looks for a lost plan. The plan must have the same language and the same module docstring, and its file must not exist. If Assistive finds exactly one plan, it moves the plan to the file. The feed then shows "Moved the plan of `<old path>` here".
+
+> **Note:** If you change the docstring and the path together outside VS Code, Assistive cannot find the plan. Put the old docstring back, open the file, and then change the docstring.
+

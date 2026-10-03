@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import type { AssistiveApi } from "../../src/extension";
-import type { FeedItem } from "../../src/types";
+import type { FeedItem, FileGraph } from "../../src/types";
 import { FakeServers, jevAnswers, scriptedAssistant, systemPrompt } from "../support/fakeServers";
 
 const workspace = process.env.ASSISTIVE_IT_WORKSPACE!;
@@ -292,6 +292,63 @@ describe("Assistive in VS Code", function () {
     assert.match(md.getText(), /```mermaid\nflowchart TD\n {2}parse_line\[/);
     assert.match(md.getText(), /\n## Steps\n\n1\. \[[ x]\] \*\*/);
     await vscode.commands.executeCommand("workbench.action.revertAndCloseActiveEditor");
+  });
+
+  it("moves a file's graph when the file or its folder is renamed in VS Code", async () => {
+    const oldPath = path.join(workspace, "plan_me.py");
+    fs.writeFileSync(oldPath, '"""A file whose plan must survive a rename."""\n');
+    const plan: FileGraph = {
+      file: "plan_me.py",
+      language: "python",
+      moduleString: "A file whose plan must survive a rename.",
+      nodes: [{ id: "run", kind: "function", label: "run", symbol: "run", description: "Run it.", notes: [], status: "planned" }],
+      edges: [],
+      revision: 1,
+      updatedAt: new Date().toISOString(),
+    };
+    c().store.setGraph(oldPath, plan, false);
+    const rename = async (from: string, to: string) => {
+      const edit = new vscode.WorkspaceEdit();
+      edit.renameFile(vscode.Uri.file(from), vscode.Uri.file(to));
+      assert.ok(await vscode.workspace.applyEdit(edit));
+    };
+    const newPath = path.join(workspace, "pkg", "planned.py");
+    await rename(oldPath, newPath);
+    await waitFor("graph moved", () => c().store.graph(newPath)?.file === "pkg/planned.py");
+    assert.strictEqual(c().store.graph(oldPath), undefined);
+    const movedPath = path.join(workspace, "lib", "planned.py");
+    await rename(path.join(workspace, "pkg"), path.join(workspace, "lib"));
+    await waitFor("graph moved with its folder", () => c().store.graph(movedPath)?.file === "lib/planned.py");
+    assert.deepStrictEqual(c().store.graph(movedPath)?.nodes.map((n) => n.id), ["run"]);
+    assert.ok(c().store.plannedFiles().some((p) => p.file === movedPath));
+    assert.ok(!c().store.plannedFiles().some((p) => p.file === newPath || p.file === oldPath));
+  });
+
+  it("finds the plan of a file that was renamed outside VS Code by its docstring", async () => {
+    const doc = '"""Parse feeds and keep the newest entries for each source."""\n';
+    const before = path.join(workspace, "feeds_old.py");
+    const after = path.join(workspace, "feeds.py");
+    fs.writeFileSync(before, doc);
+    c().store.setGraph(
+      before,
+      {
+        file: "feeds_old.py",
+        language: "python",
+        moduleString: "Parse feeds and keep the newest entries for each source.",
+        nodes: [{ id: "parse", kind: "function", label: "parse", symbol: "parse", description: "Parse one feed.", notes: [], status: "planned" }],
+        edges: [],
+        revision: 1,
+        updatedAt: new Date().toISOString(),
+      },
+      false,
+    );
+    fs.renameSync(before, after); // like git mv: VS Code sends no rename event
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(after), vscode.ViewColumn.One);
+    await waitFor("plan adopted", () => c().store.graph(after)?.file === "feeds.py");
+    assert.strictEqual(c().store.graph(before), undefined);
+    const note = c().store.get(after).feed.find((f) => f.kind === "system");
+    assert.match(note && note.kind === "system" ? note.text : "", /Moved the plan of feeds_old\.py here/);
+    await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
   });
 
   it("creates the .env template when the configured file is missing", async () => {

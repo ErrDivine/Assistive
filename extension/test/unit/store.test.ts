@@ -933,3 +933,94 @@ describe("GraphStore.plannedFiles", () => {
     assert.deepStrictEqual(s.plannedFiles().map((p) => p.file), ["/p/a.py"]);
   });
 });
+
+describe("GraphStore.move and moveTree", () => {
+  const g = (file: string, ids: string[] = ["a"]): FileGraph => ({ ...graphOf(file, 1, ids) });
+
+  it("moves the graph, the feed and the history, and gives them the new relative path", () => {
+    const dir = tempDir();
+    const s = track(new GraphStore(dir, 0));
+    s.setGraph("/w/old.py", g("old.py", ["a"]), false);
+    s.setGraph("/w/old.py", g("old.py", ["a", "b"]), s.graph("/w/old.py"));
+    s.addFeed("/w/old.py", userItem("hello"));
+    s.flush();
+    const fired: string[] = [];
+    s.onChange((f) => fired.push(f));
+    assert.strictEqual(s.move("/w/old.py", "/w/pkg/new.py", "pkg/new.py"), true);
+    assert.strictEqual(s.graph("/w/pkg/new.py")?.file, "pkg/new.py");
+    assert.deepStrictEqual(s.graph("/w/pkg/new.py")?.nodes.map((n) => n.id), ["a", "b"]);
+    assert.strictEqual(s.get("/w/pkg/new.py").history[0].file, "pkg/new.py");
+    assert.strictEqual(s.get("/w/pkg/new.py").feed[0].kind, "user");
+    assert.strictEqual(s.graph("/w/old.py"), undefined);
+    assert.deepStrictEqual(s.get("/w/old.py").feed, []);
+    assert.deepStrictEqual(fired, ["/w/old.py", "/w/pkg/new.py"]);
+    s.flush();
+    const reloaded = new GraphStore(dir, 0);
+    assert.strictEqual(reloaded.graph("/w/old.py"), undefined, "the old record is gone from disk");
+    assert.strictEqual(reloaded.graph("/w/pkg/new.py")?.file, "pkg/new.py");
+    assert.deepStrictEqual(reloaded.plannedFiles().map((p) => p.file), ["/w/pkg/new.py"]);
+  });
+
+  it("moves a record that is only on disk", () => {
+    const dir = tempDir();
+    const a = track(new GraphStore(dir, 0));
+    a.setGraph("/w/old.py", g("old.py"), false);
+    a.flush();
+    const b = track(new GraphStore(dir, 0));
+    assert.strictEqual(b.move("/w/old.py", "/w/new.py", "new.py"), true);
+    assert.strictEqual(b.graph("/w/new.py")?.file, "new.py");
+  });
+
+  it("does not move an empty record, and never overwrites another plan", () => {
+    const s = track(new GraphStore(undefined));
+    assert.strictEqual(s.move("/w/none.py", "/w/x.py", "x.py"), false);
+    s.setGraph("/w/a.py", g("a.py", ["a"]), false);
+    s.setGraph("/w/b.py", g("b.py", ["b"]), false);
+    assert.strictEqual(s.move("/w/a.py", "/w/b.py", "b.py"), false);
+    assert.deepStrictEqual(s.graph("/w/b.py")?.nodes.map((n) => n.id), ["b"]);
+    assert.strictEqual(s.graph("/w/a.py")?.file, "a.py");
+    assert.strictEqual(s.move("/w/a.py", "/w/a.py", "a.py"), false);
+  });
+
+  it("moveTree moves a file, or every file under a folder, and nothing beside it", () => {
+    const dir = tempDir();
+    const s = track(new GraphStore(dir, 0));
+    const sep = path.sep;
+    const p = (...parts: string[]) => [sep + "w", ...parts].join(sep);
+    s.setGraph(p("src", "a.py"), g("src/a.py"), false);
+    s.setGraph(p("src", "sub", "b.py"), g("src/sub/b.py"), false);
+    s.setGraph(p("srcx", "c.py"), g("srcx/c.py"), false);
+    s.flush();
+    const moves = s.moveTree(p("src"), p("lib"), (f) => f.slice(p().length + 1).split(sep).join("/"));
+    assert.deepStrictEqual(moves.map((m) => m.to).sort(), [p("lib", "a.py"), p("lib", "sub", "b.py")]);
+    assert.strictEqual(s.graph(p("lib", "sub", "b.py"))?.file, "lib/sub/b.py");
+    assert.strictEqual(s.graph(p("srcx", "c.py"))?.file, "srcx/c.py", "a sibling with the same prefix stays");
+    assert.deepStrictEqual(s.moveTree(p("lib", "a.py"), p("lib", "z.py"), () => "lib/z.py"), [{ from: p("lib", "a.py"), to: p("lib", "z.py") }]);
+  });
+});
+
+describe("GraphStore.findOrphan", () => {
+  const plan = (file: string, doc: string, language = "python"): FileGraph => ({ ...graphOf(file, 1, ["a"]), moduleString: doc, language });
+
+  it("finds the one plan with the same language and docstring whose file is gone", () => {
+    const s = track(new GraphStore(undefined));
+    s.setGraph("/w/gone.py", plan("gone.py", "Fetch issues.\n"), false);
+    s.setGraph("/w/here.py", plan("here.py", "Other doc."), false);
+    s.setGraph("/w/gone.ts", plan("gone.ts", "Fetch issues.", "typescript"), false);
+    const exists = (f: string) => f === "/w/here.py";
+    assert.strictEqual(s.findOrphan("  Fetch issues.  ", "python", exists)?.file, "/w/gone.py");
+    assert.strictEqual(s.findOrphan("Fetch issues.", "typescript", exists)?.file, "/w/gone.ts");
+    assert.strictEqual(s.findOrphan("Other doc.", "python", exists), undefined, "its file still exists");
+    assert.strictEqual(s.findOrphan("Fetch issues.", "go", exists), undefined, "another language");
+    assert.strictEqual(s.findOrphan("", "python", exists), undefined);
+  });
+
+  it("finds nothing when two orphans match, or when the plan has no nodes", () => {
+    const s = track(new GraphStore(undefined));
+    s.setGraph("/w/a.py", plan("a.py", "Same doc."), false);
+    s.setGraph("/w/b.py", plan("b.py", "Same doc."), false);
+    assert.strictEqual(s.findOrphan("Same doc.", "python", () => false), undefined, "ambiguous");
+    s.setGraph("/w/c.py", { ...plan("c.py", "Empty plan."), nodes: [] }, false);
+    assert.strictEqual(s.findOrphan("Empty plan.", "python", () => false), undefined);
+  });
+});

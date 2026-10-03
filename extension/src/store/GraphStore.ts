@@ -147,30 +147,103 @@ export class GraphStore {
     this.changed(file);
   }
 
+  /** The records saved on disk (damaged files are skipped). */
+  private saved(): Partial<FileRecord>[] {
+    if (!this.dir) {
+      return [];
+    }
+    let names: string[] = [];
+    try {
+      names = fs.readdirSync(path.join(this.dir, "graphs")).filter((n) => n.endsWith(".json"));
+    } catch {
+      return []; // nothing saved yet
+    }
+    const out: Partial<FileRecord>[] = [];
+    for (const name of names) {
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(this.dir, "graphs", name), "utf8")) as Partial<FileRecord>;
+        if (typeof data.file === "string") out.push(data);
+      } catch {
+        // a damaged file is skipped
+      }
+    }
+    return out;
+  }
+
   /** Every file with a saved or loaded graph that has nodes: its key and graph. */
   plannedFiles(): { file: string; graph: FileGraph }[] {
     const out = new Map<string, FileGraph>();
-    if (this.dir) {
-      let names: string[] = [];
-      try {
-        names = fs.readdirSync(path.join(this.dir, "graphs")).filter((n) => n.endsWith(".json"));
-      } catch {
-        // nothing saved yet
-      }
-      for (const name of names) {
-        try {
-          const data = JSON.parse(fs.readFileSync(path.join(this.dir, "graphs", name), "utf8")) as Partial<FileRecord>;
-          if (typeof data.file === "string" && data.graph?.nodes?.length) out.set(data.file, data.graph);
-        } catch {
-          // a damaged file is skipped
-        }
-      }
+    for (const data of this.saved()) {
+      if (data.graph?.nodes?.length) out.set(data.file!, data.graph);
     }
     for (const rec of this.records.values()) {
       if (rec.graph?.nodes.length) out.set(rec.file, rec.graph);
       else out.delete(rec.file); // cleared in memory, not saved yet
     }
     return [...out].map(([file, graph]) => ({ file, graph }));
+  }
+
+  /**
+   * The plan of a file that was renamed outside VS Code: the one saved graph
+   * with nodes whose file no longer exists and whose language and module
+   * docstring are the same. Undefined when there is none, or more than one.
+   */
+  findOrphan(moduleString: string, language: string, exists: (file: string) => boolean): { file: string; graph: FileGraph } | undefined {
+    const doc = moduleString.trim();
+    if (!doc) {
+      return undefined;
+    }
+    const hits = this.plannedFiles().filter((p) => p.graph.language === language && p.graph.moduleString.trim() === doc && !exists(p.file));
+    return hits.length === 1 ? hits[0] : undefined;
+  }
+
+  /**
+   * Move a record to a new key after a rename or move. The graph and its
+   * history get the new workspace-relative path `rel`. Nothing moves when the
+   * old key has no graph and no feed, or when the new key already has a graph.
+   */
+  move(from: string, to: string, rel: string): boolean {
+    if (from === to) {
+      return false;
+    }
+    const rec = this.get(from);
+    if (!rec.graph && !rec.feed.length) {
+      return false;
+    }
+    const target = this.get(to);
+    if (target.graph?.nodes.length) {
+      return false; // never overwrite another file's plan
+    }
+    const retarget = (g: FileGraph): FileGraph => ({ ...g, file: rel });
+    this.records.set(to, { file: to, graph: rec.graph && retarget(rec.graph), feed: rec.feed, history: rec.history.map(retarget) });
+    this.records.set(from, { file: from, feed: [], history: [] });
+    clearTimeout(this.pending.get(from));
+    this.pending.delete(from);
+    const old = this.pathFor(from);
+    try {
+      if (old) fs.rmSync(old, { force: true });
+    } catch {
+      // storage is best effort
+    }
+    this.fire(from);
+    this.changed(to);
+    return true;
+  }
+
+  /**
+   * Move the records of a file, or of every file under a folder, after a
+   * rename. `relOf` gives the workspace-relative path of a new key. Returns
+   * the moves that happened.
+   */
+  moveTree(from: string, to: string, relOf: (file: string) => string): { from: string; to: string }[] {
+    const under = (f: string) => f === from || f.startsWith(from.endsWith(path.sep) ? from : from + path.sep);
+    const keys = new Set([...this.saved().map((d) => d.file!), ...this.records.keys()].filter(under));
+    const moves: { from: string; to: string }[] = [];
+    for (const key of keys) {
+      const dest = to + key.slice(from.length);
+      if (this.move(key, dest, relOf(dest))) moves.push({ from: key, to: dest });
+    }
+    return moves;
   }
 
   /** Files with a record loaded in memory. */

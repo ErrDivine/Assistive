@@ -482,6 +482,26 @@ describe("EditTracker", () => {
     });
   });
 
+  describe("move", () => {
+    it("keeps the baselines under the new name, replacing a fresh track of the new file", () => {
+      tracker.open("old.py", "v1\n");
+      tracker.graphCreated("old.py", "g\n");
+      tracker.open("new.py", "v2\n"); // VS Code opens the renamed file first
+      tracker.move("old.py", "new.py");
+      assert.match(tracker.diff("new.py", "v2\n", "graph_created"), /- {3}\| g/);
+      assert.match(tracker.diff("new.py", "v2\n", "last_heartbeat"), /- {3}\| v1/);
+      assert.strictEqual(tracker.diff("old.py", "v2\n", "graph_created"), "");
+    });
+
+    it("does nothing for an unknown file or the same name", () => {
+      tracker.open("a.py", "a\n");
+      tracker.move("never-seen.py", "a.py");
+      tracker.move("a.py", "a.py");
+      assert.strictEqual(tracker.diff("a.py", "a\n", "graph_created"), "");
+      assert.notStrictEqual(tracker.diff("a.py", "b\n", "graph_created"), "");
+    });
+  });
+
   it("a typical session: open, type, beat, type, re-draft the graph", () => {
     const v0 = "def f():\n    pass\n";
     const v1 = "def f():\n    return 1\n";

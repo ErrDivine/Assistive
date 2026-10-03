@@ -324,6 +324,34 @@ describe("Assistant + Heartbeat with fake OpenAI and Jev servers", () => {
     assert.ok(!t.assistant.isBusy("/ws/wc.py"));
   });
 
+  it("settle stops the turn and skips the queued ones silently, rolling back before it returns", async () => {
+    const t = harness(fake);
+    fake.chatDelayMs = 60;
+    const draft = t.assistant.draft(t.h);
+    for (let i = 0; i < 50 && !t.store.graph("/ws/wc.py")?.nodes.length; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    assert.ok(t.store.graph("/ws/wc.py")?.nodes.length, "the preview is visible");
+    const chat = t.assistant.chat(t.h, "Add a helper that returns the top N words.");
+    const requests = fake.chatRequests.length;
+    await t.assistant.settle("/ws/wc.py");
+    assert.strictEqual(t.store.graph("/ws/wc.py"), undefined, "the preview was rolled back before settle returned");
+    assert.ok(!t.assistant.isBusy("/ws/wc.py"));
+    await Promise.all([draft, chat]);
+    assert.ok(fake.chatRequests.length <= requests + 1, "the queued chat never ran");
+    assert.ok(!fake.chatRequests.some((r) => /Task: the programmer wrote/.test(systemPrompt(r))), "no chat request was sent");
+    assert.strictEqual(feedOf(t.store, "system").length, 0, "no Stopped note");
+    // The file works normally afterwards.
+    await t.assistant.draft(t.h);
+    assert.ok(t.store.graph("/ws/wc.py")?.nodes.length);
+  });
+
+  it("settle on an idle file returns at once", async () => {
+    const t = harness(fake);
+    await t.assistant.settle("/ws/wc.py");
+    assert.ok(!t.assistant.isBusy("/ws/wc.py"));
+  });
+
   it("a struggle turn can only recommend resources", async () => {
     const t = harness(fake);
     t.type(DOC + "x = 1\n", 1);
