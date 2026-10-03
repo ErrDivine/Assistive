@@ -322,7 +322,7 @@ All assistant actions go through `run`. If the action succeeds, `run` clears the
 | `beatNow()` | `Heartbeat.beat` for the active file. Returns the report. |
 | `toggleHeartbeat()` | Changes the user setting `assistive.heartbeat.enabled`. Shows "Assistive heartbeat paused" or "resumed" in the status bar for 2.5 seconds. |
 | `exportGraph()` | Opens a new untitled Markdown document beside the editor. The presenter `graphMarkdown` makes the text (refer to [15.9](#159-presenters)). |
-| `testConnection()` | Sends one LLM request and one Jev request. Returns one line for each service. |
+| `testConnection()` | Sends one LLM request and one Jev request. Returns one line for each service. If the triage is not `jev`, the Jev line is "Jev: not used (triage is …)", and the notification is not a warning. |
 | `goto(line, endLine?, rel?, key?)` | Opens the active file, or `rel` in the same workspace. Keeps the lines in the file. Puts the cursor at the start of the range. Shows the range in the center if it is not visible. |
 
 All commands that need a file call `requireFile()`. If there is no supported file, it shows "Assistive: open a Python, TypeScript, JavaScript, Go, Rust or Java file first."

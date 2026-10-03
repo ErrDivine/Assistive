@@ -224,7 +224,7 @@ The file `config/setup.ts` holds the wizard. It does not import `vscode`: the co
 These rules apply in `runSetup`:
 
 - **Key.** If the endpoint does not change and the current key is not a placeholder, an empty answer keeps the current key. Ollama and LM Studio receive a fixed key (`ollama`, `lm-studio`), because the client needs a key.
-- **Model.** The list marks the current model. The first item, **Type a model name…**, opens an input box. If the list fails, the input box shows the reason.
+- **Model.** The current model is first in the list, so `Enter` keeps it. The last item, **Type a model name…**, opens an input box. It stays visible when the filter text agrees with no model. If the list fails, the input box shows the reason.
 - **Triage.** If the programmer cancels the triage question, the LLM values are still written. The triage setting does not change.
 
 The controller writes the values with `setEnvValues` to the current `.env` file. If there is no file, it first creates one from the template. The file watcher then reloads the configuration.

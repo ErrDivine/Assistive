@@ -99,7 +99,7 @@ A good result looks like this:
 LLM gpt-4.1-mini: OK in 812 ms  ·  Jev jev-latest: answered in 143 ms (p=0.71)
 ```
 
-If a line shows an error, the notification shows the buttons **Set Up…** and **Open .env**. Refer to [Troubleshooting](05-troubleshooting.md).
+If the triage is `llm` or `off`, the Jev line is "Jev: not used". This is correct. If a line shows an error, the notification shows the buttons **Set Up…** and **Open .env**. Refer to [Troubleshooting](05-troubleshooting.md).
 
 ### 2.3.1 What the test does
 

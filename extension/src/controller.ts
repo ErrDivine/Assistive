@@ -848,7 +848,8 @@ export class Controller implements vscode.Disposable {
         lines.push(`Jev: ${this.errors.jev}`);
       }
     } else {
-      lines.push(`Jev: not configured${this.config.triage === "jev" ? " (ASSISTIVE_JEV_API_KEY)" : ` (triage is ${this.config.triage})`}.`);
+      // Without Jev triage, a missing Jev key is expected, not a problem.
+      lines.push(this.config.triage === "jev" ? "Jev: not configured (ASSISTIVE_JEV_API_KEY)." : `Jev: not used (triage is ${this.config.triage}).`);
     }
     this.refresh.trigger();
     return lines;

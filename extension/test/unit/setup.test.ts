@@ -60,7 +60,7 @@ describe("setup: runSetup", () => {
       ASSISTIVE_TRIAGE: "llm",
     });
     assert.deepStrictEqual(calls, [{ baseUrl: "https://api.openai.com/v1", apiKey: "sk-new" }]);
-    assert.deepStrictEqual(s.asked[2].labels, ["$(edit) Type a model name…", "gpt-a", "gpt-b"], "embeddings are not offered; sorted");
+    assert.deepStrictEqual(s.asked[2].labels, ["gpt-a", "gpt-b", "$(edit) Type a model name…"], "embeddings are not offered; sorted; typing comes last");
     assert.strictEqual(s.asked[1].validate?.(""), "Enter the key.", "a new endpoint needs a key");
     assert.strictEqual(s.asked[1].validate?.("a\nb"), "Use one line.");
   });
@@ -71,6 +71,7 @@ describe("setup: runSetup", () => {
     s.done();
     assert.strictEqual(out?.ASSISTIVE_LLM_API_KEY, "sk-old");
     assert.strictEqual(s.asked[1].placeholder, "Press Enter to keep the current key");
+    assert.deepStrictEqual(s.asked[2].labels, ["gpt-old", "gpt-a", "$(edit) Type a model name…"], "the current model comes first, so Enter keeps it");
     assert.ok(!("ASSISTIVE_TRIAGE" in out!), "Jev is ready: no triage question");
     assert.strictEqual(s.asked.length, 3);
   });

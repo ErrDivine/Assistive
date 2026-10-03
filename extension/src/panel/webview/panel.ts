@@ -459,7 +459,8 @@ function renderHeader(s: PanelState): void {
   const hasGraph = !!s.graph?.nodes.length;
   const draft = $<HTMLButtonElement>("btn-draft");
   draft.textContent = hasGraph ? "Redraft" : "Draft";
-  draft.disabled = !s.supported || !s.moduleString || !!st.busy;
+  draft.disabled = !s.supported || !s.moduleString || !!st.busy || st.llm === "missing";
+  draft.title = st.llm === "missing" ? "Set up the LLM first (click the LLM pill)" : hasGraph ? "Draft the graph again from the docstring" : "Draft the graph from the docstring";
   $<HTMLButtonElement>("btn-sync").disabled = !hasGraph || !!st.busy;
   $<HTMLButtonElement>("btn-undo").disabled = !s.canUndo || !!st.busy;
   $<HTMLButtonElement>("btn-beat").disabled = !s.supported || st.heartbeat === "off";

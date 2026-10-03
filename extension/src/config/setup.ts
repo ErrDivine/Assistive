@@ -23,6 +23,8 @@ export interface PickItem {
   label: string;
   description?: string;
   detail?: string;
+  /** Shown even when the filter text matches nothing. */
+  alwaysShow?: boolean;
 }
 
 export interface SetupUi {
@@ -111,9 +113,11 @@ export async function runSetup(ui: SetupUi, deps: SetupDeps): Promise<Record<str
   const keepModel = sameEndpoint && !isPlaceholder(cur.model) ? cur.model : "";
   let model: string | undefined;
   if (models.length) {
-    const typeIt = { label: "$(edit) Type a model name…", typed: true };
+    // Enter keeps the current model; the typed entry stays visible when the filter matches no model.
+    const ordered = models.includes(keepModel) ? [keepModel, ...models.filter((m) => m !== keepModel)] : models;
+    const typeIt = { label: "$(edit) Type a model name…", typed: true, alwaysShow: true };
     const choice = await ui.pick<PickItem & { typed?: boolean }>(
-      [typeIt, ...models.map((id) => ({ label: id, description: id === keepModel ? "current" : undefined }))],
+      [...ordered.map((id) => ({ label: id, description: id === keepModel ? "current" : undefined })), typeIt],
       { title: `${TITLE} (3/3)`, placeholder: "Which model? It must support tool calls." },
     );
     if (!choice) return undefined;

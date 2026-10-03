@@ -182,7 +182,7 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
   | Button | Not available if |
   |---|---|
-  | **Draft** / **Redraft** | The file is not supported, there is no docstring, or a task runs. |
+  | **Draft** / **Redraft** | The file is not supported, there is no docstring, a task runs, or the LLM is not configured. |
   | **Sync** | There is no graph, or a task runs. |
   | **Undo** | The undo history is empty, or a task runs. |
   | **♥ Check now** | The file is not supported, or the heartbeat is `off`. |
