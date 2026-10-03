@@ -143,7 +143,8 @@ describe("Assistive in VS Code", function () {
     const resources = await waitFor("resources", () => ofKind("resources")[0]);
     assert.deepStrictEqual(resources.items.map((r) => r.verified), ["ok"]);
     assert.ok(fake.linkRequests.some((r) => r.url === "/docs/missing"), "the dead link was checked");
-    const summary = ofKind("assistant")[0];
+    // The graph shows up as a live preview during the turn; the summary comes when the turn ends.
+    const summary = await waitFor("draft summary", () => ofKind("assistant")[0]);
     assert.match(summary.text, /start with `parse_line`/);
     // The panel received the state.
     await waitFor("panel state", () => c().lastPanelState?.graph?.nodes.length === 4);
