@@ -5,7 +5,9 @@ This document describes how Assistive reads the code of the programmer. The modu
 | Module | Function |
 |---|---|
 | `treesitter.ts` | Loads the tree-sitter WASM runtime and the grammars. |
-| `outline.ts` | Makes the outline of a file: the module docstring, the symbols and the imports. |
+| `outline.ts` | Makes the outline of a file: the module docstring, the symbols and the imports. Python and JavaScript/TypeScript extractors. |
+| `langs.ts` | The extractors for Go, Rust and Java. |
+| `tsutil.ts` | Shared helpers: `cleandoc`, signatures, comments and doc comments. |
 | `pyscope.ts` | Python helpers for the fallback outline. |
 | `changes.ts` | Makes diffs and records the edits of each file (`EditTracker`). |
 | `context.ts` | Defines `WorkspaceAccess`, the path rules, and the project summary. |
@@ -16,7 +18,7 @@ All modules except `workspace.ts` are pure. They do not import `vscode`.
 
 ## 7.1 Tree-sitter (`treesitter.ts`)
 
-Tree-sitter is an incremental parser. Assistive uses the WASM build from the package `@vscode/tree-sitter-wasm`. The build script copies the runtime and four grammars to `dist/wasm/`: `tree-sitter.wasm`, `tree-sitter-python.wasm`, `tree-sitter-typescript.wasm`, `tree-sitter-tsx.wasm` and `tree-sitter-javascript.wasm`.
+Tree-sitter is an incremental parser. Assistive uses the WASM build from the package `@vscode/tree-sitter-wasm`. The build script copies the runtime `tree-sitter.wasm` and seven grammars to `dist/wasm/`: Python, TypeScript, TSX, JavaScript, Go, Rust and Java (`tree-sitter-<grammar>.wasm`).
 
 ### 7.1.1 `grammarFor(languageId)`
 
@@ -28,6 +30,9 @@ This function changes a VS Code language ID into a grammar name.
 | `typescript` | `typescript` |
 | `typescriptreact` | `tsx` |
 | `javascript`, `javascriptreact` | `javascript` |
+| `go` | `go` |
+| `rust` | `rust` |
+| `java` | `java` |
 | All other IDs | `undefined` |
 
 ### 7.1.2 `class TreeSitter`
@@ -63,6 +68,9 @@ The outline is the main view of a file for the graph and the prompts.
 
 ### 7.2.2 `cleandoc(raw)`
 
+> **Note:** `cleandoc`, `normalizeSignature` and `header` are in `tsutil.ts`. `outline.ts` exports `cleandoc` and `normalizeSignature` again for the callers that exist.
+
+
 This function does the same work as `inspect.cleandoc` of Python (PEP 257):
 
 1. It changes tabs to four spaces.
@@ -81,16 +89,18 @@ A Python module docstring is the first statement of the file if that statement i
 5. If the string is closed, it returns the cleaned text and `closed: true`.
 6. If the string is not closed, the programmer is still typing it. It returns `closed: false` and the text so far. The text ends at the end of the file (triple quote) or of the line (single quote).
 
-### 7.2.4 `jsModuleString(text)`
+### 7.2.4 `cStyleModuleString(text)`
 
-A JavaScript or TypeScript module docstring is the comment at the top of the file. The function skips blank lines, a shebang line (`#!`) and `"use strict"`. Then it accepts two forms:
+In JavaScript, TypeScript, Go, Rust and Java, the module docstring is the comment at the top of the file. The function skips blank lines, a shebang line (`#!`), `"use strict"` and Go build tags (`//go:build`, `// +build`). Then it accepts two forms:
 
-- **Block comment** (`/* … */` or `/** … */`). The function finds `*/`. It removes the `*` characters at the start of each line. The comment is closed if `*/` exists.
-- **Line comments** (a group of `//` lines). The function collects the consecutive `//` lines and removes the `//` markers. The comment is closed if code follows it, or if two line breaks follow it.
+- **Block comment** (`/* … */`, `/** … */` or Rust `/*! … */`). The function finds `*/`. It removes the `*` and `!` characters at the start. The comment is closed if `*/` exists.
+- **Line comments** (a group of `//` lines, Rust `//!` lines included). The function collects the consecutive lines and removes the `//` and `//!` markers. The comment is closed if code follows it, or if two line breaks follow it.
+
+In Go, this is the package comment above the `package` line. In Rust, this is the inner doc comment (`//!`). In Java, this is a comment above the `package` line. `jsModuleString` is the old name of the same function.
 
 ### 7.2.5 `moduleStringOf(languageId, text)`
 
-This function calls `pythonModuleString` for Python. It calls `jsModuleString` for the other languages that have a grammar. It returns `undefined` for all other languages.
+This function calls `pythonModuleString` for Python. It calls `cStyleModuleString` for the other languages that have a grammar. It returns `undefined` for all other languages.
 
 ### 7.2.6 `normalizeSignature(raw)`
 
@@ -158,7 +168,61 @@ For each class, `classMembers` adds the methods. A method is a `method_definitio
 
 **Imports.** `jsImports(root)` collects the source string of each `import … from "x"` and `export … from "x"`.
 
-### 7.2.9 Regex fallback for Python
+### 7.2.9 Go, Rust and Java symbols (`langs.ts`)
+
+These extractors use the same `OutlineSymbol` form. A member has a dotted `qualname`, for example `Cache.Get` in Go, `Cache.new` in Rust and `Cache.get` in Java. Rust paths with `::` are not used in the outline.
+
+**Go** (`goSymbols`, `goImports`):
+
+| Declaration | Symbol |
+|---|---|
+| `func Name(…)` | `function` |
+| `func (c *Cache) Get(…)` | `method` `Cache.Get`. The receiver type comes from the receiver text, also for a pointer or a generic type (`Stack[T]`). |
+| `type Name struct {…}` | `class` |
+| `type Name interface {…}`, other `type` declarations | `type` |
+| `const …` / `var …` | `constant` / `variable`, one for each name. The signature starts with `const` or `var`. |
+
+Imports are the paths of the `import` specs, for example `net/http`.
+
+**Rust** (`rustSymbols`, `rustImports`):
+
+| Item | Symbol |
+|---|---|
+| `fn` | `function`, or `method` in an `impl` or a `trait` |
+| `struct` | `class` |
+| `enum`, `trait`, `type`, `union` | `type`. The methods of a trait are `method` `Trait.name`. |
+| `const`, `static` | `constant` |
+| `impl Type` / `impl Trait for Type` | The functions become `method` `Type.name`. Generics and references are removed from the type name. |
+| `mod name { … }` | The items inside receive the prefix `name.`, for example `inner.f`. |
+
+Imports are the arguments of the `use` declarations, for example `crate::util::{a, b}`.
+
+**Java** (`javaSymbols`, `javaImports`):
+
+| Declaration | Symbol |
+|---|---|
+| `class`, `record` | `class` |
+| `interface`, `enum`, `@interface` | `type` |
+| A method | `method` `Class.name` |
+| A constructor | `method` `Class.Class` |
+| A `static final` field, an interface constant | `constant` `Class.NAME` |
+| A nested type | `Outer.Inner`, with its own members |
+
+Imports are the names of the `import` declarations, without `import`, `static` and `;`, for example `java.util.Map`.
+
+**Stub rules:**
+
+| Language | A body is a stub if, after comments are removed, it is empty or has only … |
+|---|---|
+| Go | `panic(…)` calls with "not implemented", "unimplemented" or "todo" |
+| Rust | `todo!()`, `unimplemented!()`, or `panic!(…)` with "not implemented" or "todo" |
+| Java | `throw` statements with `UnsupportedOperationException`, "not implemented" or "todo" |
+
+A declaration without a body (a Rust trait signature, a Java interface or abstract method, a Go function without a body) is not a stub.
+
+**Doc comments.** `precedingDoc` from `tsutil.ts` takes the run of comments that ends on the line above the declaration: Go `//` lines, Rust `///` lines, or a Java `/** … */` block. It ignores the module docstring.
+
+### 7.2.10 Regex fallback for Python
 
 If tree-sitter is not available or fails, Python files use `pythonOutlineRegex(text)`. This function reads the file line by line:
 
@@ -171,22 +235,22 @@ If tree-sitter is not available or fails, Python files use `pythonOutlineRegex(t
 
 `pythonImportsRegex(text)` finds `from X import …` and `import a, b as c` lines.
 
-### 7.2.10 `outline(ts, languageId, text)`
+### 7.2.11 `outline(ts, languageId, text)`
 
 This is the entry point. It does these steps:
 
 1. It finds the module docstring with `moduleStringOf`.
-2. If a tree-sitter instance and a grammar exist, it parses the text. It collects the symbols and the imports for Python or for JavaScript and TypeScript. It sets `hasErrors` from `root.hasError`. It always deletes the tree.
+2. If a tree-sitter instance and a grammar exist, it parses the text. The private function `extract` calls the symbol and import extractors of the grammar. It sets `hasErrors` from `root.hasError`. It always deletes the tree.
 3. If the parse fails, and the language is Python, it uses the regex fallback (`parser: "regex"`).
 4. For all other cases, it returns an outline without symbols (`parser: "none"`).
 
 The controller keeps a cache of outlines. Refer to [Controller](15-controller.md#153-files-and-outlines).
 
-### 7.2.11 `symbolAt(outline, line)`
+### 7.2.12 `symbolAt(outline, line)`
 
 This function returns the innermost symbol that contains the 0-based line. "Innermost" means the symbol with the smallest range. For a line in a method, it returns the method, not the class.
 
-### 7.2.12 `formatOutline(outline, {docstrings})`
+### 7.2.13 `formatOutline(outline, {docstrings})`
 
 This function makes the compact text that the prompts and the `get_file_outline` tool use. The line numbers are 1-based. Example:
 
@@ -351,12 +415,22 @@ This function finds the workspace file of an import, if the file is in the works
 3. an `index` file with one of these extensions in the folder of that path;
 4. the path with `.js` changed to `.ts`.
 
+**Go:** An import of the standard library has no dot in its first segment (for example `net/http`). The function ignores it. For a module import such as `example.com/app/internal/cache`, it tries the end parts of the path as a folder: `app/internal/cache`, then `internal/cache`, then `cache`. It returns the first `.go` file in that folder that is not a test file.
+
+**Rust:** The function accepts `crate::`, `self::` and `super::` paths. It ignores other crates.
+
+1. The base of `crate::` is the `src/` folder of the file. The base of `self::` is the module folder of the file. The base of `super::` is the parent of that folder.
+2. The module folder of `mod.rs`, `lib.rs` and `main.rs` is their own folder. For `src/net/http.rs`, it is `src/net/http/`.
+3. It removes a `{…}` group at the end. It tries the full path, then shorter paths, as `<path>.rs` and `<path>/mod.rs`.
+
+**Java:** The function changes the dots to `/` and looks for `<path>.java` under any source root, for example `src/main/java/`. It removes the last segments one by one, so a static import (`com.example.Strings.pad`) finds its class. For a wildcard import (`com.example.util.*`), it returns the first `.java` file of the package folder.
+
 ### 7.5.8 `projectSummary(ws, file, current, outlineOf)`
 
 This function makes the project context for the draft prompt and for the `get_project_context` tool. It has these parts, in this order:
 
 1. **File tree.** A maximum of 400 files are listed, and a maximum of 150 are shown.
-2. **Manifests.** The first 50 lines of each of these root files: `pyproject.toml`, `requirements.txt`, `setup.cfg`, `setup.py`, `package.json`, `tsconfig.json` and `environment.yml`. For `package.json`, only `name`, `type`, `engines`, `dependencies` and `devDependencies` are kept.
+2. **Manifests.** The first 50 lines of each of these root files: `pyproject.toml`, `requirements.txt`, `setup.cfg`, `setup.py`, `package.json`, `tsconfig.json`, `environment.yml`, `go.mod`, `Cargo.toml`, `pom.xml`, `build.gradle` and `build.gradle.kts`. For `package.json`, only `name`, `type`, `engines`, `dependencies` and `devDependencies` are kept.
 3. **README.** The first 30 lines of `README`, `README.md`, `README.rst` or `README.txt` at the root (any case).
 4. **Imported modules.** The function shows a maximum of 5 local modules that the file imports. For each one, it shows the first line of the docstring and the first 40 lines of the outline.
 5. **Sibling modules.** The function shows a maximum of 8 other files in the same folder and language. For each one, it shows the first line of the docstring and up to 8 top-level names. It does not repeat the imported modules.
@@ -371,7 +445,7 @@ This function makes the project context for the draft prompt and for the `get_pr
 | `read(rel)` | If a document with this path is open (and its scheme is not `git`), returns the buffer text. Else reads the disk. Returns `undefined` for a folder. Returns "(binary file)" if the first 2000 bytes contain a NUL byte. Cuts files at 1 MB and adds "…(file truncated at 1 MB)". |
 | `search(query, opts)` | Lists a maximum of 4000 files and skips binary extensions (images, archives, compiled files, model weights, lock files and more). Reads each file and tests each line with the regular expression or with a plain text search. Stops at `max` hits. |
 | `diagnostics(rel?)` | Reads the diagnostics of one file or of all files. Skips files outside the root and the diagnostics of Assistive itself. Errors come first. |
-| `languageOf(rel)` | `.py` and `.pyi` → `python`; `.ts`, `.mts`, `.cts` → `typescript`; `.tsx` → `typescriptreact`; `.js`, `.mjs`, `.cjs` → `javascript`; `.jsx` → `javascriptreact`. |
+| `languageOf(rel)` | `.py` and `.pyi` → `python`; `.ts`, `.mts`, `.cts` → `typescript`; `.tsx` → `typescriptreact`; `.js`, `.mjs`, `.cjs` → `javascript`; `.jsx` → `javascriptreact`; `.go` → `go`; `.rs` → `rust`; `.java` → `java`. |
 
 ## 7.7 Debouncer (`debounce.ts`)
 

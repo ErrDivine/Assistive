@@ -17,6 +17,10 @@ async function main(): Promise<void> {
   fs.writeFileSync(path.join(workspace, "wc.py"), "");
   fs.writeFileSync(path.join(workspace, "existing.py"), '"""An existing module that is only opened, never edited."""\n\nVALUE = 1\n');
   fs.writeFileSync(path.join(workspace, "README.md"), "# Word count\n\nA tiny CLI that counts words.\n");
+  fs.writeFileSync(
+    path.join(workspace, "greet.go"),
+    '// Package greet says hello in several languages.\npackage greet\n\nfunc Hello(lang string) string {\n\tpanic("not implemented")\n}\n',
+  );
   fs.writeFileSync(path.join(workspace, "pyproject.toml"), '[project]\nname = "wc"\nversion = "0.1.0"\ndependencies = []\n');
   fs.writeFileSync(
     path.join(workspace, ".vscode", "settings.json"),

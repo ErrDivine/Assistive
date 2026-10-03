@@ -82,7 +82,8 @@ const nodeFields: Record<string, JsonSchema> = {
   }),
   kind: str(`What the node is. ${NODE_KIND_HELP}`, { enum: NODE_KINDS }),
   symbol: str(
-    "The exact name the programmer will type, dotted for members: 'parse_args', 'Cache.get'. Omit for step and external nodes.",
+    "The exact name the programmer will type, dotted for members: 'parse_args', 'Cache.get' (also for Go and Rust methods, " +
+      "not 'Cache::get'; a Java constructor is 'Cache.Cache'). Omit for step and external nodes.",
   ),
   signature: str(
     "Planned signature in the file's language, with types: 'def get(self, key: str) -> bytes | None' or " +

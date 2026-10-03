@@ -16,6 +16,9 @@ const LANG_BY_EXT: Record<string, string> = {
   ".mjs": "javascript",
   ".cjs": "javascript",
   ".jsx": "javascriptreact",
+  ".go": "go",
+  ".rs": "rust",
+  ".java": "java",
 };
 
 const BINARY_EXT =

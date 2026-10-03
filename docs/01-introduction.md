@@ -32,7 +32,7 @@ flowchart LR
 
 The workflow has five steps:
 
-1. **Write the module docstring.** At the top of a new file, describe what the file must do. In Python, this is a `"""docstring"""`. In TypeScript or JavaScript, this is a `/** comment */` or a group of `//` lines.
+1. **Write the module docstring.** At the top of a new file, describe what the file must do. In Python, this is a `"""docstring"""`. In Go, this is the package comment (`// Package x …`). In Rust, this is a group of `//!` lines. In TypeScript, JavaScript and Java, this is a `/** comment */` or a group of `//` lines.
 2. **Examine the draft.** When the docstring is complete, the LLM drafts a graph. Each node is a piece of code to type: a function, a class, a method, a data type, a constant or a test. Each node has a signature, a description, technical notes and a position in the typing order.
 3. **Steer the plan.** Type instructions in the input box of the panel, for example "split the parse into its own function". The LLM changes the graph with its tools and writes a short summary.
 4. **Type the code.** The graph follows the code. A node changes from *planned* to *stubbed* to *done* as the code appears.
@@ -68,7 +68,7 @@ This design keeps the cost low and the interrupts rare. The thresholds are in [J
 ## 1.5 Supported editors and languages
 
 - **Editors:** VS Code 1.101 or newer, VSCodium, Cursor and VS Code Insiders.
-- **Languages:** Python, TypeScript and JavaScript, with TSX and JSX.
+- **Languages:** Python, TypeScript and JavaScript (with TSX and JSX), Go, Rust and Java.
 - **LLM providers:** any provider with an OpenAI-compatible Chat Completions API and tool calls. Examples are OpenAI, Azure OpenAI, OpenRouter, vLLM, Ollama and LM Studio.
 - **Jev:** a Jev API key from TypeSafe AI. This key is optional. Without it, the LLM can do the triage (`ASSISTIVE_TRIAGE=llm`).
 
@@ -86,7 +86,7 @@ The tools never read files that look like secrets: `.env` files, keys, credentia
 
 ## 1.7 Limits
 
-- Assistive makes outlines and graphs only for Python, TypeScript and JavaScript.
+- Assistive makes outlines and graphs only for Python, TypeScript, JavaScript, Go, Rust and Java.
 - The quality of drafts and interrupts depends on the LLM. Use a model that is good at tool calls.
 - The Jev request format follows the public documentation of TypeSafe AI. The tests use a fake Jev server. Run **Assistive: Test LLM and Jev Connections** after you write your key.
 - The graph of a file holds a maximum of 60 nodes and 150 edges.

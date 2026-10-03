@@ -79,22 +79,23 @@ Before you start, read [Architecture](06-architecture.md). After each change, do
 
 The outline is the base of all features. A new language needs an outline.
 
-1. Find a tree-sitter grammar for the language. The package `@vscode/tree-sitter-wasm` contains several grammars.
+1. Find a tree-sitter grammar for the language. The package `@vscode/tree-sitter-wasm` also contains grammars for C#, C++, Ruby, PHP, Bash and PowerShell.
 2. In `esbuild.mjs`, add the WASM file of the grammar to the list of files that the build copies.
 3. In `src/code/treesitter.ts`:
    1. Add the grammar name to the `Grammar` type.
    2. Map the VS Code language ID to the grammar in `grammarFor`.
-4. In `src/code/outline.ts`:
-   1. Add a function for the module docstring of the language, and call it from `moduleStringOf`.
-   2. Add functions for the symbols and the imports. Set `isStub` for placeholder bodies.
-   3. Call these functions from `outline`.
-5. In `src/code/workspace.ts`, add the file extensions to `LANG_BY_EXT`.
-6. In `src/code/context.ts`, add the import rules of the language to `resolveImport`.
-7. In `package.json`:
+4. In `src/code/langs.ts`, add functions for the symbols and the imports. Use the helpers of `tsutil.ts` (`header`, `precedingDoc`, `kids`, `isComment`). Set `isStub` for placeholder bodies. Use dotted names for members (`Type.method`).
+5. In `src/code/outline.ts`:
+   1. Call these functions from the private function `extract`.
+   2. If the module docstring of the language is a different form of comment, add a function for it. Call the function from `moduleStringOf`.
+6. In `src/code/workspace.ts`, add the file extensions to `LANG_BY_EXT`.
+7. In `src/code/context.ts`, add the import rules of the language to `resolveImport`.
+8. In `package.json`:
    1. Add an `onLanguage:<id>` activation event.
    2. Add the language ID to the default of `assistive.languages`.
-8. In `src/controller.ts`, add the language ID to the default list in `supported`.
-9. Add tests to `test/unit/outline.test.ts` with real code in the language.
+9. In `src/controller.ts`, add the language ID to `DEFAULT_LANGUAGES`.
+10. In `src/assistant/Assistant.ts`, add a docstring hint to `docHint`. In `src/panel/webview/panel.ts`, add an example to `EXAMPLE_DOCSTRINGS`.
+11. Add tests to `test/unit/langs.test.ts` with real code in the language.
 
 ## 17.7 Change the prompts
 

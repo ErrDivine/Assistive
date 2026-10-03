@@ -58,7 +58,8 @@ mkdirSync("dist/wasm", { recursive: true });
 copyFileSync("src/panel/webview/index.html", "dist/webview/index.html");
 copyFileSync("src/panel/webview/panel.css", "dist/webview/panel.css");
 const wasmDir = "node_modules/@vscode/tree-sitter-wasm/wasm";
-for (const f of ["tree-sitter.wasm", "tree-sitter-python.wasm", "tree-sitter-typescript.wasm", "tree-sitter-tsx.wasm", "tree-sitter-javascript.wasm"]) {
+const grammars = ["python", "typescript", "tsx", "javascript", "go", "rust", "java"];
+for (const f of ["tree-sitter.wasm", ...grammars.map((g) => `tree-sitter-${g}.wasm`)]) {
   copyFileSync(join(wasmDir, f), join("dist/wasm", f));
 }
 

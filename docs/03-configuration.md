@@ -142,7 +142,7 @@ Open the settings with **File → Preferences → Settings** and search for `ass
 | `assistive.autoDraft` | `true` | Draft the graph automatically when you complete the module docstring of a file that has no graph. |
 | `assistive.heartbeat.enabled` | `true` | Turn the heartbeat on or off. The **Pause** button changes this setting. |
 | `assistive.notifications` | `toast` | `panel`: interrupts show only in the panel and as a squiggle. `toast`: a notification also shows when the panel is hidden. |
-| `assistive.languages` | `python`, `typescript`, `typescriptreact`, `javascript`, `javascriptreact` | The VS Code language IDs where Assistive works. |
+| `assistive.languages` | `python`, `typescript`, `typescriptreact`, `javascript`, `javascriptreact`, `go`, `rust`, `java` | The VS Code language IDs where Assistive works. |
 
 ### 3.4.1 Key bindings
 

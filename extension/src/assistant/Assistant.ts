@@ -545,9 +545,13 @@ export class Assistant {
   }
 
   private docHint(language: string): string {
-    return language === "python"
-      ? 'Write a module docstring at the top of the file first (`"""What this module does…"""`); the graph is drafted from it.'
-      : "Write a leading `/** … */` comment at the top of the file describing what it does; the graph is drafted from it.";
+    const how: Record<string, string> = {
+      python: 'a module docstring (`"""What this module does…"""`)',
+      go: "a package comment (`// Package cache …` above the `package` line)",
+      rust: "a module doc comment (`//! What this module does…` lines)",
+      java: "a leading `/** … */` comment above the `package` line",
+    };
+    return `Write ${how[language] ?? "a leading `/** … */` comment"} at the top of the file first, describing what it does; the graph is drafted from it.`;
   }
 }
 

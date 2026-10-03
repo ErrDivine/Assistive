@@ -163,11 +163,14 @@ stateDiagram-v2
 
 This function finds the outline symbol of a node:
 
-1. It takes the wanted name from `node.symbol`. The private function `symbolName` cleans this name:
-   - It removes a keyword at the start: `def`, `class`, `function`, `const`, `let`, `var` or `async`.
+1. It takes the wanted name from `node.symbol`. The function `symbolName` cleans this name:
+   - It changes a Go method form `func (c *Cache) Get(…)` to `Cache.Get`.
+   - It changes Rust `::` to `.`.
+   - It removes modifiers at the start: `pub`, `pub(crate)`, `public`, `private`, `protected`, `static`, `final`, `abstract`, `async`, `export`, `default`, `unsafe`, `const`.
+   - It removes a keyword at the start: `def`, `class`, `function`, `func`, `fn`, `let`, `var`, `struct`, `enum`, `trait`, `interface`, `type`.
    - It removes all text after `(`, `:`, `<` or a space.
 
-   Thus `def Cache.get(self)` becomes `Cache.get`.
+   Thus `def Cache.get(self)` and `Cache::get` both become `Cache.get`.
 2. If the node has no symbol and its kind is a symbol kind, the wanted name is the label.
 3. If a symbol has this exact `qualname`, the function returns it.
 4. If not, it takes the last part of the dotted name. If exactly one symbol has this `name`, the function returns it.

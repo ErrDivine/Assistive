@@ -4,7 +4,7 @@
 import * as path from "node:path";
 import { Language, Parser, type Tree } from "@vscode/tree-sitter-wasm";
 
-export type Grammar = "python" | "typescript" | "tsx" | "javascript";
+export type Grammar = "python" | "typescript" | "tsx" | "javascript" | "go" | "rust" | "java";
 
 /** VS Code language id → grammar. */
 export function grammarFor(languageId: string): Grammar | undefined {
@@ -18,6 +18,12 @@ export function grammarFor(languageId: string): Grammar | undefined {
     case "javascript":
     case "javascriptreact":
       return "javascript";
+    case "go":
+      return "go";
+    case "rust":
+      return "rust";
+    case "java":
+      return "java";
     default:
       return undefined;
   }

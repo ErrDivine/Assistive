@@ -25,13 +25,19 @@
     "heartbeat",
     "jev",
     "llm",
-    "python"
+    "python",
+    "go",
+    "rust",
+    "java"
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:python",
     "onLanguage:typescript",
     "onLanguage:javascript",
+    "onLanguage:go",
+    "onLanguage:rust",
+    "onLanguage:java",
     "onStartupFinished"
   ],
   "contributes": {
@@ -61,7 +67,7 @@
       },
       {
         "command": "assistive.ask",
-        "title": "Tell the Assistant\u2026",
+        "title": "Tell the Assistant…",
         "category": "Assistive"
       },
       {
@@ -172,7 +178,10 @@
             "typescript",
             "typescriptreact",
             "javascript",
-            "javascriptreact"
+            "javascriptreact",
+            "go",
+            "rust",
+            "java"
           ],
           "description": "Languages Assistive works in."
         }

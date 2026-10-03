@@ -181,7 +181,7 @@ type Id = string;
   });
 
   it("returns an empty outline for unsupported languages", async () => {
-    const o = await outline(ts, "rust", "fn main() {}");
+    const o = await outline(ts, "ruby", "def main; end");
     assert.strictEqual(o.parser, "none");
     assert.deepStrictEqual(o.symbols, []);
   });

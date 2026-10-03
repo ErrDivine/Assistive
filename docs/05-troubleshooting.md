@@ -47,7 +47,7 @@ Run **Assistive: Test LLM and Jev Connections**. The result tells you if each se
 | Possible cause | Corrective action |
 |---|---|
 | The file has no module docstring. | Write a docstring at the top of the file. |
-| The language is not supported. | Use Python, TypeScript or JavaScript, or add the language ID to `assistive.languages`. Only these three languages have an outline. |
+| The language is not supported. | Use Python, TypeScript, JavaScript, Go, Rust or Java. Only these languages have an outline. |
 | The LLM works on a different task. The spinner line is visible. | Wait for the task to end. |
 
 ### 5.2.3 A node stays "planned" after I typed its code
@@ -140,6 +140,6 @@ The panel shows the active editor if its language is supported. If the active fi
 | LLM triage was not JSON: … | With `ASSISTIVE_TRIAGE=llm`, the LLM did not reply with a JSON object. | Use a model that follows instructions better, or use Jev. |
 | Write a module docstring at the top of the file first … | You clicked **Draft** but the file has no docstring. | Write the docstring. |
 | There is no graph to sync yet. Draft one first. | You clicked **Sync** but the file has no graph. | Draft a graph. |
-| Assistive: open a Python, TypeScript or JavaScript file first. | The command needs a supported file. | Open a supported file. |
+| Assistive: open a Python, TypeScript, JavaScript, Go, Rust or Java file first. | The command needs a supported file. | Open a supported file. |
 | Assistive: nothing to undo. | The undo stack is empty. | No action is necessary. |
 | Assistive: this file has no graph yet. | You tried to export a file without a graph. | Draft a graph. |

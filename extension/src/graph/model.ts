@@ -409,10 +409,20 @@ export function describeSummary(s: GraphChangeSummary): string {
 
 const SYMBOL_KINDS = new Set<NodeKind>(["class", "function", "method", "data", "constant", "test"]);
 
-/** Bare dotted name from what the model wrote: `def Cache.get()` → `Cache.get`. */
-function symbolName(s: string): string {
-  return s
-    .replace(/^(async\s+)?(def|class|function|const|let|var)\s+/, "")
+/**
+ * Bare dotted name from what the model wrote: `def Cache.get()` → `Cache.get`,
+ * `Cache::get` → `Cache.get`, `func (c *Cache) Get(` → `Cache.Get`, `pub fn new` → `new`.
+ */
+export function symbolName(s: string): string {
+  const t = s.trim();
+  const goMethod = /^func\s*\(\s*\w*\s*\*?\s*([A-Za-z_]\w*)[^)]*\)\s*([A-Za-z_]\w*)/.exec(t);
+  if (goMethod) {
+    return `${goMethod[1]}.${goMethod[2]}`;
+  }
+  return t
+    .replace(/::/g, ".")
+    .replace(/^((pub(\([^)]*\))?|public|private|protected|static|final|abstract|async|export|default|unsafe|const)\s+)*/, "")
+    .replace(/^(def|class|function|func|fn|let|var|struct|enum|trait|interface|type)\s+/, "")
     .replace(/[(:<\s].*$/, "")
     .trim();
 }

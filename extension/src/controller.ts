@@ -27,6 +27,7 @@ import type { FeedItem, FromPanel, PanelState, ServiceStatus } from "./types";
 type Interrupt = Extract<FeedItem, { kind: "interrupt" }>;
 
 const AUTO_DRAFT_DELAY_MS = 2500;
+const DEFAULT_LANGUAGES = ["python", "typescript", "typescriptreact", "javascript", "javascriptreact", "go", "rust", "java"];
 /** Statuses follow the code this long after the last keystroke. */
 const LIVE_SYNC_DELAY_MS = 800;
 const MIN_DOCSTRING_CHARS = 15;
@@ -213,7 +214,7 @@ export class Controller implements vscode.Disposable {
     if (!doc || (doc.uri.scheme !== "file" && doc.uri.scheme !== "untitled")) {
       return false;
     }
-    const langs = this.settings().get<string[]>("languages", ["python", "typescript", "typescriptreact", "javascript", "javascriptreact"]);
+    const langs = this.settings().get<string[]>("languages", DEFAULT_LANGUAGES);
     return langs.includes(doc.languageId);
   }
 
@@ -579,7 +580,7 @@ export class Controller implements vscode.Disposable {
   private requireFile(): FileHandle | undefined {
     const h = this.handle();
     if (!h) {
-      void vscode.window.showInformationMessage("Assistive: open a Python, TypeScript or JavaScript file first.");
+      void vscode.window.showInformationMessage("Assistive: open a Python, TypeScript, JavaScript, Go, Rust or Java file first.");
     }
     return h;
   }

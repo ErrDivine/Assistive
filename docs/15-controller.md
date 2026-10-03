@@ -271,7 +271,7 @@ All assistant actions go through `run`. If the action succeeds, `run` clears the
 | `testConnection()` | Sends one LLM request and one Jev request. Returns one line for each service. |
 | `goto(line, endLine?, rel?, key?)` | Opens the active file, or `rel` in the same workspace. Keeps the lines in the file. Puts the cursor at the start of the range. Shows the range in the center if it is not visible. |
 
-All commands that need a file call `requireFile()`. If there is no supported file, it shows "Assistive: open a Python, TypeScript or JavaScript file first."
+All commands that need a file call `requireFile()`. If there is no supported file, it shows "Assistive: open a Python, TypeScript, JavaScript, Go, Rust or Java file first."
 
 ### 15.7.3 Panel messages
 

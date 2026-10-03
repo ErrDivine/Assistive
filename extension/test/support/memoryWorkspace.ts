@@ -2,7 +2,7 @@
 
 import type { DiagnosticInfo, SearchHit, WorkspaceAccess } from "../../src/code/context";
 
-const LANG: Record<string, string> = { py: "python", ts: "typescript", tsx: "typescriptreact", js: "javascript" };
+const LANG: Record<string, string> = { py: "python", ts: "typescript", tsx: "typescriptreact", js: "javascript", go: "go", rs: "rust", java: "java" };
 
 function globToRegExp(glob: string): RegExp {
   let re = "";

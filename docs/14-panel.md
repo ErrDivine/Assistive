@@ -204,7 +204,7 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
 ### 14.5.7 Streamed reply
 
-`renderStream(text)` shows the reply that the LLM writes now. The element has the classes `item assistant streaming` and stays after the last feed item. The text is Markdown, cleaned by `DOMPurify`. A CSS rule adds a blinking cursor. Without text, the element goes away. When the turn ends, the real reply arrives in the next `state` message.
+`renderStream(text)` shows the reply that the LLM writes now. The element has the classes `item assistant streaming` and stays after the last feed item. The text is Markdown, cleaned by `DOMPurify`. A CSS rule adds a cursor that blinks. Without text, the element goes away. When the turn ends, the real reply arrives in the next `state` message.
 
 ### 14.5.8 Input box
 

@@ -55,7 +55,7 @@ The build uses esbuild. It makes these outputs:
 The build also copies these static files:
 
 - `src/panel/webview/index.html` and `panel.css` to `dist/webview/`;
-- the tree-sitter runtime and the Python, TypeScript, TSX and JavaScript grammars to `dist/wasm/`.
+- the tree-sitter runtime and the Python, TypeScript, TSX, JavaScript, Go, Rust and Java grammars to `dist/wasm/`.
 
 | Flag | Effect |
 |---|---|
@@ -104,6 +104,7 @@ The unit tests use mocha. They run in plain Node.js, without VS Code and without
 | File | Subject |
 |---|---|
 | `outline.test.ts` | Module docstrings, tree-sitter outlines on the real grammars, the regex fallback, `formatOutline`. |
+| `langs.test.ts` | Go, Rust and Java: module docstrings, symbols, stubs, imports, import resolution, `symbolName`. |
 | `pyscope.test.ts` | `pythonEnclosingRange` and multi-line headers. |
 | `changes.test.ts` | `renderDiff`, `changedLineCount`, `EditTracker`. |
 | `context.test.ts` | `isSecretPath`, `normalizeRel`, `numberLines`, `fileTree`, `resolveImport`, `projectSummary`. |
@@ -136,7 +137,7 @@ The integration tests run the real extension inside VS Code against the fake ser
 The runner does these steps:
 
 1. It makes a scratch folder with a workspace `project/` and a configuration folder.
-2. It writes these files into the workspace: an empty `wc.py`, an `existing.py` with a docstring, a `README.md`, a `pyproject.toml`, and `.vscode/settings.json`. The settings point `assistive.envFile` to the scratch `.env` file and set `assistive.notifications` to `panel`.
+2. It writes these files into the workspace: an empty `wc.py`, an `existing.py` with a docstring, a `greet.go` with a package comment, a `README.md`, a `pyproject.toml`, and `.vscode/settings.json`. The settings point `assistive.envFile` to the scratch `.env` file and set `assistive.notifications` to `panel`.
 3. It starts VS Code with `@vscode/test-electron`. It uses `VSCODE_EXECUTABLE` (for example VSCodium) or downloads the version in `VSCODE_VERSION` (default `stable`).
 4. It gives these arguments: the workspace, `--disable-extensions`, `--disable-workspace-trust`, `--skip-welcome`, `--skip-release-notes`, `--no-sandbox`, `--disable-gpu` and a temporary user data folder.
 5. It gives the paths to the tests in `ASSISTIVE_IT_WORKSPACE` and `ASSISTIVE_IT_ENV`.
@@ -152,6 +153,7 @@ The tests start the fake servers and write the `.env` file with the fake URLs. T
 |---|---|
 | registers its commands and the panel | The commands exist and the panel opens. |
 | tests the LLM and Jev connections | The connection test reaches both fake services. |
+| supports Go files: the package comment is the module docstring | A Go file is supported, its package comment is the closed module docstring, and the outline finds a stub. |
 | does not draft files that are only opened | A file with a docstring that the programmer only opens does not start a draft. |
 | drafts the graph once the module docstring is written | The auto-draft runs, the draft prompt contains the README, the dead link is dropped, and the panel receives the state. |
 | changes the graph from an instruction and summarizes | A chat message adds a node and posts a summary. |

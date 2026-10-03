@@ -143,12 +143,89 @@ export function resolveImport(spec: string, fromFile: string, language: string, 
     }
     return undefined;
   }
+  if (language === "go") {
+    return resolveGoImport(spec, files);
+  }
+  if (language === "rust") {
+    return resolveRustUse(spec, fromFile, files);
+  }
+  if (language === "java") {
+    return resolveJavaImport(spec, files);
+  }
   if (!spec.startsWith(".")) {
     return undefined; // a package
   }
   const stem = path.posix.join(dir, spec);
   const exts = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
   return first([stem, ...exts.map((e) => stem + e), ...exts.map((e) => `${stem}/index${e}`), stem.replace(/\.js$/, ".ts")]);
+}
+
+/** A Go import of this module (`example.com/app/internal/cache`): the first file of the package folder. */
+function resolveGoImport(spec: string, files: Set<string>): string | undefined {
+  const segs = spec.split("/");
+  if (!segs[0].includes(".")) {
+    return undefined; // the standard library
+  }
+  const sorted = [...files].sort();
+  for (let k = 1; k < segs.length; k++) {
+    const dir = segs.slice(k).join("/");
+    const hit = sorted.find((f) => path.posix.dirname(f) === dir && f.endsWith(".go") && !f.endsWith("_test.go"));
+    if (hit) {
+      return hit;
+    }
+  }
+  return undefined;
+}
+
+/** A Rust `use crate::a::b::C` / `self::…` / `super::…`: the file of the deepest module that exists. */
+function resolveRustUse(spec: string, fromFile: string, files: Set<string>): string | undefined {
+  const segs = spec.replace(/::\{.*$/s, "").replace(/\s+as\s+\w+$/, "").split("::");
+  const dir = path.posix.dirname(fromFile);
+  const stem = path.posix.basename(fromFile, ".rs");
+  const ownsDir = ["mod", "lib", "main"].includes(stem);
+  const moduleDir = ownsDir ? dir : path.posix.join(dir, stem);
+  let base: string;
+  if (segs[0] === "crate") {
+    const at = fromFile.lastIndexOf("src/");
+    base = at >= 0 ? fromFile.slice(0, at + 3) : dir;
+  } else if (segs[0] === "self") {
+    base = moduleDir;
+  } else if (segs[0] === "super") {
+    base = path.posix.dirname(moduleDir);
+  } else {
+    return undefined; // another crate
+  }
+  const rest = segs.slice(1);
+  for (let k = rest.length; k >= 1; k--) {
+    const p = path.posix.join(base, ...rest.slice(0, k));
+    const hit = [`${p}.rs`, `${p}/mod.rs`].find((c) => files.has(c));
+    if (hit) {
+      return hit;
+    }
+  }
+  return undefined;
+}
+
+/** A Java import (`com.example.util.Strings`, static members and `.*` included): the source file under any source root. */
+function resolveJavaImport(spec: string, files: Set<string>): string | undefined {
+  const wildcard = spec.endsWith(".*");
+  const segs = spec.replace(/\.\*$/, "").split(".");
+  const sorted = [...files].sort();
+  const find = (rel: string) => sorted.find((f) => f === rel || f.endsWith(`/${rel}`));
+  if (wildcard) {
+    const pkg = segs.join("/");
+    const hit = sorted.find((f) => f.endsWith(".java") && (path.posix.dirname(f) === pkg || path.posix.dirname(f).endsWith(`/${pkg}`)));
+    if (hit) {
+      return hit;
+    }
+  }
+  for (let k = segs.length; k >= 2; k--) {
+    const hit = find(`${segs.slice(0, k).join("/")}.java`);
+    if (hit) {
+      return hit;
+    }
+  }
+  return undefined;
 }
 
 function ancestors(dir: string): string[] {
@@ -161,7 +238,20 @@ function ancestors(dir: string): string[] {
   return out;
 }
 
-const MANIFESTS = ["pyproject.toml", "requirements.txt", "setup.cfg", "setup.py", "package.json", "tsconfig.json", "environment.yml"];
+const MANIFESTS = [
+  "pyproject.toml",
+  "requirements.txt",
+  "setup.cfg",
+  "setup.py",
+  "package.json",
+  "tsconfig.json",
+  "environment.yml",
+  "go.mod",
+  "Cargo.toml",
+  "pom.xml",
+  "build.gradle",
+  "build.gradle.kts",
+];
 
 /** Project context included in draft and sync prompts. */
 export async function projectSummary(

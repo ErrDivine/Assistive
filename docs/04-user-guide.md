@@ -96,7 +96,7 @@ The feed shows the conversation and the events for the current file. The newest 
 | Item | Look |
 |---|---|
 | Your message | Aligned on the right side |
-| Assistant reply | Markdown text with a label: "Drafted", "Synced", "Heartbeat" or "Assistant". A line such as "Graph: +4 nodes, +3 edges" shows the graph changes. While the LLM writes a reply, the text shows at the bottom of the feed with a blinking cursor. |
+| Assistant reply | Markdown text with a label: "Drafted", "Synced", "Heartbeat" or "Assistant". A line such as "Graph: +4 nodes, +3 edges" shows the graph changes. While the LLM writes a reply, the text shows at the bottom of the feed with a cursor that blinks. |
 | Interrupt | A card with the issue kind, the line number, a title, a message and three buttons. The color shows the severity. |
 | Resources | "📚 Learn: topic" with a list of links. Each link has a type and one sentence about its use. |
 | Question | A question from the LLM, with buttons for the answers. |
@@ -131,7 +131,7 @@ Assistive drafts a graph automatically when all of these conditions are true:
 
 > **Note:** Assistive does not draft a file that you only open. Use the **Draft** button for a file that has a docstring already.
 
-1. Create or open a Python, TypeScript or JavaScript file.
+1. Create or open a Python, TypeScript, JavaScript, Go, Rust or Java file.
 2. At the top of the file, type a module docstring. Describe what the file must do. Give enough detail, for example the inputs, the outputs and the important rules.
 
    Python:
@@ -150,7 +150,32 @@ Assistive drafts a graph automatically when all of these conditions are true:
     */
    ```
 
-3. Close the docstring. Type `"""` or `*/` at its end.
+   Go (the package comment):
+
+   ```go
+   // Package cache stores HTTP responses on disk
+   // and revalidates them with ETags.
+   package cache
+   ```
+
+   Rust (inner doc comments):
+
+   ```rust
+   //! Parse a CSV file of transactions and
+   //! report the balance of each account.
+   ```
+
+   Java (a comment above the `package` line):
+
+   ```java
+   /**
+    * Schedules meetings for a team: finds free
+    * slots across calendars and books them.
+    */
+   package com.example.scheduler;
+   ```
+
+3. Close the docstring. Type `"""` or `*/` at its end. For a group of `//` lines, start the code (for example the `package` line) below it.
 4. Wait. The panel shows "Drafting the graph…".
 5. Read the summary in the feed. It tells you which node to start with.
 6. Examine the graph and the **Steps** tab.
@@ -310,7 +335,7 @@ Assistive examines each link before it shows the link. It removes links that giv
 ## 4.16 What the panel shows for other files
 
 - If you open a file in a language that Assistive does not support, the panel continues to show the last supported file. Thus you can read documentation or a configuration file and keep the plan in view.
-- If no supported file was open before, the panel tells you to open a Python, TypeScript or JavaScript file.
+- If no supported file was open before, the panel tells you to open a supported file.
 
 ## 4.17 Stop a request
 

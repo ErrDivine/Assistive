@@ -45,6 +45,8 @@ The source code is in `extension/src/`. Most modules do not import `vscode`. Thu
 | `config/env.ts` | Reads and validates the `.env` file. | No | [3](03-configuration.md#part-b-how-the-code-reads-the-configuration) |
 | `code/treesitter.ts` | Loads the tree-sitter WASM runtime and grammars. | No | [7](07-code-analysis.md) |
 | `code/outline.ts` | Finds the module docstring, the symbols and the imports of a file. | No | [7](07-code-analysis.md) |
+| `code/langs.ts` | The symbol and import extractors for Go, Rust and Java. | No | [7](07-code-analysis.md) |
+| `code/tsutil.ts` | Shared helpers over tree-sitter nodes: signatures, doc comments, `cleandoc`. | No | [7](07-code-analysis.md) |
 | `code/pyscope.ts` | Python helpers for the fallback outline. | No | [7](07-code-analysis.md) |
 | `code/changes.ts` | Diffs and the `EditTracker`. | No | [7](07-code-analysis.md) |
 | `code/context.ts` | The `WorkspaceAccess` interface, path rules and the project summary. | No | [7](07-code-analysis.md) |
@@ -110,7 +112,7 @@ sequenceDiagram
     E-->>VS: return { controller }
 ```
 
-VS Code activates the extension when it opens a Python, TypeScript or JavaScript file, or when the startup is complete (`onStartupFinished`).
+VS Code activates the extension when it opens a Python, TypeScript, JavaScript, Go, Rust or Java file, or when the startup is complete (`onStartupFinished`).
 
 ### 6.4.2 Draft
 
@@ -326,7 +328,7 @@ The type `NewFeedItem` is a `FeedItem` without `id` and `ts`. The store adds the
 
 | Package | Version | Use | Location |
 |---|---|---|---|
-| `@vscode/tree-sitter-wasm` | 0.3.1 | Parse Python, TypeScript, TSX and JavaScript in WASM | `code/treesitter.ts` |
+| `@vscode/tree-sitter-wasm` | 0.3.1 | Parse Python, TypeScript, TSX, JavaScript, Go, Rust and Java in WASM | `code/treesitter.ts` |
 | `openai` | 7.27.0 | The Chat Completions client | `llm/agent.ts` |
 | `cytoscape` | 3.34.3 | Draw the graph | `panel/webview/panel.ts` |
 | `cytoscape-dagre` | 4.0.1 | Top-to-bottom layout of the graph | `panel/webview/panel.ts` |

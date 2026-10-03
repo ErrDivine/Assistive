@@ -48,7 +48,7 @@ ASSISTIVE_JEV_MODEL=jev-latest
 
 To finish setting up:
 1. Restart the editor, then run **Assistive: Test LLM and Jev Connections** from the Command Palette.
-2. Open a Python, TypeScript or JavaScript file and write its docstring.
+2. Open a Python, TypeScript, JavaScript, Go, Rust or Java file and write its docstring (or package comment, `//!` module doc, or leading `/** */` comment).
 
 The `.env` is reloaded whenever you save it; **Assistive: Open API Configuration** opens it.
 
@@ -206,6 +206,6 @@ Built on these open-source projects:
 
 ## Limitations
 
-- Languages: Python, TypeScript and JavaScript (TSX/JSX included). Other languages get no outline or graph yet.
+- Languages: Python, TypeScript and JavaScript (TSX/JSX included), Go, Rust and Java. Other languages get no outline or graph yet.
 - The Jev request and response format follows TypeSafe's public documentation. In this repository it is exercised against a faithful fake server, not the live service. Run **Test LLM and Jev Connections** after filling in your key. If your account uses a different base URL, set `ASSISTIVE_JEV_BASE_URL`.
 - Quality depends on the LLM. Use a model that is good at tool calling.

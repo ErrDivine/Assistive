@@ -115,6 +115,19 @@ describe("Assistive in VS Code", function () {
     await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
   });
 
+  it("supports Go files: the package comment is the module docstring", async () => {
+    const goDoc = await vscode.workspace.openTextDocument(path.join(workspace, "greet.go"));
+    await vscode.window.showTextDocument(goDoc, vscode.ViewColumn.One);
+    const st = await waitFor("panel shows greet.go", () => (c().lastPanelState?.file === "greet.go" ? c().lastPanelState : undefined));
+    assert.strictEqual(goDoc.languageId, "go");
+    assert.strictEqual(st.supported, true);
+    assert.strictEqual(st.moduleString, "Package greet says hello in several languages.");
+    assert.strictEqual(st.moduleStringClosed, true);
+    const o = await c().outlineOf("greet.go", goDoc.getText(), "go");
+    assert.deepStrictEqual(o.symbols.map((s) => [s.qualname, s.isStub]), [["Hello", true]]);
+    await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+  });
+
   it("drafts the graph once the module docstring is written", async () => {
     const doc = await vscode.workspace.openTextDocument(wcPath);
     editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);

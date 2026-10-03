@@ -57,6 +57,7 @@ This glossary gives the terms of these documents. A **technical name** is a name
 | Stand down | The decision of the LLM not to interrupt. Also the tool `stand_down`. |
 | Status | The state of a node from the code: `planned`, `stubbed`, `done` or `attention`. |
 | Step node | A node for a unit of work that is not a named symbol. |
+| Streaming | A mode of the LLM API in which the reply arrives in small parts while the model writes it. The panel shows these parts at once. |
 | Struggle turn | A silent turn that recommends resources when the triage thinks that the programmer is stuck. |
 | Stub | A symbol whose body is only a placeholder, for example `pass` or `throw new Error("not implemented")`. |
 | Symbol | A named piece of code: a class, function, method, constant, variable or type. |
@@ -65,7 +66,7 @@ This glossary gives the terms of these documents. A **technical name** is a name
 | System Two | Slow, careful thought. Here, the LLM. |
 | Tool | A function that the LLM can call. There are 19 tools. |
 | Tool round | One request to the LLM and the tool calls in its reply. |
-| Tree-sitter | A parser library. Assistive uses its WASM build to read Python, TypeScript and JavaScript. |
+| Tree-sitter | A parser library. Assistive uses its WASM build to read Python, TypeScript, JavaScript, Go, Rust and Java. |
 | Triage | The first, fast part of a beat. Jev (or the LLM) answers five questions about the latest change. |
 | Turn | One run of the agent loop for one file. |
 | Typing order | The suggested order in which the programmer types the nodes. |

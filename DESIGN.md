@@ -25,7 +25,7 @@ When a concept is the obstacle, the panel offers a few checked learning resource
 
 | Module | Role |
 |---|---|
-| `code/outline.ts` (+ `treesitter.ts`) | Module string (closed or still being typed), symbols with qualnames, ranges, signatures, docstrings and stub detection, imports. Uses tree-sitter WASM grammars, with an indentation-based Python fallback. |
+| `code/outline.ts` (+ `treesitter.ts`, `langs.ts`, `tsutil.ts`) | Module string (closed or still being typed), symbols with qualnames, ranges, signatures, docstrings and stub detection, imports, for Python, TypeScript/JavaScript, Go, Rust and Java. Uses tree-sitter WASM grammars, with an indentation-based Python fallback. |
 | `code/changes.ts` | `EditTracker`: two baselines per file (last heartbeat, graph creation) and diffs with new-file line numbers |
 | `code/context.ts`, `code/workspace.ts` | `WorkspaceAccess` (list, read the live buffer, search, diagnostics) and the project summary for drafts |
 | `graph/model.ts` | `GraphEditor` (batch add/update/remove/connect/disconnect with did-you-mean errors), outline sync, attention flags, renderings for prompts, Jev and Mermaid |

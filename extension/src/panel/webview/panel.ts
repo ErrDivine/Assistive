@@ -401,7 +401,7 @@ function renderHeader(s: PanelState): void {
   const doc = $("docstring");
   doc.classList.toggle("hint", !s.moduleString);
   if (!s.supported) {
-    doc.textContent = s.file ? "This language is not supported yet (Python, TypeScript, JavaScript)." : "";
+    doc.textContent = s.file ? "This language is not supported yet (Python, TypeScript, JavaScript, Go, Rust, Java)." : "";
   } else if (!s.moduleString) {
     doc.textContent = "Describe the module at the top of the file to start.";
   } else {
@@ -415,6 +415,14 @@ function renderHeader(s: PanelState): void {
   }
 }
 
+const EXAMPLE_DOCSTRINGS: Record<string, string> = {
+  python: '"""Fetch open issues for a GitHub repository\nand cache them on disk with ETags."""',
+  javascript: "/**\n * Rate-limit outgoing HTTP requests with a\n * token bucket shared across callers.\n */",
+  go: "// Package cache stores HTTP responses on disk\n// and revalidates them with ETags.\npackage cache",
+  rust: "//! Parse a CSV file of transactions and\n//! report the balance of each account.",
+  java: "/**\n * Schedules meetings for a team: finds free\n * slots across calendars and books them.\n */\npackage com.example.scheduler;",
+};
+
 function renderEmpty(s: PanelState): void {
   const box = $("graph-empty");
   const hasGraph = !!s.graph?.nodes.length;
@@ -424,16 +432,13 @@ function renderEmpty(s: PanelState): void {
   if (hasGraph) return;
   box.innerHTML = "";
   if (!s.file) {
-    box.append(el("div", "", "Open a Python, TypeScript or JavaScript file to plan it here."));
+    box.append(el("div", "", "Open a Python, TypeScript, JavaScript, Go, Rust or Java file to plan it here."));
   } else if (!s.supported) {
     box.append(el("div", "", `${esc(s.language)} files are not supported yet.`));
   } else if (s.status.busy) {
     box.append(el("div", "", `<span class="spinner"></span> ${esc(s.status.busy)}`));
   } else if (!s.moduleString) {
-    const example =
-      s.language === "python"
-        ? '"""Fetch open issues for a GitHub repository\nand cache them on disk with ETags."""'
-        : "/**\n * Rate-limit outgoing HTTP requests with a\n * token bucket shared across callers.\n */";
+    const example = EXAMPLE_DOCSTRINGS[s.language ?? ""] ?? EXAMPLE_DOCSTRINGS.javascript;
     box.append(
       el("div", "", "<b>Start with the module docstring.</b> Describe what this file should do at its top; the graph is drafted from it."),
       el("pre", "", esc(example)),

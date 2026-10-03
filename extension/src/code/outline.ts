@@ -3,8 +3,12 @@
 // imports. Tree-sitter does the parsing; Python has a regex fallback.
 
 import type { Node as TSNode } from "@vscode/tree-sitter-wasm";
+import { goImports, goSymbols, javaImports, javaSymbols, rustImports, rustSymbols } from "./langs";
 import { pythonEnclosingRange, stripStrings } from "./pyscope";
 import { type Grammar, grammarFor, type TreeSitter } from "./treesitter";
+import { cleandoc, firstLine, header, kids, normalizeSignature } from "./tsutil";
+
+export { cleandoc, normalizeSignature };
 
 export type SymbolKind = "class" | "function" | "method" | "constant" | "variable" | "type";
 
@@ -44,29 +48,7 @@ export interface FileOutline {
   hasErrors: boolean;
 }
 
-const MAX_SIGNATURE = 300;
-
 // ---------------------------------------------------------------- module string
-
-/** PEP 257 `inspect.cleandoc`: strip the first line, dedent the rest, trim blank edges. */
-export function cleandoc(raw: string): string {
-  const lines = raw.replace(/\t/g, "    ").split(/\r?\n/);
-  let margin = Infinity;
-  for (const l of lines.slice(1)) {
-    const content = l.trimStart();
-    if (content) {
-      margin = Math.min(margin, l.length - content.length);
-    }
-  }
-  const out = [lines[0].trim(), ...lines.slice(1).map((l) => (margin === Infinity ? l.trim() : l.slice(margin).trimEnd()))];
-  while (out.length && !out[0]) {
-    out.shift();
-  }
-  while (out.length && !out[out.length - 1]) {
-    out.pop();
-  }
-  return out.join("\n");
-}
 
 function lineOf(text: string, offset: number): number {
   let n = 0;
@@ -114,15 +96,18 @@ export function pythonModuleString(text: string): ModuleString | undefined {
   return { text: cleandoc(text.slice(bodyStart, end)), closed: true, startLine, endLine: lineOf(text, end) };
 }
 
+/** Lines before the module comment that are not part of it: shebang, "use strict", Go build tags. */
+const PRELUDE = /^(\s*$|#!|\s*["']use strict["'];?\s*$|\/\/go:build\b|\/\/ \+build\b)/;
+
 /**
- * The leading comment of a JS/TS file: a block comment, or a run of `//` lines.
- * A `//` run counts as finished once code or an empty line followed by more
- * text comes after it.
+ * The leading comment of a C-style file (JS/TS, Go, Rust, Java): a block
+ * comment, or a run of `//` lines (Rust's `//!` included). A `//` run counts as
+ * finished once code or an empty line followed by more text comes after it.
  */
-export function jsModuleString(text: string): ModuleString | undefined {
+export function cStyleModuleString(text: string): ModuleString | undefined {
   const lines = text.split(/\r?\n/);
   let i = 0;
-  while (i < lines.length && (/^\s*$/.test(lines[i]) || /^#!/.test(lines[i]) || /^\s*["']use strict["'];?\s*$/.test(lines[i]))) {
+  while (i < lines.length && PRELUDE.test(lines[i])) {
     i++;
   }
   if (i >= lines.length) {
@@ -132,7 +117,7 @@ export function jsModuleString(text: string): ModuleString | undefined {
   if (first.startsWith("/*")) {
     const offset = lines.slice(0, i).reduce((n, l) => n + l.length + 1, 0) + (lines[i].length - first.length);
     const close = text.indexOf("*/", offset + 2);
-    const raw = text.slice(offset + 2, close < 0 ? text.length : close).replace(/^\*+/, "");
+    const raw = text.slice(offset + 2, close < 0 ? text.length : close).replace(/^[*!]+/, "");
     const body = raw
       .split(/\r?\n/)
       .map((l) => l.replace(/^\s*\*(?!\/) ?/, ""))
@@ -148,7 +133,7 @@ export function jsModuleString(text: string): ModuleString | undefined {
     let j = i;
     const body: string[] = [];
     while (j < lines.length && lines[j].trimStart().startsWith("//")) {
-      body.push(lines[j].trimStart().replace(/^\/\/+ ?/, ""));
+      body.push(lines[j].trimStart().replace(/^\/\/+!? ?/, ""));
       j++;
     }
     const rest = lines.slice(j);
@@ -159,48 +144,20 @@ export function jsModuleString(text: string): ModuleString | undefined {
   return undefined;
 }
 
+/** The JS/TS name of cStyleModuleString. */
+export const jsModuleString = cStyleModuleString;
+
 export function moduleStringOf(languageId: string, text: string): ModuleString | undefined {
   if (languageId === "python") {
     return pythonModuleString(text);
   }
   if (grammarFor(languageId)) {
-    return jsModuleString(text);
+    return cStyleModuleString(text);
   }
   return undefined;
 }
 
 // ---------------------------------------------------------------- helpers
-
-function kids(node: TSNode | null | undefined): TSNode[] {
-  return (node?.namedChildren ?? []).filter((n): n is TSNode => !!n);
-}
-
-/** Collapse a (possibly multi-line) header to one line without the trailing `:` / `=>` / `{`. */
-export function normalizeSignature(raw: string): string {
-  const sig = raw
-    .replace(/\s+/g, " ")
-    .replace(/([([{])\s+/g, "$1")
-    .replace(/,?\s+([)\]}])/g, "$1")
-    .trim()
-    .replace(/\s*(:|=>|\{)\s*$/, "");
-  return sig.length > MAX_SIGNATURE ? sig.slice(0, MAX_SIGNATURE - 1) + "…" : sig;
-}
-
-function header(def: TSNode, body: TSNode | null): string {
-  let raw = body ? def.text.slice(0, body.startIndex - def.startIndex) : def.text.split("\n")[0];
-  // Comments between the parameters and the body are not part of the signature.
-  for (const c of def.children) {
-    if (c?.type === "comment" && (!body || c.startIndex < body.startIndex)) {
-      raw = raw.replace(c.text, " ");
-    }
-  }
-  return normalizeSignature(raw);
-}
-
-function firstLine(text: string, max = 160): string {
-  const l = text.split("\n")[0].trim();
-  return l.length > max ? l.slice(0, max - 1) + "…" : l;
-}
 
 function unquotePython(lit: string): string {
   const m = /^[rRuUbBfF]{0,2}("""|'''|"|')([\s\S]*?)\1$/.exec(lit.trim());
@@ -589,15 +546,9 @@ export async function outline(ts: TreeSitter | undefined, languageId: string, te
       if (tree) {
         try {
           const root = tree.rootNode;
-          const isPy = grammar === "python";
-          return {
-            language: languageId,
-            moduleString,
-            symbols: isPy ? pythonSymbols(root) : jsSymbols(root, moduleString?.endLine ?? -1),
-            imports: isPy ? pythonImports(root) : jsImports(root),
-            parser: "tree-sitter",
-            hasErrors: root.hasError,
-          };
+          const end = moduleString?.endLine ?? -1;
+          const [symbols, imports] = extract(grammar, root, end);
+          return { language: languageId, moduleString, symbols, imports, parser: "tree-sitter", hasErrors: root.hasError };
         } finally {
           tree.delete();
         }
@@ -617,6 +568,21 @@ export async function outline(ts: TreeSitter | undefined, languageId: string, te
     };
   }
   return { language: languageId, moduleString, symbols: [], imports: [], parser: "none", hasErrors: false };
+}
+
+function extract(grammar: Grammar, root: TSNode, moduleEnd: number): [OutlineSymbol[], string[]] {
+  switch (grammar) {
+    case "python":
+      return [pythonSymbols(root), pythonImports(root)];
+    case "go":
+      return [goSymbols(root, moduleEnd), goImports(root)];
+    case "rust":
+      return [rustSymbols(root, moduleEnd), rustImports(root)];
+    case "java":
+      return [javaSymbols(root, moduleEnd), javaImports(root)];
+    default:
+      return [jsSymbols(root, moduleEnd), jsImports(root)];
+  }
 }
 
 /** Innermost symbol whose range contains `line` (0-based). */
