@@ -73,6 +73,20 @@ The script is `extension/scripts/install-local.mjs`. It does these steps:
 5. If the `.env` file does not exist, it copies `.env.example` to the `.env` file. It sets the file mode to `600`, so only your user can read it.
 6. It prints the next steps.
 
+### 2.2.3 Set up the LLM
+
+1. Open the Command Palette (`Ctrl+Shift+P`, or `Cmd+Shift+P` on macOS).
+2. Run **Assistive: Set Up the LLM…**. You can also click the yellow **LLM** pill in the panel.
+3. Select the endpoint: OpenAI, OpenRouter, Ollama, LM Studio, or a different OpenAI-compatible endpoint.
+4. For a different endpoint, type its base URL. The URL usually ends in `/v1`.
+5. Type the API key. Ollama and LM Studio do not need a key, so the wizard does not ask for one.
+6. Select a model from the list that the endpoint returns. If the endpoint cannot list its models, type the model name.
+7. If Jev is not set up, select how the heartbeat triages your edits: with the LLM, with a Jev key, or off.
+
+The wizard writes the values to the `.env` file and tests the connection. To edit the file yourself, refer to [Configuration](03-configuration.md).
+
+> **Note:** The model must support tool calls. The wizard does not show embedding, speech and image models.
+
 ## 2.3 Make sure that the installation works
 
 1. Open the Command Palette (`Ctrl+Shift+P`, or `Cmd+Shift+P` on macOS).
@@ -85,7 +99,7 @@ A good result looks like this:
 LLM gpt-4.1-mini: OK in 812 ms  ·  Jev jev-latest: answered in 143 ms (p=0.71)
 ```
 
-If a line shows an error, the notification shows an **Open .env** button. Refer to [Troubleshooting](05-troubleshooting.md).
+If a line shows an error, the notification shows the buttons **Set Up…** and **Open .env**. Refer to [Troubleshooting](05-troubleshooting.md).
 
 ### 2.3.1 What the test does
 

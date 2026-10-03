@@ -43,6 +43,7 @@ The source code is in `extension/src/`. Most modules do not import `vscode`. Thu
 | `code/workspace.ts` | `VsWorkspace`: reads files, searches and lists diagnostics through the VS Code API. | Yes | [7](07-code-analysis.md) |
 | `panel/webview/panel.ts` | The panel user interface. Runs in the webview, not in the host. | No (browser) | [14](14-panel.md) |
 | `config/env.ts` | Reads and validates the `.env` file. | No | [3](03-configuration.md#part-b-how-the-code-reads-the-configuration) |
+| `config/setup.ts` | The setup wizard: the questions, the model list and the `.env` update. | No | [3](03-configuration.md#367-the-setup-wizard-setupts) |
 | `code/treesitter.ts` | Loads the tree-sitter WASM runtime and grammars. | No | [7](07-code-analysis.md) |
 | `code/outline.ts` | Finds the module docstring, the symbols and the imports of a file. | No | [7](07-code-analysis.md) |
 | `code/langs.ts` | The symbol and import extractors for Go, Rust and Java. | No | [7](07-code-analysis.md) |

@@ -341,6 +341,7 @@ Assistive examines each link before it shows the link. It removes links that giv
 | Assistive: Run a Heartbeat Now | Run one beat. |
 | Assistive: Pause / Resume Heartbeat | Turn the heartbeat off or on. |
 | Assistive: Export Graph as Markdown | Open the graph as Markdown: a Mermaid chart and a step checklist. |
+| Assistive: Set Up the LLM… | Select the endpoint, type the key and select a model. The wizard writes the `.env` file and tests the connection. |
 | Assistive: Open API Configuration (.env) | Open the `.env` file. Create it from the template if necessary. |
 | Assistive: Test LLM and Jev Connections | Send one test request to each service. |
 

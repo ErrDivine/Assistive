@@ -121,6 +121,11 @@
         "category": "Assistive"
       },
       {
+        "command": "assistive.setup",
+        "title": "Set Up the LLM…",
+        "category": "Assistive"
+      },
+      {
         "command": "assistive.openConfig",
         "title": "Open API Configuration (.env)",
         "category": "Assistive"

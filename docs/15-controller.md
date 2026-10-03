@@ -18,7 +18,7 @@ VS Code activates the extension on these events (from `package.json`):
 The function does these steps:
 
 1. It makes a `Controller`.
-2. It registers the 15 commands:
+2. It registers the 16 commands:
 
    | Command ID | Controller call |
    |---|---|
@@ -35,13 +35,14 @@ The function does these steps:
    | `assistive.heartbeatNow` | `beatNow()` |
    | `assistive.toggleHeartbeat` | `toggleHeartbeat()` |
    | `assistive.exportGraph` | `exportGraph()` |
+   | `assistive.setup` | `setup()` |
    | `assistive.openConfig` | `openConfig()` |
-   | `assistive.testConnection` | `testConnection()` with a progress notification |
+   | `assistive.testConnection` | `showConnectionTest()` |
 
 3. It adds the controller to `context.subscriptions`, so VS Code disposes it.
 4. It returns `{controller}` as the extension API. The integration tests use this API.
 
-For `assistive.testConnection`, the command shows the progress "Assistive: testing the LLM and Jev connections…". Then it shows the result lines in one notification. If a line contains "error", "rejected", "not configured", "could not" or "did not", the notification is a warning with an **Open .env** button.
+`showConnectionTest()` shows the progress "Assistive: testing the LLM and Jev connections…" and calls `testConnection()`. Then it shows the result lines in one notification. A line can contain "error", "rejected", "not configured", "could not" or "did not". Then the notification is a warning with the buttons **Set Up…** and **Open .env**.
 
 `deactivate()` does nothing. The disposables clean up.
 
@@ -93,6 +94,17 @@ Then it tracks the open documents, sets the active editor, starts the heartbeat 
 2. `ensureEnvFile(target)` creates the file from the template if it does not exist.
 3. The controller opens the file in an editor (not a preview).
 4. If there was no file before, it reloads the configuration.
+
+### 15.2.5 `setup(ui?)`
+
+The setup wizard (refer to [Configuration](03-configuration.md#367-the-setup-wizard-setupts)). The method does these steps:
+
+1. It calls `runSetup` with the current values. The UI is `vsSetupUi`: `showQuickPick` and `showInputBox`, which stay open when the focus moves. The tests give a scripted UI.
+2. It lists the models with a progress notification "Assistive: listing the models of `<url>`…". It sends the extra headers only to the endpoint that they were configured for, because they can contain credentials.
+3. If the programmer cancels, it returns `false`.
+4. It writes the values with `setEnvValues` to the current `.env` file, or to a new file from the template.
+5. It writes the names of the keys (not the values) to the log. If a process environment variable overrides a written key, it shows a warning (refer to [3.2.6](03-configuration.md#326-process-environment)). Then it reloads the configuration.
+6. It calls `showConnectionTest()` and returns `true`.
 
 ## 15.3 Files and outlines
 

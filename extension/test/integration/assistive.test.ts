@@ -367,6 +367,38 @@ describe("Assistive in VS Code", function () {
     await waitFor("llm ready again", () => c().lastPanelState?.status.llm === "ready");
   });
 
+  it("sets up the LLM with the wizard: endpoint, key, a listed model and the triage", async () => {
+    const fresh = path.join(path.dirname(envFile), "wizard", ".env");
+    await vscode.workspace.getConfiguration("assistive").update("envFile", fresh, vscode.ConfigurationTarget.Global);
+    try {
+      await waitFor("llm missing", () => c().lastPanelState?.status.llm === "missing");
+      const answers: string[] = ["Other OpenAI-compatible endpoint…", `${fake.base}/v1`, "sk-wizard", "fake-model", "Triage with the LLM"];
+      const offered: string[][] = [];
+      const ok = await c().setup({
+        pick: async (items) => {
+          offered.push(items.map((i) => i.label));
+          const want = answers.shift();
+          return items.find((i) => i.label === want);
+        },
+        input: async () => answers.shift(),
+      });
+      assert.strictEqual(ok, true);
+      assert.deepStrictEqual(answers, []);
+      assert.ok(offered[1].includes("fake-model") && !offered[1].includes("fake-embedding"), "the endpoint's chat models are offered");
+      const text = fs.readFileSync(fresh, "utf8");
+      assert.match(text, new RegExp(`^ASSISTIVE_LLM_BASE_URL=${fake.base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/v1$`, "m"));
+      assert.match(text, /^ASSISTIVE_LLM_API_KEY=sk-wizard$/m);
+      assert.match(text, /^ASSISTIVE_LLM_MODEL=fake-model$/m);
+      assert.match(text, /^ASSISTIVE_TRIAGE=llm$/m);
+      assert.match(text, /^# Assistive configuration/, "the template comments stay");
+      assert.strictEqual(fake.modelRequests.at(-1)?.authorization, "Bearer sk-wizard");
+      await waitFor("llm ready", () => c().lastPanelState?.status.llm === "ready" && c().lastPanelState?.status.triage === "llm");
+    } finally {
+      await vscode.workspace.getConfiguration("assistive").update("envFile", envFile, vscode.ConfigurationTarget.Global);
+    }
+    await waitFor("original config again", () => c().lastPanelState?.status.triage === "jev");
+  });
+
   it("never modified the programmer's buffer (I1)", () => {
     assert.deepStrictEqual(foreignChanges, []);
     assert.strictEqual(fs.readFileSync(wcPath, "utf8").startsWith('"""Count the most common words'), true);

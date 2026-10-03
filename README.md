@@ -34,7 +34,7 @@ npm ci
 npm run install-local                 # or: npm run install-local -- --editor codium|cursor|insiders
 ```
 
-`install-local` builds the extension, links it into your editor, and creates `Assistive/.env` from [`.env.example`](.env.example). Fill in the placeholders:
+`install-local` builds the extension, links it into your editor, and creates `Assistive/.env` from [`.env.example`](.env.example). The easiest way to fill it in is **Assistive: Set Up the LLM…** (also behind the yellow **LLM** pill in the panel): pick OpenAI, OpenRouter, Ollama, LM Studio or another endpoint, paste the key, and choose a model from the list the endpoint returns. It writes the `.env` and tests the connection. Or fill in the placeholders yourself:
 
 ```dotenv
 ASSISTIVE_LLM_BASE_URL=https://api.openai.com/v1

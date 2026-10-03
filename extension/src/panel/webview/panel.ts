@@ -430,7 +430,12 @@ function renderHeader(s: PanelState): void {
   pills.innerHTML = "";
   const cfg = () => post({ type: "openConfig" });
   pills.append(
-    pill("LLM", st.llm === "ready" ? "ok" : st.llm === "error" ? "bad" : "warn", st.llm === "ready" ? "LLM configured" : "LLM not configured: click to open .env", st.llm === "ready" ? undefined : cfg),
+    pill(
+      "LLM",
+      st.llm === "ready" ? "ok" : st.llm === "error" ? "bad" : "warn",
+      st.llm === "ready" ? "LLM configured" : st.llm === "error" ? "The last LLM request failed: click to set up the LLM" : "LLM not configured: click to set it up",
+      st.llm === "ready" ? undefined : () => post({ type: "setup" }),
+    ),
     pill(
       "Jev",
       st.jev === "ready" ? "ok" : st.jev === "off" ? "off" : st.jev === "error" ? "bad" : "warn",
@@ -506,8 +511,8 @@ function renderEmpty(s: PanelState): void {
   } else if (!s.moduleStringClosed) {
     box.append(el("div", "", "Finish the docstring (close it) and the graph will be drafted, or press <b>Draft</b>."));
   } else if (s.status.llm !== "ready") {
-    box.append(el("div", "", "Fill in the LLM settings in the <code>.env</code> file to draft the graph."));
-    box.append(button("Open .env", "", () => post({ type: "openConfig" })));
+    box.append(el("div", "", "Set up the LLM to draft the graph: choose the endpoint, enter the key and pick a model."));
+    box.append(button("Set up the LLM…", "", () => post({ type: "setup" })), button("Open .env", "ghost", () => post({ type: "openConfig" })));
   } else {
     box.append(el("div", "", "No graph yet."));
     box.append(button("Draft the graph", "", () => post({ type: "draft" })));

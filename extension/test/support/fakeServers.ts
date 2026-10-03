@@ -32,6 +32,9 @@ export class FakeServers {
   readonly chatRequests: ChatRequest[] = [];
   readonly jevRequests: { body: JevRequest; auth?: string }[] = [];
   readonly linkRequests: { method: string; url: string }[] = [];
+  readonly modelRequests: { authorization?: string; title?: string }[] = [];
+  /** GET /v1/models: the model IDs, an HTTP status to fail with, or a raw (malformed) body. */
+  models: string[] | number | string = ["fake-model", "fake-embedding"];
   chat: Responder = () => ({ content: "OK" });
   /** Delay before each chat reply, to test turns that overlap. */
   chatDelayMs = 0;
@@ -167,6 +170,13 @@ export class FakeServers {
         this.jevRequests.push({ body, auth: req.headers.authorization });
         const out = this.jev(body);
         json(out.status ?? 200, out.body);
+        return;
+      }
+      if (req.method === "GET" && url.endsWith("/models")) {
+        this.modelRequests.push({ authorization: req.headers.authorization, title: req.headers["x-title"] as string | undefined });
+        if (typeof this.models === "number") json(this.models, { error: { message: "no access" } });
+        else if (typeof this.models === "string") json(200, { data: this.models });
+        else json(200, { object: "list", data: this.models.map((id) => ({ id, object: "model", owned_by: "fake" })) });
         return;
       }
       if (url.startsWith("/docs/")) {

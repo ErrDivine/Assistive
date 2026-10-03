@@ -119,6 +119,7 @@ The unit tests use mocha. They run in plain Node.js, without VS Code and without
 | `store.test.ts` | `GraphStore`: records, persistence, undo, feed, listeners, `move`, `moveTree`, `findOrphan`. |
 | `env.test.ts` | `isPlaceholder`, `parseConfig`, `envCandidates`, `loadConfig`, `ensureEnvFile`, `ENV_TEMPLATE`. |
 | `envExample.test.ts` | `.env.example` is the same text as `ENV_TEMPLATE`. |
+| `setup.test.ts` | The setup wizard with a scripted UI, `chatModels`, `quoteEnvValue` (read back with `dotenv`), `setEnvValues`, and `listModels` against the fake server. |
 | `assistant.test.ts` | The `Assistant` and the `Heartbeat` end to end with fake OpenAI and Jev servers, with the queue, **Stop** and `settle`. |
 | `presenters.test.ts` | The text of the hover, the code lens, the status bar item, the squiggles, the planned-file picker and the Markdown export. |
 | `regressions.test.ts` | Tests for bugs that the test work found. |
@@ -172,6 +173,7 @@ The tests start the fake servers and write the `.env` file with the fake URLs. T
 | moves a file's graph when the file or its folder is renamed in VS Code | A rename of the file, then of its folder, moves the graph and gives it the new relative path. The old paths have no graph. |
 | finds the plan of a file that was renamed outside VS Code by its docstring | After `fs.renameSync`, the opened file receives the plan of the lost file and the note "Moved the plan of …". |
 | creates the .env template when the configured file is missing | **Open API Configuration** creates the template, and the LLM state becomes `missing`, then `ready` again. |
+| sets up the LLM with the wizard: endpoint, key, a listed model and the triage | A scripted wizard writes a new `.env` file with the endpoint of the fake server, the key, a model from its list and `ASSISTIVE_TRIAGE=llm`. The comments of the template stay, and the LLM becomes `ready`. |
 | never modified the programmer's buffer (I1) | The extension made no change to the buffer that the test did not type. |
 
 ### 16.7.3 Run the integration tests

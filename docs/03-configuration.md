@@ -10,6 +10,8 @@ Assistive keeps the API settings in a `.env` file. The file has one `NAME=value`
 
 > **Caution:** The `.env` file contains your API keys. Do not commit it. The repository `.gitignore` excludes `.env` and `.env.*`, but it keeps `.env.example`.
 
+> **Note:** The command **Assistive: Set Up the LLM…** writes the LLM values for you. Refer to [2.2.3](02-installation.md#223-set-up-the-llm). Use this chapter to change the other values.
+
 ### 3.1.1 Where Assistive looks for the file
 
 Assistive examines these locations in this order. It uses the first file that it can read.
@@ -206,6 +208,26 @@ This function creates the folder and writes `ENV_TEMPLATE` to the file if the fi
 ### 3.6.6 `ENV_TEMPLATE`
 
 This constant is the text of a new `.env` file. The file `.env.example` at the repository root must be the same text. The unit test `test/unit/envExample.test.ts` makes sure of this. If you change one, change the other.
+
+### 3.6.7 The setup wizard (`setup.ts`)
+
+The file `config/setup.ts` holds the wizard. It does not import `vscode`: the controller gives it a `SetupUi` with `pick` and `input`. Thus the unit tests run the wizard with a script.
+
+| Function | Function |
+|---|---|
+| `runSetup(ui, deps)` | Asks for the endpoint, the key and the model. If the triage is `jev` and Jev is not set up, it also asks for the triage. It returns the `.env` values to write, or `undefined` if the programmer cancels before the model is set. |
+| `listModels(baseUrl, apiKey, opts?)` | Sends `GET <baseUrl>/models` with the key. The controller adds the extra headers only if the endpoint did not change. Returns the model IDs. The time limit is 8 seconds. |
+| `chatModels(ids)` | Removes duplicates and the models whose names show embeddings, speech or images. Sorts the rest. If nothing stays, it returns all IDs. |
+| `quoteEnvValue(value)` | Returns the value without quotes if `dotenv` reads it without change. If not, it puts single quotes, backticks or double quotes around it. It refuses a value with a line break. |
+| `setEnvValues(text, updates)` | Replaces the first `KEY=` or `export KEY=` line of each key. It adds the keys that are not in the text. Comments, other keys and the line endings stay. |
+
+These rules apply in `runSetup`:
+
+- **Key.** If the endpoint does not change and the current key is not a placeholder, an empty answer keeps the current key. Ollama and LM Studio receive a fixed key (`ollama`, `lm-studio`), because the client needs a key.
+- **Model.** The list marks the current model. The first item, **Type a model name…**, opens an input box. If the list fails, the input box shows the reason.
+- **Triage.** If the programmer cancels the triage question, the LLM values are still written. The triage setting does not change.
+
+The controller writes the values with `setEnvValues` to the current `.env` file. If there is no file, it first creates one from the template. The file watcher then reloads the configuration.
 
 ## 3.7 Constants
 

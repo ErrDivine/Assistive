@@ -71,7 +71,8 @@ VS Code calls this method when the panel opens the first time. The method does t
 | `cancel` | **Stop** on the busy line | `Assistant.cancel` for the active file. |
 | `pickFile` | A click on the file name in the header | `Controller.openPlannedFile` |
 | `editNode` (`id`, `op`) | **Remove**, **Mark done** / **Mark not done** in the details | `Controller.editNode` |
-| `openConfig` | **⚙**, a yellow pill, **Open .env** | Opens the `.env` file. |
+| `openConfig` | **⚙**, the yellow **Jev** pill, **Open .env** | Opens the `.env` file. |
+| `setup` | The yellow or red **LLM** pill, **Set up the LLM…** | `Controller.setup` (the setup wizard). |
 | `goto` (`line`, `endLine?`, `path?`) | **Go to code**, double-click, **Show line**, code references | Opens the file and selects the line. |
 | `openLink` (`url`) | Resource links, links in Markdown | Opens `http` and `https` URLs in the browser. |
 | `dismiss` (`id`) | **Got it** | Closes the interrupt as dismissed. |
@@ -193,7 +194,7 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
   - a task in progress;
   - no docstring (the message shows an example);
   - a docstring that is not closed;
-  - an LLM that is not configured (the message has an **Open .env** button);
+  - an LLM that is not configured (the message has the buttons **Set up the LLM…** and **Open .env**);
   - all other cases (the message has a **Draft the graph** button).
 
 ### 14.5.5a All-done banner

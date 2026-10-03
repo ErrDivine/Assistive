@@ -28,18 +28,8 @@ export function activate(context: vscode.ExtensionContext): AssistiveApi {
   register("assistive.toggleHeartbeat", () => c.toggleHeartbeat());
   register("assistive.exportGraph", () => c.exportGraph());
   register("assistive.openConfig", () => c.openConfig());
-  register("assistive.testConnection", async () => {
-    const lines = await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: "Assistive: testing the LLM and Jev connections…" },
-      () => c.testConnection(),
-    );
-    const ok = !lines.some((l) => /error|rejected|not configured|could not|did not/i.test(l));
-    const show = ok ? vscode.window.showInformationMessage : vscode.window.showWarningMessage;
-    void show(lines.join("  ·  "), ...(ok ? [] : ["Open .env"])).then((choice) => {
-      if (choice === "Open .env") void c.openConfig();
-    });
-    return lines;
-  });
+  register("assistive.setup", () => c.setup());
+  register("assistive.testConnection", () => c.showConnectionTest());
 
   context.subscriptions.push(c);
   return { controller: c };

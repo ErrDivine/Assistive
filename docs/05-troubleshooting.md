@@ -153,3 +153,4 @@ The panel shows the active editor if its language is supported. If the active fi
 | Assistive: open a Python, TypeScript, JavaScript, Go, Rust or Java file first. | The command needs a supported file. | Open a supported file. |
 | Assistive: nothing to undo. | The undo stack is empty. | No action is necessary. |
 | Assistive: this file has no graph yet. | You tried to export a file without a graph. | Draft a graph. |
+| The endpoint did not list its models: … | In the setup wizard, `GET /models` failed. Some gateways do not have this endpoint. A wrong key also causes it (HTTP 401). | Type the model name. If the reason is HTTP 401, run the wizard again with the correct key. |

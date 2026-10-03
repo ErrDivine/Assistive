@@ -14,6 +14,7 @@ import { type FileOutline, outline as computeOutline } from "./code/outline";
 import { TreeSitter } from "./code/treesitter";
 import { VsWorkspace } from "./code/workspace";
 import { type AssistiveConfig, ensureEnvFile, envCandidates, loadConfig } from "./config/env";
+import { listModels, runSetup, setEnvValues, type SetupUi } from "./config/setup";
 import { Debouncer } from "./code/debounce";
 import { diagnosticLevel, diagnosticMessage, graphMarkdown, hoverMarkdown, interruptRange, lensItems, plannedFileDescription, statusView } from "./editor/presenters";
 import { GraphEditor, nodeForWord, syncWithOutline } from "./graph/model";
@@ -217,6 +218,51 @@ export class Controller implements vscode.Disposable {
     if (!this.config.source) {
       this.reloadConfig();
     }
+  }
+
+  /**
+   * The setup wizard: provider, key, model (listed by the endpoint) and the
+   * heartbeat triage, written to the .env file; then a connection test.
+   */
+  async setup(ui: SetupUi = vsSetupUi): Promise<boolean> {
+    const c = this.config;
+    const updates = await runSetup(ui, {
+      current: { baseUrl: c.llm.baseUrl, apiKey: c.llm.apiKey, model: c.llm.model, triage: c.triage, jevReady: c.jevReady },
+      listModels: (baseUrl, apiKey) =>
+        Promise.resolve(
+          vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Assistive: listing the models of ${baseUrl}…` }, () =>
+            // The extra headers can hold credentials for the configured endpoint only.
+            listModels(baseUrl, apiKey, { headers: baseUrl === c.llm.baseUrl ? c.llm.extraHeaders : undefined }),
+          ),
+        ),
+    });
+    if (!updates) return false;
+    const target = c.source ?? this.envCandidates()[0];
+    ensureEnvFile(target);
+    fs.writeFileSync(target, setEnvValues(fs.readFileSync(target, "utf8"), updates));
+    this.log.info(`setup: wrote ${Object.keys(updates).join(", ")} to ${target}`);
+    const overridden = Object.keys(updates).filter((k) => process.env[k] !== undefined);
+    if (overridden.length) {
+      void vscode.window.showWarningMessage(`Assistive: the environment variable${overridden.length > 1 ? "s" : ""} ${overridden.join(", ")} override${overridden.length > 1 ? "" : "s"} the .env file. Remove ${overridden.length > 1 ? "them" : "it"} to use the new values.`);
+    }
+    this.reloadConfig();
+    await this.showConnectionTest();
+    return true;
+  }
+
+  /** Test both connections with a progress notification, and show the result. */
+  async showConnectionTest(): Promise<string[]> {
+    const lines = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: "Assistive: testing the LLM and Jev connections…" },
+      () => this.testConnection(),
+    );
+    const ok = !lines.some((l) => /error|rejected|not configured|could not|did not/i.test(l));
+    const show = ok ? vscode.window.showInformationMessage : vscode.window.showWarningMessage;
+    void show(lines.join("  ·  "), ...(ok ? [] : ["Set Up…", "Open .env"])).then((choice) => {
+      if (choice === "Set Up…") void this.setup();
+      else if (choice === "Open .env") void this.openConfig();
+    });
+    return lines;
   }
 
   // ------------------------------------------------------------ files
@@ -840,6 +886,9 @@ export class Controller implements vscode.Disposable {
         return this.editNode(m.id, m.op);
       case "openConfig":
         return this.openConfig();
+      case "setup":
+        await this.setup();
+        return;
       case "goto":
         return this.goto(m.line, m.endLine, m.path, key);
       case "openLink":
@@ -897,6 +946,22 @@ function debounced(fn: () => void, ms: number): Trigger {
   const d = new Debouncer(ms);
   return { trigger: () => d.trigger(fn), cancel: () => d.cancel() };
 }
+
+const vsSetupUi: SetupUi = {
+  pick: (items, o) => Promise.resolve(vscode.window.showQuickPick(items, { title: o.title, placeHolder: o.placeholder, ignoreFocusOut: true, matchOnDetail: true })),
+  input: (o) =>
+    Promise.resolve(
+      vscode.window.showInputBox({
+        title: o.title,
+        prompt: o.prompt,
+        value: o.value,
+        placeHolder: o.placeholder,
+        password: o.password,
+        ignoreFocusOut: true,
+        validateInput: o.validate,
+      }),
+    ),
+};
 
 const SEVERITY = {
   error: vscode.DiagnosticSeverity.Error,
