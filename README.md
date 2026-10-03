@@ -8,11 +8,17 @@ An **implementation graph** that you and an LLM build together, in a VS Code sid
 4. **A heartbeat watches, calmly.** While you type, a heartbeat runs at a relaxed interval (45 s by default). [Jev](https://typesafe.ai), TypeSafe AI's System One model, triages each beat in about 100 ms with calibrated probabilities. It looks for a typo, a logic error, API misuse, a missed edge case, a clearly better approach, a security problem, or drift from the plan. Only when Jev's answers cross the thresholds does the LLM take a closer look and decide whether to interrupt you. An interrupt shows in the panel, squiggles the line, and flags the graph node. It resolves itself once you change that line.
 5. **Learn what you're missing.** When the assistant notices that you lack a concept, it recommends a few resources. They are mostly official docs, and every link is checked before it appears in the panel.
 
-![Graph drafted from the module docstring](docs/panel-draft.png)
+![Graph drafted from the module docstring](docs/images/panel-draft.png)
 
 | Heartbeat interrupt | Steps and node details |
 |---|---|
-| ![Interrupt](docs/panel-interrupt.png) | ![Steps](docs/panel-steps.png) |
+| ![Interrupt](docs/images/panel-interrupt.png) | ![Steps](docs/images/panel-steps.png) |
+
+## Documentation
+
+The [`docs/`](docs/README.md) folder has the full documentation, written in ASD-STE100 Simplified Technical English:
+- **User guides:** installation, configuration, step-by-step use and troubleshooting.
+- **Implementation guides:** one chapter for each part of the code, a reference for each LLM tool, and how to extend Assistive.
 
 ## Quick start
 
