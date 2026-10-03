@@ -388,6 +388,7 @@ export class Controller implements vscode.Disposable {
     await this.assistant.settle(orphan.file);
     if (!this.store.move(orphan.file, key, h.file)) return; // a rename event moved it first, or this file has a plan now
     this.edits.move(orphan.file, key);
+    this.heartbeat.move(orphan.file, key);
     this.log.info(`graph adopted: ${orphan.file} -> ${key}`);
     this.store.addFeed(key, {
       kind: "system",
@@ -427,6 +428,7 @@ export class Controller implements vscode.Disposable {
       await Promise.all(keys.map((k) => this.assistant.settle(k)));
       for (const m of this.store.moveTree(from, newUri.fsPath, (f) => this.relPath(vscode.Uri.file(f)))) {
         this.edits.move(m.from, m.to);
+        this.heartbeat.move(m.from, m.to);
         this.log.info(`graph moved: ${m.from} -> ${m.to}`);
       }
     }

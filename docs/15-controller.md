@@ -145,14 +145,14 @@ The store keeps graphs by absolute path. Thus the controller moves the records w
 1. It finds the keys at or in the old path, from the saved graphs and from memory.
 2. It calls `assistant.settle` for each key and waits.
 3. It calls `store.moveTree(old, new, relOf)`. `relOf` is `relPath`, the workspace-relative path with forward slashes.
-4. For each move, it calls `edits.move` and writes "graph moved" to the log.
+4. For each move, it calls `edits.move` and `heartbeat.move`, and writes "graph moved" to the log.
 
 **Renames outside VS Code.** `git mv`, a terminal or a branch switch do not cause a rename event. `adoptOrphan(doc)` runs when a supported document becomes active. It does these steps:
 
 1. It stops if the file has a graph with nodes. It also stops if it examined the path before in this session (the set `orphanChecked`).
 2. It reads the module docstring. It stops if the docstring is not closed or is shorter than 15 characters.
 3. It calls `store.findOrphan(docstring, language, fs.existsSync)`. It stops if there is no single plan.
-4. It calls `assistant.settle` for the old key. Then it calls `store.move` and `edits.move`.
+4. It calls `assistant.settle` for the old key. Then it calls `store.move`, `edits.move` and `heartbeat.move`.
 5. It adds the system note "Moved the plan of `<old path>` here: that file no longer exists, and its docstring is the same as this file's."
 
 If a rename event and `adoptOrphan` both try to move a record, the second `move` finds no record and does nothing.

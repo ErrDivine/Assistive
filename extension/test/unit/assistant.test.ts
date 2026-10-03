@@ -346,6 +346,21 @@ describe("Assistant + Heartbeat with fake OpenAI and Jev servers", () => {
     assert.ok(t.store.graph("/ws/wc.py")?.nodes.length);
   });
 
+  it("dismissed issue kinds follow a renamed file", async () => {
+    const t = harness(fake);
+    await t.assistant.draft(t.h);
+    t.type(DOC + "\ndef parse_line(line: str) -> list[str]:\n    return [w.lowr() for w in line.split()]\n", 3);
+    fake.jev = (req) => ({ body: jevAnswers(req, { interrupt: 0.92, issue: "typo", severity: 2 }) });
+    t.heartbeat.noteDismissed("/ws/wc.py", "typo");
+    t.heartbeat.noteDismissed("/ws/wc.py", "typo");
+    t.store.move("/ws/wc.py", "/ws/renamed.py", "renamed.py");
+    t.heartbeat.move("/ws/wc.py", "/ws/renamed.py");
+    const r = await t.heartbeat.beat({ ...t.h, key: "/ws/renamed.py", file: "renamed.py" });
+    assert.strictEqual(r?.outcome, "no_action");
+    assert.ok(r?.actions.some((a) => /typo notes were dismissed 2 times/.test(a)), r?.actions.join("; "));
+    assert.strictEqual(feedOf(t.store, "interrupt").length, 0);
+  });
+
   it("settle on an idle file returns at once", async () => {
     const t = harness(fake);
     await t.assistant.settle("/ws/wc.py");

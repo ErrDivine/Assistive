@@ -98,6 +98,16 @@ export class Heartbeat {
     st.dismissed[k] = (st.dismissed[k] ?? 0) + 1;
   }
 
+  /** The file was renamed: keep its cooldown, dismissals and last beat under the new name. */
+  move(from: string, to: string): void {
+    for (const map of [this.policy, this.lastBeatAt] as Map<string, unknown>[]) {
+      if (from !== to && map.has(from)) {
+        map.set(to, map.get(from));
+        map.delete(from);
+      }
+    }
+  }
+
   /** Record that an interrupt is on screen (resets the cooldown). */
   noteInterrupt(file: string): void {
     this.state(file).lastInterruptAt = this.now();

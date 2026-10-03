@@ -295,6 +295,10 @@ The controller calls `noteInterrupt` when a new interrupt shows. It sets the tim
 
 The controller calls `noteDismissed` when the programmer clicks **Got it**. It counts the dismissals of each issue kind in `PolicyState.dismissed`. After two dismissals of a kind, `decide` escalates that kind only if it is urgent. The count is kept only for the session.
 
+### 11.5.6 `move(from, to)`
+
+The controller calls `move` when a file is renamed (refer to [Controller](15-controller.md#1536-renamed-files)). The method moves the `PolicyState` and the time of the last beat to the new key. Thus the cooldown and the dismissed kinds stay with the file.
+
 ### 11.5.6 `BeatReport`
 
 | Field | Description |
