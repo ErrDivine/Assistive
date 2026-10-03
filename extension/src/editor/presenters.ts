@@ -130,6 +130,19 @@ export function diagnosticMessage(f: Pick<Interrupt, "title" | "message">): stri
   return `${f.title}: ${plain(f.message)}`;
 }
 
+/** The open interrupt that a squiggle shows: the same start line and message. */
+export function noteForDiagnostic<T extends Pick<Interrupt, "line" | "title" | "message">>(open: T[], line: number, message: string): T | undefined {
+  return open.find((f) => f.line === line && diagnosticMessage(f) === message);
+}
+
+/** The quick fixes on an interrupt's squiggle. They run commands; none edits the code (I1). */
+export function noteActions(f: Pick<Interrupt, "id" | "title">): { title: string; command: string; args: [string] }[] {
+  return [
+    { title: `Explain: ${f.title} (Assistive)`, command: "assistive.explainNote", args: [f.id] },
+    { title: "Got it: dismiss this note (Assistive)", command: "assistive.dismissNote", args: [f.id] },
+  ];
+}
+
 // ------------------------------------------------------------ planned files
 
 /** The picker's description of a planned file: progress and the next piece. */

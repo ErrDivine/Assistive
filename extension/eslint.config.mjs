@@ -18,6 +18,11 @@ export default tseslint.config(
           selector: "NewExpression[callee.property.name='WorkspaceEdit']",
           message: "Invariant I1: Assistive never modifies the user's buffers.",
         },
+        {
+          // A code action with an edit would change the buffer when the programmer picks it.
+          selector: "AssignmentExpression > MemberExpression.left[property.name='edit']",
+          message: "Invariant I1: Assistive never modifies the user's buffers.",
+        },
       ],
     },
   },

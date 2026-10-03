@@ -291,7 +291,10 @@ An interrupt shows in four places:
    - Click **Show line** to go to the line.
    - Click **Explain more** to ask the LLM for a longer explanation and resources.
    - Click **Got it** to dismiss the interrupt.
+   - In the editor, put the cursor on the squiggle and press `Ctrl+.` (`Cmd+.` on macOS). Then select **Explain: …** or **Got it: dismiss this note**. You can also click the lightbulb.
 3. Change the line to correct the problem.
+
+> **Note:** The quick fixes of Assistive only explain or dismiss. They never change your code.
 
 When you change the text of the flagged line, the interrupt changes to *resolved* automatically. The squiggle and the red node go away. If you only add lines above the flagged line, the interrupt moves with its line.
 

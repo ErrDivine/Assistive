@@ -15,7 +15,7 @@ When a concept is the obstacle, the panel offers a few checked learning resource
 
 | ID | Rule | Enforced by |
 |---|---|---|
-| I1 | Never modify the programmer's buffers. **Copy signature** uses the clipboard; **Export** opens a new untitled document. | eslint `no-restricted-syntax` (no `applyEdit`/`edit`/`insertSnippet`/`WorkspaceEdit` in `src/`); integration test "never modified the programmer's buffer" |
+| I1 | Never modify the programmer's buffers. **Copy signature** uses the clipboard; **Export** opens a new untitled document. | eslint `no-restricted-syntax` (no `applyEdit`/`edit`/`insertSnippet`/`WorkspaceEdit` in `src/`, and no `.edit =` on a code action); integration test "never modified the programmer's buffer" |
 | I2 | The LLM changes the graph only through validated tools. | `GraphEditor`: every batch item returns `ok …` or `error …`; schema check before any tool runs |
 | I3 | Interruptions are rare and earned. | Jev thresholds, cooldown, one interrupt per beat, no repeats for an unchanged line, `stand_down` |
 | I4 | Secrets are never sent. | The tools refuse `.env`, keys and credential files (`isSecretPath`); the `.env` is created with mode 600 and is git-ignored |

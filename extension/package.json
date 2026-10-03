@@ -139,6 +139,16 @@
         "command": "assistive.showNode",
         "title": "Show a Node in the Graph",
         "category": "Assistive"
+      },
+      {
+        "command": "assistive.explainNote",
+        "title": "Explain an Interrupt",
+        "category": "Assistive"
+      },
+      {
+        "command": "assistive.dismissNote",
+        "title": "Dismiss an Interrupt",
+        "category": "Assistive"
       }
     ],
     "keybindings": [
@@ -212,6 +222,14 @@
       "commandPalette": [
         {
           "command": "assistive.showNode",
+          "when": "false"
+        },
+        {
+          "command": "assistive.explainNote",
+          "when": "false"
+        },
+        {
+          "command": "assistive.dismissNote",
           "when": "false"
         }
       ]

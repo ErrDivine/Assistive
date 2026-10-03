@@ -275,6 +275,17 @@ describe("Assistive in VS Code", function () {
     assert.strictEqual(diags[0].severity, vscode.DiagnosticSeverity.Error);
     assert.strictEqual(diags[0].code, "typo");
     await waitFor("node flagged", () => graph()!.nodes.find((n) => n.id === "parse_line")?.status === "attention");
+    // The lightbulb on the squiggle offers explain and dismiss: commands only, never an edit (I1).
+    const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>("vscode.executeCodeActionProvider", editor.document.uri, diags[0].range);
+    const mine = actions.filter((a) => a.title.endsWith("(Assistive)"));
+    assert.deepStrictEqual(
+      mine.map((a) => [a.title, a.command?.command, a.command?.arguments?.[0]]),
+      [
+        ["Explain: Typo in a method name (Assistive)", "assistive.explainNote", intr.id],
+        ["Got it: dismiss this note (Assistive)", "assistive.dismissNote", intr.id],
+      ],
+    );
+    assert.ok(mine.every((a) => !a.edit), "no quick fix edits the code");
 
     // The programmer fixes the line: the interrupt resolves and the squiggle goes away.
     const lowr = editor.document.lineAt(6).text.indexOf("lowr");

@@ -8,6 +8,8 @@ import {
   hoverMarkdown,
   interruptRange,
   lensItems,
+  noteActions,
+  noteForDiagnostic,
   plain,
   plannedFileDescription,
   statusView,
@@ -117,6 +119,26 @@ describe("presenters: interrupts", () => {
     assert.strictEqual(diagnosticLevel(2), "warning");
     assert.strictEqual(diagnosticLevel(1), "information");
     assert.strictEqual(diagnosticMessage({ title: "Division by zero", message: "`b` can be **0**." }), "Division by zero: b can be 0.");
+  });
+});
+
+describe("presenters: quick fixes on a squiggle", () => {
+  const notes = [
+    { id: "n1", line: 4, title: "Typo", message: "`lowr` is not a method." },
+    { id: "n2", line: 4, title: "Shadowing", message: "**list** hides the built-in." },
+  ];
+
+  it("finds the note by its start line and its plain message", () => {
+    assert.strictEqual(noteForDiagnostic(notes, 4, "Shadowing: list hides the built-in.")?.id, "n2");
+    assert.strictEqual(noteForDiagnostic(notes, 5, "Typo: lowr is not a method."), undefined);
+    assert.strictEqual(noteForDiagnostic(notes, 4, "Typo: something else"), undefined);
+  });
+
+  it("offers explain and dismiss commands with the note ID", () => {
+    assert.deepStrictEqual(noteActions(notes[0]), [
+      { title: "Explain: Typo (Assistive)", command: "assistive.explainNote", args: ["n1"] },
+      { title: "Got it: dismiss this note (Assistive)", command: "assistive.dismissNote", args: ["n1"] },
+    ]);
   });
 });
 

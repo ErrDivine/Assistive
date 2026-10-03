@@ -121,7 +121,7 @@ The unit tests use mocha. They run in plain Node.js, without VS Code and without
 | `envExample.test.ts` | `.env.example` is the same text as `ENV_TEMPLATE`. |
 | `setup.test.ts` | The setup wizard with a scripted UI, `chatModels`, `quoteEnvValue` (read back with `dotenv`), `setEnvValues`, and `listModels` against the fake server. |
 | `assistant.test.ts` | The `Assistant` and the `Heartbeat` end to end with fake OpenAI and Jev servers, with the queue, **Stop** and `settle`. |
-| `presenters.test.ts` | The text of the hover, the code lens, the status bar item, the squiggles, the planned-file picker and the Markdown export. |
+| `presenters.test.ts` | The text of the hover, the code lens, the status bar item, the squiggles and their quick fixes, the planned-file picker and the Markdown export. |
 | `regressions.test.ts` | Tests for bugs that the test work found. |
 
 ### 16.6.3 Run the unit tests
@@ -168,7 +168,7 @@ The tests start the fake servers and write the `.env` file with the fake URLs. T
 | shows progress and the next piece in a code lens above the docstring | The code lens shows `1/3 done` and the signature of the next piece, with the `assistive.showNode` command. |
 | shows the plan of a symbol on hover | The hover of a planned symbol shows "Assistive plan", its status and step, its signature and its description. |
 | stays quiet on a calm heartbeat | A calm Jev verdict gives `no_action` and no feed item. Jev receives the plan. |
-| interrupts on a real problem, squiggles the line, and resolves when fixed | A typo gives an interrupt, an Error squiggle with the code `typo`, and a flagged node. The correction resolves the interrupt, removes the squiggle and sets the node to `done`. |
+| interrupts on a real problem, squiggles the line, and resolves when fixed | A typo gives an interrupt, an Error squiggle with the code `typo`, and a flagged node. The squiggle has the quick fixes "Explain" and "Got it", which run commands and have no edit. The correction resolves the interrupt, removes the squiggle and sets the node to `done`. |
 | exports the graph as Markdown (Mermaid and a step checklist) in a new untitled document | The export opens a `flowchart TD` and a "Steps" checklist. |
 | moves a file's graph when the file or its folder is renamed in VS Code | A rename of the file, then of its folder, moves the graph and gives it the new relative path. The old paths have no graph. |
 | finds the plan of a file that was renamed outside VS Code by its docstring | After `fs.renameSync`, the opened file receives the plan of the lost file and the note "Moved the plan of …". |

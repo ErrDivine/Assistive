@@ -16,7 +16,18 @@ import { VsWorkspace } from "./code/workspace";
 import { type AssistiveConfig, ensureEnvFile, envCandidates, loadConfig } from "./config/env";
 import { listModels, runSetup, setEnvValues, type SetupUi } from "./config/setup";
 import { Debouncer } from "./code/debounce";
-import { diagnosticLevel, diagnosticMessage, graphMarkdown, hoverMarkdown, interruptRange, lensItems, plannedFileDescription, statusView } from "./editor/presenters";
+import {
+  diagnosticLevel,
+  diagnosticMessage,
+  graphMarkdown,
+  hoverMarkdown,
+  interruptRange,
+  lensItems,
+  noteActions,
+  noteForDiagnostic,
+  plannedFileDescription,
+  statusView,
+} from "./editor/presenters";
 import { GraphEditor, nodeForWord, syncWithOutline } from "./graph/model";
 import { Heartbeat, type BeatReport } from "./heartbeat/Heartbeat";
 import { describeVerdict, reconcileInterrupts } from "./heartbeat/policy";
@@ -139,6 +150,11 @@ export class Controller implements vscode.Disposable {
         provideCodeLenses: (doc) => this.codeLenses(doc),
       }),
       this.codeLensChanged,
+      vscode.languages.registerCodeActionsProvider(
+        { scheme: "file" },
+        { provideCodeActions: (doc, _range, context) => this.codeActions(doc, context) },
+        { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
+      ),
       vscode.languages.registerHoverProvider(
         [{ scheme: "file" }, { scheme: "untitled" }],
         { provideHover: (doc, pos) => this.hover(doc, pos) },
@@ -524,6 +540,27 @@ export class Controller implements vscode.Disposable {
         else if (choice === "Got it") this.closeInterrupt(key, f.id, "dismissed");
       });
     }
+  }
+
+  /** Quick fixes on an interrupt's squiggle: explain it or dismiss it from the editor. */
+  codeActions(doc: vscode.TextDocument, context: vscode.CodeActionContext): vscode.CodeAction[] {
+    const open = this.openInterrupts(doc.uri.fsPath);
+    const out: vscode.CodeAction[] = [];
+    for (const d of context.diagnostics) {
+      const f = d.source === "Assistive" ? noteForDiagnostic(open, d.range.start.line, d.message) : undefined;
+      for (const a of f ? noteActions(f) : []) {
+        const action = new vscode.CodeAction(a.title, vscode.CodeActionKind.QuickFix);
+        action.command = { title: a.title, command: a.command, arguments: a.args };
+        action.diagnostics = [d];
+        out.push(action);
+      }
+    }
+    return out;
+  }
+
+  /** Explain or dismiss an interrupt by its ID (the squiggle's quick fixes). */
+  async noteCommand(op: "explain" | "dismiss", id: string): Promise<void> {
+    await this.panelMessage({ type: op, id }, this.store.findFeed(id)?.file);
   }
 
   // ------------------------------------------------------------ state

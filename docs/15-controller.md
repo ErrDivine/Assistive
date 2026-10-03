@@ -18,7 +18,7 @@ VS Code activates the extension on these events (from `package.json`):
 The function does these steps:
 
 1. It makes a `Controller`.
-2. It registers the 16 commands:
+2. It registers the 18 commands:
 
    | Command ID | Controller call |
    |---|---|
@@ -32,6 +32,8 @@ The function does these steps:
    | `assistive.clearConversation` | `clearConversation()` |
    | `assistive.openPlannedFile` | `openPlannedFile()` |
    | `assistive.showNode` | `showNode(id)` (from the code lens; hidden in the palette) |
+   | `assistive.explainNote` | `noteCommand("explain", id)` (from a quick fix; hidden in the palette) |
+   | `assistive.dismissNote` | `noteCommand("dismiss", id)` (from a quick fix; hidden in the palette) |
    | `assistive.heartbeatNow` | `beatNow()` |
    | `assistive.toggleHeartbeat` | `toggleHeartbeat()` |
    | `assistive.exportGraph` | `exportGraph()` |
@@ -211,7 +213,17 @@ If the interrupt is open, the controller sets its status to `resolved` or `dismi
 
 `VsWorkspace.diagnostics` ignores the source `Assistive`. Thus the LLM never sees its own interrupts as diagnostics.
 
-### 15.5.4 Notifications
+### 15.5.4 Quick fixes
+
+The controller registers a code action provider for `file` documents, with the kind `QuickFix`. `codeActions(doc, context)` examines each diagnostic in the context that has the source `Assistive`:
+
+1. `noteForDiagnostic` finds the open interrupt with the same start line and the same message.
+2. `noteActions` gives two actions: "Explain: `<title>` (Assistive)" with the command `assistive.explainNote`, and "Got it: dismiss this note (Assistive)" with the command `assistive.dismissNote`. The argument is the interrupt ID.
+3. Each action has a command and the diagnostic. It has no edit (invariant I1).
+
+`noteCommand(op, id)` finds the file of the interrupt and sends the panel message `explain` or `dismiss`. Thus a quick fix does the same as the button on the card.
+
+### 15.5.5 Notifications
 
 `maybeToast(key)` examines each open interrupt one time:
 
@@ -358,6 +370,8 @@ The module `editor/presenters.ts` makes the text that the editor shows. It does 
 | `interruptRange(f, firstText, lastText)` | The lines and columns of a squiggle. |
 | `diagnosticLevel(severity)` | `error` for 3, `warning` for 2, `information` for 1. |
 | `diagnosticMessage(f)` | `<title>: <message as plain text>`. |
+| `noteForDiagnostic(open, line, message)` | The open interrupt that a squiggle shows. |
+| `noteActions(f)` | The titles, commands and arguments of the two quick fixes. |
 | `plannedFileDescription(graph)` | The progress and the next piece, for the planned-file picker. |
 | `graphMarkdown(graph)` | The Markdown export. Refer to the subsequent list. |
 | `escapeMarkdown(text)`, `plain(markdown)`, `codeBlock(code, language)` | Helpers. `codeBlock` makes the fence longer than each run of backticks in the code. |
