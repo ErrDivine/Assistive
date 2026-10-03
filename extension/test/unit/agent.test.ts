@@ -75,6 +75,21 @@ describe("Llm.run (OpenAI tool-calling loop)", () => {
     assert.strictEqual(second.messages[3].tool_call_id, (second.messages[2].tool_calls as { id: string }[])[0].id);
   });
 
+  it("counts the requests and tokens of every completion on the client", async () => {
+    fake.chat = (req) => (lastMessage(req).role === "tool" ? { content: "done" } : { calls: [{ name: "echo", args: { text: "hi" } }] });
+    const llm = new Llm(cfg(fake.base));
+    assert.deepStrictEqual(llm.usage, { requests: 0, prompt: 0, completion: 0 });
+    await llm.run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool] });
+    assert.deepStrictEqual(llm.usage, { requests: 2, prompt: 200, completion: 40 });
+    fake.chat = () => ({ content: "OK" });
+    await llm.text([{ role: "user", content: "ping" }]);
+    await llm.run({ messages: [{ role: "user", content: "go" }], tools: [echo as unknown as AgentTool], onText: () => undefined });
+    assert.deepStrictEqual(llm.usage, { requests: 4, prompt: 400, completion: 80 }, "plain answers and streamed rounds count too");
+    fake.chat = () => ({ status: 401, error: "bad key" });
+    await assert.rejects(llm.text([{ role: "user", content: "x" }]));
+    assert.strictEqual(llm.usage.requests, 4, "a failed request is not counted");
+  });
+
   it("returns actionable errors for bad tool calls instead of throwing", async () => {
     fake.chat = (req, i) =>
       i === 0

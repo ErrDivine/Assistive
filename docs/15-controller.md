@@ -250,6 +250,8 @@ When the store reports a change for a file, the controller:
 | `lastBeat`, `lastVerdict` | From the last beat report. `lastVerdict` is the error, if there was one. |
 | `busy` | The busy label of the active file. |
 | `configPath` | The `.env` file in use. |
+| `llmModel` | The model name, if the LLM is configured. |
+| `llmUsage` | `sessionUsage()`: the requests and tokens of this session. When `reloadConfig` replaces the LLM client, it first adds the `usage` of the old client to `pastUsage`. Thus the total continues over reloads. |
 
 ### 15.6.4 `buildState()` and `pushState()`
 

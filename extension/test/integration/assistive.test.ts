@@ -111,6 +111,9 @@ describe("Assistive in VS Code", function () {
     const lines = await c().testConnection();
     assert.match(lines[0], /^LLM fake-model: OK in \d+ ms$/);
     assert.match(lines[1], /^Jev jev-1.13.0: answered in \d+ ms/);
+    const st = await waitFor("usage counted", () => ((c().lastPanelState?.status.llmUsage?.requests ?? 0) >= 1 ? c().lastPanelState?.status : undefined));
+    assert.strictEqual(st.llmModel, "fake-model");
+    assert.ok(st.llmUsage!.prompt > 0);
   });
 
   it("does not draft files that are only opened", async () => {
@@ -372,6 +375,7 @@ describe("Assistive in VS Code", function () {
     await vscode.workspace.getConfiguration("assistive").update("envFile", fresh, vscode.ConfigurationTarget.Global);
     try {
       await waitFor("llm missing", () => c().lastPanelState?.status.llm === "missing");
+      const usedBefore = c().sessionUsage().requests;
       const answers: string[] = ["Other OpenAI-compatible endpoint…", `${fake.base}/v1`, "sk-wizard", "fake-model", "Triage with the LLM"];
       const offered: string[][] = [];
       const ok = await c().setup({
@@ -393,6 +397,7 @@ describe("Assistive in VS Code", function () {
       assert.match(text, /^# Assistive configuration/, "the template comments stay");
       assert.strictEqual(fake.modelRequests.at(-1)?.authorization, "Bearer sk-wizard");
       await waitFor("llm ready", () => c().lastPanelState?.status.llm === "ready" && c().lastPanelState?.status.triage === "llm");
+      assert.ok(c().sessionUsage().requests > usedBefore, "the session total survives configuration reloads");
     } finally {
       await vscode.workspace.getConfiguration("assistive").update("envFile", envFile, vscode.ConfigurationTarget.Global);
     }

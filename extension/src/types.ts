@@ -143,6 +143,9 @@ export interface ServiceStatus {
   lastVerdict?: string;
   busy?: string;
   configPath?: string;
+  llmModel?: string;
+  /** LLM use in this session (all files, heartbeat turns included). */
+  llmUsage?: { requests: number; prompt: number; completion: number };
 }
 
 export interface PanelState {

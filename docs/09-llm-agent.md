@@ -53,6 +53,8 @@ A server can also ignore `stream: true` and send a normal JSON reply. The stream
 
 All other errors go through `toLlmError`.
 
+**Usage.** After each successful reply, the private method `count` adds one request and the token counts of the reply to `usage` (`requests`, `prompt`, `completion`). Thus `usage` includes the agent rounds, the plain answers, the LLM triage and the connection test. A failed request is not counted. A server that does not send token counts adds requests only.
+
 ### 9.3.3 `text(messages, signal, json = false)`
 
 This method asks for one plain answer without tools. With `json: true`, it adds `response_format: {type: "json_object"}`. If the server answers HTTP 400, the method sends the request again without `response_format`, because not all compatible servers support it. The method removes `<think>…</think>` blocks from the answer (function `stripThinking`). Some open models put their internal thoughts in these blocks.

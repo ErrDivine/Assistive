@@ -17,7 +17,7 @@ To open the panel, push `Ctrl+Alt+G` or click the Assistive icon in the activity
 | Item | Function |
 |---|---|
 | File name | The workspace-relative path of the file that the panel shows. Click it to open a different file that has a graph. |
-| **LLM** pill | Green: the LLM is configured. Yellow: the LLM is not configured. Red: the last LLM request failed. Click a yellow or red pill to open the `.env` file. |
+| **LLM** pill | Green: the LLM is configured. Yellow: the LLM is not configured. Red: the last LLM request failed. Click a yellow or red pill to start the setup wizard. The tooltip shows the model and the LLM use in this session: the number of requests and the prompt and completion tokens. The count includes the heartbeat requests that did not show a message. |
 | **Jev** pill | Green: Jev is configured. Yellow: the Jev key is not there. Red: the last Jev request failed. Grey: the triage is `llm` or `off`. |
 | **♥ 45s** pill | The heartbeat is on, with its interval. The tooltip shows the time and the verdict of the last beat. "♥ paused" means that the heartbeat is off. |
 | **Draft** / **Redraft** | Draft the graph from the module docstring. The label is **Redraft** when the file has a graph. |

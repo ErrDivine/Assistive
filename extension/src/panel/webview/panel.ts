@@ -48,6 +48,11 @@ function time(ts: string): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+/** 950, 12.3k, 1.25M */
+function tokens(n: number): string {
+  return n < 1000 ? String(n) : n < 1_000_000 ? `${(n / 1000).toFixed(1)}k` : `${(n / 1_000_000).toFixed(2)}M`;
+}
+
 function el(tag: string, cls?: string, html?: string): HTMLElement {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -433,7 +438,10 @@ function renderHeader(s: PanelState): void {
     pill(
       "LLM",
       st.llm === "ready" ? "ok" : st.llm === "error" ? "bad" : "warn",
-      st.llm === "ready" ? "LLM configured" : st.llm === "error" ? "The last LLM request failed: click to set up the LLM" : "LLM not configured: click to set it up",
+      (st.llm === "ready" ? `LLM: ${st.llmModel ?? "configured"}` : st.llm === "error" ? "The last LLM request failed: click to set up the LLM" : "LLM not configured: click to set it up") +
+        (st.llmUsage?.requests
+          ? `\nThis session: ${st.llmUsage.requests} request${st.llmUsage.requests > 1 ? "s" : ""}, ${tokens(st.llmUsage.prompt)} prompt + ${tokens(st.llmUsage.completion)} completion tokens`
+          : ""),
       st.llm === "ready" ? undefined : () => post({ type: "setup" }),
     ),
     pill(

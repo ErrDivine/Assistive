@@ -80,8 +80,16 @@ export function toOpenAiTool(t: AgentTool): ChatCompletionTool {
   return { type: "function", function: { name: t.name, description: t.description, parameters: t.parameters as unknown as Record<string, unknown> } };
 }
 
+export interface LlmUsage {
+  requests: number;
+  prompt: number;
+  completion: number;
+}
+
 export class Llm {
   readonly client: OpenAI;
+  /** Every completion this client received: agent rounds, plain answers, LLM triage, tests. */
+  readonly usage: LlmUsage = { requests: 0, prompt: 0, completion: 0 };
   private sendTemperature = true;
   private sendToolChoice = true;
   private sendStreamOptions = true;
@@ -128,9 +136,9 @@ export class Llm {
             { signal },
           );
           stream.on("content", (_delta, snapshot) => onText(stripThinkingPartial(snapshot)));
-          return (await stream.finalChatCompletion()) as ChatCompletion;
+          return this.count((await stream.finalChatCompletion()) as ChatCompletion);
         }
-        return await this.client.chat.completions.create(params, { signal });
+        return this.count(await this.client.chat.completions.create(params, { signal }));
       } catch (err) {
         // A server that ignores `stream: true` answers with plain JSON, which the stream
         // reader cannot parse (an OpenAIError that is not an HTTP error): use plain requests.
@@ -159,6 +167,13 @@ export class Llm {
         throw toLlmError(err, this.cfg);
       }
     }
+  }
+
+  private count(res: ChatCompletion): ChatCompletion {
+    this.usage.requests++;
+    this.usage.prompt += res.usage?.prompt_tokens ?? 0;
+    this.usage.completion += res.usage?.completion_tokens ?? 0;
+    return res;
   }
 
   /** A single plain answer (no tools). */

@@ -56,6 +56,8 @@ export class Controller implements vscode.Disposable {
   /** Files already searched for an orphaned plan this session. */
   private readonly orphanChecked = new Set<string>();
   private readonly errors: { llm?: string; jev?: string } = {};
+  /** LLM use of the clients that a configuration reload replaced. */
+  private readonly pastUsage = { requests: 0, prompt: 0, completion: 0 };
   private config!: AssistiveConfig;
   private llmClient?: Llm;
   private jevClient?: JevClient;
@@ -180,6 +182,9 @@ export class Controller implements vscode.Disposable {
 
   reloadConfig(): void {
     const before = this.config?.source;
+    if (this.llmClient) {
+      for (const k of ["requests", "prompt", "completion"] as const) this.pastUsage[k] += this.llmClient.usage[k];
+    }
     this.config = loadConfig(this.envCandidates());
     this.llmClient = this.config.llmReady ? new Llm(this.config.llm) : undefined;
     this.jevClient = this.config.jevReady ? new JevClient(this.config.jev) : undefined;
@@ -561,6 +566,18 @@ export class Controller implements vscode.Disposable {
       lastVerdict: this.lastBeat?.error ?? (this.lastBeat?.verdict ? describeVerdict(this.lastBeat.verdict) : undefined),
       busy: key ? this.busy.get(key) : undefined,
       configPath: c.source,
+      llmModel: c.llmReady ? c.llm.model : undefined,
+      llmUsage: this.sessionUsage(),
+    };
+  }
+
+  /** LLM requests and tokens in this session, over configuration reloads. */
+  sessionUsage(): { requests: number; prompt: number; completion: number } {
+    const now = this.llmClient?.usage;
+    return {
+      requests: this.pastUsage.requests + (now?.requests ?? 0),
+      prompt: this.pastUsage.prompt + (now?.prompt ?? 0),
+      completion: this.pastUsage.completion + (now?.completion ?? 0),
     };
   }
 
