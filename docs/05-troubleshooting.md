@@ -83,7 +83,8 @@ Run **Assistive: Test LLM and Jev Connections**. The result tells you if each se
 1. Examine the verdict in the **♥** tooltip or in the output channel.
 2. If $P(\text{interrupt})$ is high but nothing shows, examine the severity. Escalation needs a severity of 1.5 or more.
 3. If an interrupt came less than 90 seconds before, wait for the cooldown to end.
-4. To make the heartbeat more sensitive, decrease `ASSISTIVE_INTERRUPT_THRESHOLD`, for example to `0.5`.
+4. Did you dismiss two interrupts of the same kind with **Got it**? Then that kind stays quiet for the session. The output channel shows "… notes were dismissed 2 times". Restart the editor to reset this.
+5. To make the heartbeat more sensitive, decrease `ASSISTIVE_INTERRUPT_THRESHOLD`, for example to `0.5`.
 
 > **Note:** The LLM can decide not to interrupt after it examines the code. Then the output channel shows the verdict, but the feed shows nothing.
 

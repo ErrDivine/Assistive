@@ -416,6 +416,23 @@ describe("decide: escalation", () => {
   });
 });
 
+describe("decide: issue kinds the programmer keeps dismissing", () => {
+  it("quiets a kind after two dismissals, except for urgent problems", () => {
+    const once: PolicyState = { dismissed: { logic_error: 1 } };
+    assert.strictEqual(decide(verdict({ severity: 2 }), CFG, once, NOW, true).escalate, true);
+    const twice: PolicyState = { dismissed: { logic_error: 2 } };
+    const d = decide(verdict({ severity: 2 }), CFG, twice, NOW, true);
+    assert.strictEqual(d.escalate, false);
+    assert.deepStrictEqual(d.reasons, ["logic error notes were dismissed 2 times"]);
+    assert.strictEqual(decide(verdict({ severity: URGENT_SEVERITY }), CFG, twice, NOW, true).escalate, true);
+  });
+
+  it("other kinds are not affected", () => {
+    const st: PolicyState = { dismissed: { better_implementation: 5 } };
+    assert.strictEqual(decide(verdict({ severity: 2 }), CFG, st, NOW, true).escalate, true);
+  });
+});
+
 describe("decide: interrupt cooldown", () => {
   it("blocks a normal-severity interrupt inside the cooldown and says why", () => {
     const st: PolicyState = { lastInterruptAt: NOW - 30_000 };

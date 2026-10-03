@@ -90,6 +90,14 @@ export class Heartbeat {
     return st;
   }
 
+  /** The programmer dismissed an interrupt of this kind: repeated dismissals quiet that kind. */
+  noteDismissed(file: string, issue: string): void {
+    const st = this.state(file);
+    st.dismissed ??= {};
+    const k = issue as keyof NonNullable<PolicyState["dismissed"]>;
+    st.dismissed[k] = (st.dismissed[k] ?? 0) + 1;
+  }
+
   /** Record that an interrupt is on screen (resets the cooldown). */
   noteInterrupt(file: string): void {
     this.state(file).lastInterruptAt = this.now();

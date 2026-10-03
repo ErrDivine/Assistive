@@ -164,7 +164,9 @@ A stub has "(stub)" after the line range.
 
 **Result:** One line for each match: `path:line: text`. The text is trimmed and has a maximum of 200 characters. If there are more matches, the last line is `(more matches; narrow the query or glob)`. The tool hides matches in secret files.
 
-**Errors:** `error: invalid regex: …`. If nothing matches, the result is `No matches for 'x'.` (this is not an error).
+**Errors:** `error: invalid regex: …`. A regex that nests quantifiers, such as `(a+)+`, gives `error: the regex nests quantifiers (like (a+)+), which can hang the search. …`. If nothing matches, the result is `No matches for 'x'.` (this is not an error).
+
+> **Note:** JavaScript regular expressions run on the only thread of the extension host. A pattern with nested quantifiers can take exponential time and freeze the editor. Thus the tool refuses these patterns (`riskyRegex`), and the search stops after 1.5 s.
 
 ### 10.4.5 `list_files`
 

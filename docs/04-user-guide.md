@@ -65,6 +65,7 @@ The legend shows the colors of the statuses. The **⤢** button fits the graph i
 
 - Click a node to select it. The panel dims the nodes that are not its neighbors, and shows its details.
 - Click the empty background to clear the selection.
+- In the **Steps** tab, use the keyboard: the up and down arrows move between steps, `Enter` selects a step, and `Ctrl+Enter` (`Cmd+Enter` on macOS) goes to its code.
 - Double-click a node to go to its code, if the code exists.
 - Use the mouse wheel to zoom. Drag the background to move the graph.
 
@@ -293,6 +294,8 @@ An interrupt shows in four places:
 When you change the text of the flagged line, the interrupt changes to *resolved* automatically. The squiggle and the red node go away. If you only add lines above the flagged line, the interrupt moves with its line.
 
 > **Note:** Assistive does not show the same interrupt two times. An interrupt with the same issue kind and the same line text stays hidden until the first one is resolved.
+
+> **Note:** Sometimes you click **Got it** on two interrupts of the same kind, for example two "better implementation" notes. Then the heartbeat stops interrupts of that kind for the rest of the session. Only an urgent problem (severity 2.5 or more) of that kind still comes through.
 
 ## 4.12 Use the recommended resources
 

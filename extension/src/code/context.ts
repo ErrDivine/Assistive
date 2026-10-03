@@ -60,6 +60,19 @@ export const EXCLUDE_GLOB = `**/{${EXCLUDED_DIRS.join(",")}}/**`;
 
 const SECRET = /(^|\/)(\.env(?!\.(example|sample|template)$)(\..*)?|.*\.(pem|key|p12|pfx|keystore)|id_(rsa|dsa|ecdsa|ed25519)|\.npmrc|\.pypirc|\.netrc|credentials(\.\w+)?|secrets?\.(json|ya?ml|toml))$/i;
 
+/**
+ * A model-written regular expression that can backtrack catastrophically: a
+ * quantified group that itself contains a quantifier, e.g. `(a+)+` or `(\w*)*`.
+ * JavaScript regexes run on the extension host's only thread, so these are refused.
+ */
+export function riskyRegex(pattern: string): boolean {
+  return /\((?:[^()\\]|\\.)*[+*}](?:[^()\\]|\\.)*\)\s*(?:[+*]|\{\d*,)/.test(pattern);
+}
+
+/** Search limits that keep a search from blocking the editor. */
+export const SEARCH_LINE_CHARS = 1000;
+export const SEARCH_BUDGET_MS = 1500;
+
 /** Files the tools refuse to read: keys, credentials, .env files. */
 export function isSecretPath(rel: string): boolean {
   return SECRET.test(rel.replace(/\\/g, "/"));

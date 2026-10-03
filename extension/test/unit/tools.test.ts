@@ -167,6 +167,7 @@ describe("look tools", () => {
     assert.match(await call("search_code", { query: "tokenize" }), /app\/main.py:2: from .util import tokenize/);
     assert.match(await call("search_code", { query: "def \\w+\\(text", is_regex: true, glob: "**/util.py" }), /^app\/util.py:2:/);
     assert.match(await call("search_code", { query: "(", is_regex: true }), /^error: invalid regex/);
+    assert.match(await call("search_code", { query: "(\\w+)*x", is_regex: true }), /^error: the regex nests quantifiers/);
     assert.match(await call("search_code", { query: "zzz" }), /No matches/);
   });
 

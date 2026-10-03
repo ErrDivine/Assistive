@@ -252,6 +252,10 @@ button.link:hover {
   border-radius: var(--radius);
   cursor: pointer;
 }
+#steps li:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
 #steps li:hover {
   background: var(--hover);
 }

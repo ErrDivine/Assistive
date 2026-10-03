@@ -6,7 +6,7 @@
 // Every tool returns plain text written for the model to read.
 
 import { type Baseline, type EditTracker } from "../code/changes";
-import { isSecretPath, normalizeRel, numberLines, projectSummary, type WorkspaceAccess } from "../code/context";
+import { isSecretPath, normalizeRel, numberLines, projectSummary, riskyRegex, type WorkspaceAccess } from "../code/context";
 import { type FileOutline, formatOutline, symbolAt } from "../code/outline";
 import { closest, compactGraph, type EdgeInput, type GraphEditor, type NodeInput, type NodeUpdate } from "../graph/model";
 import type { LinkCheck } from "../resources/links";
@@ -252,6 +252,9 @@ function lookTools(env: ToolEnv): Tool[] {
             new RegExp(query);
           } catch (err) {
             return `error: invalid regex: ${(err as Error).message}`;
+          }
+          if (riskyRegex(query)) {
+            return "error: the regex nests quantifiers (like (a+)+), which can hang the search. Use a simpler pattern or a plain-text query.";
           }
         }
         const max = max_results ?? 20;

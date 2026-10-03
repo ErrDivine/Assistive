@@ -372,6 +372,9 @@ export class Controller implements vscode.Disposable {
       return;
     }
     this.store.updateFeed(key, id, { status });
+    if (status === "dismissed") {
+      this.heartbeat.noteDismissed(key, item.issue);
+    }
     const doc = vscode.workspace.textDocuments.find((d) => d.uri.fsPath === key);
     if (doc) {
       void this.assistant.unflag(this.handleFor(doc), item);

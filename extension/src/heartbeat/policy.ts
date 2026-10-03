@@ -155,7 +155,12 @@ export interface PolicyState {
   lastInterruptAt?: number;
   lastSyncAt?: number;
   lastExplainAt?: number;
+  /** Interrupts the programmer dismissed ("Got it"), by issue kind, in this session. */
+  dismissed?: Partial<Record<TriageIssue, number>>;
 }
+
+/** After this many dismissals of one issue kind, only urgent problems of that kind escalate. */
+export const DISMISSALS_TO_QUIET = 2;
 
 export interface Decision {
   escalate: boolean;
@@ -174,9 +179,13 @@ export function decide(v: TriageVerdict, cfg: HeartbeatConfig, st: PolicyState, 
   let escalate = v.interrupt >= cfg.interruptThreshold && v.issue !== "none" && v.issueProbability >= 0.5 && v.severity >= MIN_SEVERITY;
   if (escalate) {
     const cooling = st.lastInterruptAt !== undefined && now - st.lastInterruptAt < cfg.cooldownMs;
+    const quieted = (st.dismissed?.[v.issue] ?? 0) >= DISMISSALS_TO_QUIET;
     if (cooling && v.severity < URGENT_SEVERITY) {
       escalate = false;
       reasons.push("interrupt cooldown");
+    } else if (quieted && v.severity < URGENT_SEVERITY) {
+      escalate = false;
+      reasons.push(`${v.issue.replace(/_/g, " ")} notes were dismissed ${st.dismissed![v.issue]} times`);
     } else {
       reasons.push(`possible ${v.issue.replace(/_/g, " ")} (p=${v.interrupt.toFixed(2)}, severity ${v.severity.toFixed(1)})`);
     }

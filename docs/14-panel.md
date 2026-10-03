@@ -171,7 +171,8 @@ The build bundles the script with cytoscape, cytoscape-dagre, marked and DOMPuri
 
 ### 14.5.5 Steps, details, header and empty message
 
-- `renderSteps(graph)` lists the nodes in typing order. Each item shows the label, the status and the signature. The next node (from `progress`) has the class `next` and a **next** badge. A click selects. A double-click sends `goto`.
+- `renderSteps(graph)` lists the nodes in typing order. Each item can have the keyboard focus: the arrows move, `Enter` or space selects, and `Ctrl+Enter` sends `goto`. Each item has an `aria-label` with its step number, label, status and "next".
+- In the list, each item shows the label, the status and the signature. The next node (from `progress`) has the class `next` and a **next** badge. A click selects. A double-click sends `goto`.
 - `render(state)` sets the label of the Steps tab to **Steps done/total**, with the next node in the tooltip.
 - `renderDetails()` shows the selected node (refer to [User guide](04-user-guide.md#413-node-details)). The buttons are directly under the title, so they stay visible when the details box scrolls. It shows **Review** for a node whose code is done or flagged, and **Hint** for the other nodes. Both buttons send a `send` message with a fixed request (`hintRequest`, `reviewRequest`). An edge from the node shows as "calls **x**". An edge to the node shows as "**y** calls it".
 - `renderHeader(state)` draws the file name and the three pills. It sets the button states:

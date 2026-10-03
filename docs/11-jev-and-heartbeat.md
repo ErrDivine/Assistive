@@ -198,7 +198,8 @@ flowchart TD
 - the issue is not `none`;
 - $1 - p_\varnothing \ge 0.5$;
 - $s \ge 1.5$ (`MIN_SEVERITY`);
-- the last interrupt is older than the cooldown (`ASSISTIVE_INTERRUPT_COOLDOWN_SECONDS`, default 90 s), **or** $s \ge 2.5$ (`URGENT_SEVERITY`).
+- the last interrupt is older than the cooldown (`ASSISTIVE_INTERRUPT_COOLDOWN_SECONDS`, default 90 s), **or** $s \ge 2.5$ (`URGENT_SEVERITY`);
+- the programmer dismissed fewer than two interrupts of this issue kind in the session (`DISMISSALS_TO_QUIET`), **or** $s \ge 2.5$.
 
 **Sync.** The LLM syncs the graph if all of these conditions are true:
 
@@ -288,9 +289,11 @@ The **♥ Check now** button calls `beat` directly. Thus it ignores the interval
 | `jev` | If Jev is configured: `jev.ask(state, JEV_QUESTIONS)` and `verdictFromJev`. If not, the beat fails. The message is "Jev is not configured (set ASSISTIVE_JEV_API_KEY, or ASSISTIVE_TRIAGE=llm)." |
 | `llm` | If the LLM is not configured, no triage. If not, `llm.text([TRIAGE_JSON_SYSTEM, JSON state], json: true)` and `verdictFromLlmJson`. A reply without JSON gives the error "LLM triage was not JSON: …". |
 
-### 11.5.5 `noteInterrupt(file)`
+### 11.5.5 `noteInterrupt(file)` and `noteDismissed(file, issue)`
 
-The controller calls this method when a new interrupt shows. It sets the time of the last interrupt, so that the cooldown starts.
+The controller calls `noteInterrupt` when a new interrupt shows. It sets the time of the last interrupt, so that the cooldown starts.
+
+The controller calls `noteDismissed` when the programmer clicks **Got it**. It counts the dismissals of each issue kind in `PolicyState.dismissed`. After two dismissals of a kind, `decide` escalates that kind only if it is urgent. The count is kept only for the session.
 
 ### 11.5.6 `BeatReport`
 

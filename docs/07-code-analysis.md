@@ -432,8 +432,12 @@ This function makes the project context for the draft prompt and for the `get_pr
 1. **File tree.** A maximum of 400 files are listed, and a maximum of 150 are shown.
 2. **Manifests.** The first 50 lines of each of these root files: `pyproject.toml`, `requirements.txt`, `setup.cfg`, `setup.py`, `package.json`, `tsconfig.json`, `environment.yml`, `go.mod`, `Cargo.toml`, `pom.xml`, `build.gradle` and `build.gradle.kts`. For `package.json`, only `name`, `type`, `engines`, `dependencies` and `devDependencies` are kept.
 3. **README.** The first 30 lines of `README`, `README.md`, `README.rst` or `README.txt` at the root (any case).
-4. **Imported modules.** The function shows a maximum of 5 local modules that the file imports. For each one, it shows the first line of the docstring and the first 40 lines of the outline. If the caller gives `plannedOf`, it also lists up to 15 signatures that are in the graph of that module but not in its code yet.
+4. **Imported modules.** The function shows a maximum of 5 local modules that the file imports. For each one, it shows the first line of the docstring and the first 40 lines of the outline. With `plannedOf`, it also lists up to 15 planned signatures that the code of that module does not have yet.
 5. **Sibling modules.** The function shows a maximum of 8 other files in the same folder and language. For each one, it shows the first line of the docstring and up to 8 top-level names. It does not repeat the imported modules.
+
+### 7.5.9 `riskyRegex(pattern)`
+
+This function returns `true` for a regular expression that can backtrack catastrophically: a quantified group that contains a quantifier, for example `(a+)+`, `(\w*)*` or `([a-z]+)*`. The `search_code` tool refuses these patterns, because a JavaScript regex runs on the only thread of the extension host.
 
 ## 7.6 VS Code workspace (`workspace.ts`)
 
@@ -443,7 +447,7 @@ This function makes the project context for the draft prompt and for the `get_pr
 |---|---|
 | `list(glob = "**/*", max = 200)` | `vscode.workspace.findFiles` with `EXCLUDE_GLOB`. The result is sorted. |
 | `read(rel)` | If a document with this path is open (and its scheme is not `git`), returns the buffer text. Else reads the disk. Returns `undefined` for a folder. Returns "(binary file)" if the first 2000 bytes contain a NUL byte. Cuts files at 1 MB and adds "…(file truncated at 1 MB)". |
-| `search(query, opts)` | Lists a maximum of 4000 files and skips binary extensions (images, archives, compiled files, model weights, lock files and more). Reads each file and tests each line with the regular expression or with a plain text search. Stops at `max` hits. |
+| `search(query, opts)` | Lists a maximum of 4000 files and skips binary extensions (images, archives, compiled files, model weights, lock files and more). Reads each file and tests each line with the regular expression or with a plain text search. A line longer than 1000 characters is cut before the test (`SEARCH_LINE_CHARS`). Stops at `max` hits, or after 1.5 s (`SEARCH_BUDGET_MS`), so the editor stays responsive. |
 | `diagnostics(rel?)` | Reads the diagnostics of one file or of all files. Skips files outside the root and the diagnostics of Assistive itself. Errors come first. |
 | `languageOf(rel)` | `.py` and `.pyi` → `python`; `.ts`, `.mts`, `.cts` → `typescript`; `.tsx` → `typescriptreact`; `.js`, `.mjs`, `.cjs` → `javascript`; `.jsx` → `javascriptreact`; `.go` → `go`; `.rs` → `rust`; `.java` → `java`. |
 

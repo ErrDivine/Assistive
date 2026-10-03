@@ -1,5 +1,6 @@
 import * as assert from "node:assert";
 import {
+  riskyRegex,
   fileTree,
   isSecretPath,
   normalizeRel,
@@ -878,3 +879,14 @@ describe("projectSummary", () => {
     assert.deepStrictEqual(asked, { glob: undefined, max: 400 });
   });
 });
+
+describe("riskyRegex", () => {
+  it("flags quantified groups that contain a quantifier", () => {
+    for (const p of ["(a+)+", "(\\w*)*", "([a-z]+)*", "(x+){2,}", "(?:\\s*foo)+"]) assert.strictEqual(riskyRegex(p), true, p);
+  });
+
+  it("accepts ordinary patterns", () => {
+    for (const p of ["def \\w+\\(text", "fetch_(issues|pulls)", "(foo|bar)+", "\\bclass\\s+\\w+", "a+b*", "(x+)?"]) assert.strictEqual(riskyRegex(p), false, p);
+  });
+});
+

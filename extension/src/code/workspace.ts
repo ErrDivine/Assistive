@@ -3,7 +3,7 @@
 
 import * as path from "node:path";
 import * as vscode from "vscode";
-import { type DiagnosticInfo, EXCLUDE_GLOB, type SearchHit, type WorkspaceAccess } from "./context";
+import { type DiagnosticInfo, EXCLUDE_GLOB, SEARCH_BUDGET_MS, SEARCH_LINE_CHARS, type SearchHit, type WorkspaceAccess } from "./context";
 
 const LANG_BY_EXT: Record<string, string> = {
   ".py": "python",
@@ -82,14 +82,20 @@ export class VsWorkspace implements WorkspaceAccess {
     const re = opts.regex ? new RegExp(query) : undefined;
     const files = (await this.list(opts.glob ?? "**/*", SEARCH_FILE_LIMIT)).filter((f) => !BINARY_EXT.test(f));
     const hits: SearchHit[] = [];
+    const deadline = Date.now() + SEARCH_BUDGET_MS;
     for (const rel of files) {
+      if (Date.now() > deadline) {
+        break; // keep the editor responsive; the model gets what was found
+      }
       const text = await this.read(rel);
       if (!text || text === "(binary file)") {
         continue;
       }
       const lines = text.split(/\r?\n/);
       for (let i = 0; i < lines.length; i++) {
-        if (re ? re.test(lines[i]) : lines[i].includes(query)) {
+        // Very long lines (minified code, data) are cut: they cost the most and say the least.
+        const line = lines[i].length > SEARCH_LINE_CHARS ? lines[i].slice(0, SEARCH_LINE_CHARS) : lines[i];
+        if (re ? re.test(line) : line.includes(query)) {
           hits.push({ path: rel, line: i, text: lines[i] });
           if (hits.length >= opts.max) {
             return hits;

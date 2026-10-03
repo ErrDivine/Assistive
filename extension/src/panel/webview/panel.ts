@@ -301,6 +301,22 @@ function renderSteps(graph: FileGraph | undefined): void {
     );
     li.addEventListener("click", () => select(n.id));
     li.addEventListener("dblclick", () => n.line !== undefined && post({ type: "goto", line: n.line }));
+    // Keyboard: arrows move, Enter selects, Ctrl/Cmd+Enter goes to the code.
+    li.tabIndex = 0;
+    li.setAttribute("aria-label", `Step ${list.children.length + 1}: ${n.label}, ${n.status}${n.id === next ? ", next" : ""}`);
+    li.addEventListener("keydown", (ev) => {
+      if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+        ev.preventDefault();
+        ((ev.key === "ArrowDown" ? li.nextElementSibling : li.previousElementSibling) as HTMLElement | null)?.focus();
+      } else if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+        if (n.line !== undefined) post({ type: "goto", line: n.line });
+      } else if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        select(n.id);
+        (list.querySelector(`li[data-id="${CSS.escape(n.id)}"]`) as HTMLElement | null)?.focus();
+      }
+    });
+    li.dataset.id = n.id;
     list.appendChild(li);
   }
 }

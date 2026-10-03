@@ -157,7 +157,7 @@ This method runs 2.5 seconds after the last change. It drafts only if all of the
 
 ### 15.5.2 `closeInterrupt(key, id, status)`
 
-If the interrupt is open, the controller sets its status to `resolved` or `dismissed`. Then it calls `assistant.unflag` to clear the node flag.
+If the interrupt is open, the controller sets its status to `resolved` or `dismissed`. For a dismissal, it calls `heartbeat.noteDismissed` with the issue kind. Then it calls `assistant.unflag` to clear the node flag.
 
 ### 15.5.3 Squiggles
 
